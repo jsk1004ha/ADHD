@@ -1,0 +1,22 @@
+[
+  {
+    "name": "tomlkit",
+    "version": "0.13.3",
+    "origin": "installed Python distribution; upstream verified separately",
+    "source_files": 13,
+    "licenses": [
+      "tomlkit-LICENSE"
+    ],
+    "metadata": null
+  },
+  {
+    "name": "filelock",
+    "version": "3.29.0",
+    "origin": "installed Python distribution; upstream verified separately",
+    "source_files": 14,
+    "licenses": [
+      "filelock-LICENSE"
+    ],
+    "metadata": null
+  }
+]

@@ -1,0 +1,18 @@
+{
+  "note": "Legacy batch examples only, not automatically loaded. Native v0.1 model policy is in apzn/models.py.",
+  "inherit": {
+    "effort": "inherit",
+    "iterations": 8,
+    "max_seconds": 3600,
+    "max_tokens": 120000
+  },
+  "balanced_suggestion": {
+    "effort": "max",
+    "iterations": 6,
+    "max_seconds": 2700,
+    "max_tokens": 80000
+  },
+  "small_task": "Use direct Codex native response; delegate to Luna only when the additional call is worthwhile.",
+  "quality_priority": "Use the locally supported best model, appropriate domain validation and independent review; do not remove budgets.",
+  "warning": "Observed CLI usage is not a hard monetary spending limit."
+}

@@ -1,0 +1,104 @@
+[
+  {
+    "component": "tomlkit",
+    "version": "0.13.3",
+    "upstream": "https://github.com/python-poetry/tomlkit",
+    "reuse": "Installed distribution Python sources, unchanged; directly used for preserving TOML comments/config",
+    "paths": [
+      "third_party/tomlkit"
+    ],
+    "license": "third_party/tomlkit-LICENSE",
+    "runtime": "apzn/native_install.py",
+    "checked_date": "2026-09-26",
+    "packaged_hashes": {
+      "third_party/tomlkit/source.py": "362b61ee698f9a14dfe5d31245ce356d8f5cb88451ff80a8a8e8c2f9fc737c2a",
+      "third_party/tomlkit/__init__.py": "148d37325022edd8743312cfad372060981896dfcc37dfa95b55f6c297fc5baf",
+      "third_party/tomlkit/container.py": "f78d32961ffc25fad3119b02498eaae4f249f13bc9bce86e55a828441fa1ca88",
+      "third_party/tomlkit/_compat.py": "829ecfeea361d32635760d30ca38820db570153754a3ba744308d5e13dc5ba7b",
+      "third_party/tomlkit/toml_char.py": "c37b10674768959d6a8d9d91c63fecbef96944d34607f7e37c17180f48059c3b",
+      "third_party/tomlkit/py.typed": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "third_party/tomlkit/api.py": "ab766644cf3bb4a0a18ec9eea9a8fa1201ed4f149f7be7cf8406f931b220ff75",
+      "third_party/tomlkit/parser.py": "19a4d2d0d42511e9647751939670c54f736d41da797c2d63d74fe59cade939d2",
+      "third_party/tomlkit/_utils.py": "9b83b25aaf67c3930669b1e140a4c8bb562d503f12549ca84c89874cde8bed87",
+      "third_party/tomlkit/toml_document.py": "3824e45977773f9f04653e120fcfdd75cd58a6431aaad952e7fb2d1d306630e2",
+      "third_party/tomlkit/exceptions.py": "7bed222a3bfebb69e013a1ba5cc3b16a804d9ca05f3cd8c32e66b0e180c7a685",
+      "third_party/tomlkit/items.py": "d782acd571735ec25561a06c1da242fc8cfd10aa1da746d1389cc5dc75e305e9",
+      "third_party/tomlkit/_types.py": "e3686dda6fbfa493ef43fb8c28c2097f828be85f4dd0da036b47f299f4de202e",
+      "third_party/tomlkit/toml_file.py": "f19cd266fd82d51f5071ed96675db68a39e5f4b51927fd674b5c4b2d04fb397e"
+    }
+  },
+  {
+    "component": "filelock",
+    "version": "3.29.0",
+    "upstream": "https://github.com/tox-dev/filelock",
+    "reuse": "Installed distribution Python sources, unchanged; directly used for OS-specific state/installer locks",
+    "paths": [
+      "third_party/filelock"
+    ],
+    "license": "third_party/filelock-LICENSE",
+    "runtime": "apzn/native.py; apzn/native_install.py",
+    "checked_date": "2026-09-26",
+    "packaged_hashes": {
+      "third_party/filelock/__init__.py": "220fd036fb0056d72dcf6f9f92af44502817996e8ce4f0ee762382f39b339a2b",
+      "third_party/filelock/_api.py": "531286bb2cd6ab36f40638bcfc2ceaef94d57105881f5353361107531cb1da3b",
+      "third_party/filelock/_windows.py": "90914e7a769f7ce3fa4336b66f7fb2c6088f883732ae85a7cf3f524c6902ae03",
+      "third_party/filelock/py.typed": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "third_party/filelock/_async_read_write.py": "0bf7118b8b19eff09672a7447f4a5c039b1d2769b7108ff6b405ba912ff93fa2",
+      "third_party/filelock/_util.py": "c0f7fe2efce6747587c380e29c379526507418d54e60635478d2929c7050b945",
+      "third_party/filelock/_read_write.py": "e6d54f9b54c35ef02ed2c82f6bf2d02780c7f920e8d2b571b980052c4406670e",
+      "third_party/filelock/_unix.py": "a5b4ec222dbd42ff3306d2ec5ea7373f3952df0cf675be77335308a95a3defdd",
+      "third_party/filelock/_soft.py": "b764378a45e3239795bcda8dc27b571f58bf4e6f38fccf5749105bb54382ac17",
+      "third_party/filelock/version.py": "c8fc603e47d551c30b1e98a24e085dc1f95d652d0320a9c6af2bdedd05fb6ceb",
+      "third_party/filelock/_error.py": "9a77a53a1d0457255eb241b7ae4b0be245b7380acbe1331bdbe3f09b34162058",
+      "third_party/filelock/asyncio.py": "1ef728c377de3bf10fbe8db86bf6e06ec0681e435e22222a8a9516a07ac258a9",
+      "third_party/filelock/_soft_rw/__init__.py": "fe4b691a654e6f3aef2f42b5fc4015dcb17b07d25aad8c56fa6c7f7b218f853d",
+      "third_party/filelock/_soft_rw/_async.py": "dcc76024dd1204cfbdf8cb2c96de077a2909b73d9c735b5b78dd6c58af4d57ad",
+      "third_party/filelock/_soft_rw/_sync.py": "8016c644b104238da1875eee146141eb9e07c80864a89d0d2785c596f4d7d007"
+    }
+  },
+  {
+    "component": "smolagents truncate_content",
+    "upstream": "https://github.com/huggingface/smolagents/blob/main/src/smolagents/utils.py",
+    "source_blob_sha": "69ade34311ce18217a008fb3a41cb0da11f0826d",
+    "reuse": "Adapted function; total character bound including marker; no entire smolagents runtime",
+    "paths": [
+      "apzn/vendor/smolagents_context.py"
+    ],
+    "license": "third_party/Apache-2.0.txt",
+    "runtime": "apzn/native.py",
+    "checked_date": "2026-09-26",
+    "packaged_hashes": {
+      "apzn/vendor/smolagents_context.py": "a0edf0965caa6c28c5e2e3cc6a0feb22935fff7d19bae8d8ee93742eec899f4f"
+    }
+  },
+  {
+    "component": "Superpowers verification skill",
+    "upstream": "https://github.com/obra/superpowers/blob/main/skills/verification-before-completion/SKILL.md",
+    "source_blob_sha": "7d45333cc4a49c57a80df6c1fe2fa777a207afbc",
+    "reuse": "Adapted instruction module; source gate sequence and evidence distinctions retained",
+    "paths": [
+      "third_party/superpowers/verification-before-completion/SKILL.md"
+    ],
+    "license": "third_party/superpowers/LICENSE",
+    "runtime": "skills/apzn-native/SKILL.md (selective read)",
+    "checked_date": "2026-09-26",
+    "packaged_hashes": {
+      "third_party/superpowers/verification-before-completion/SKILL.md": "cdd7ecf5f01a2aa77538830981c31995bb5a1cab0bd3b679f70411357e12544d"
+    }
+  },
+  {
+    "component": "spec-kit checklist template",
+    "upstream": "https://github.com/github/spec-kit/blob/main/templates/checklist-template.md",
+    "source_blob_sha": "9d1e801c3e168869a04ab60c66ca0dae4a77614f",
+    "reuse": "Source template transcribed with formatting normalization; requirements-quality review is distinct from implementation acceptance",
+    "paths": [
+      "third_party/spec-kit/checklist-template.md"
+    ],
+    "license": "third_party/spec-kit/LICENSE",
+    "runtime": "skills/apzn-native/SKILL.md (selective read)",
+    "checked_date": "2026-09-26",
+    "packaged_hashes": {
+      "third_party/spec-kit/checklist-template.md": "4eae37bcc699da4313ccd53c7627565ff167a19692b5256e7dc867bf3be95c03"
+    }
+  }
+]

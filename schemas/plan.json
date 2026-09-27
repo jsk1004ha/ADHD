@@ -1,0 +1,76 @@
+{
+  "type": "object",
+  "properties": {
+    "summary": {
+      "type": "string",
+      "maxLength": 2400
+    },
+    "criteria": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 2400,
+            "minLength": 1
+          },
+          "requirement": {
+            "type": "string",
+            "maxLength": 2400,
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "requirement"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 80
+    },
+    "deliverables": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 2400
+      },
+      "maxItems": 80,
+      "minItems": 1
+    },
+    "non_goals": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 2400
+      },
+      "maxItems": 80
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 2400
+      },
+      "maxItems": 80
+    },
+    "verification_plan": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 2400
+      },
+      "maxItems": 80
+    }
+  },
+  "required": [
+    "summary",
+    "criteria",
+    "deliverables",
+    "non_goals",
+    "assumptions",
+    "verification_plan"
+  ],
+  "additionalProperties": false
+}

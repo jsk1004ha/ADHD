@@ -1,0 +1,44 @@
+from __future__ import annotations
+
+import tempfile
+import unittest
+import zipfile
+from pathlib import Path
+from unittest.mock import patch
+
+from build import package_apzn
+
+
+class PublicPackageTests(unittest.TestCase):
+    def test_ignored_private_files_never_enter_archive(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / 'source'
+            (root / 'build').mkdir(parents=True)
+            (root / 'README.md').write_text('public\n', encoding='utf-8')
+            (root / 'auth.json').write_text('{"secret":"fixture"}\n', encoding='utf-8')
+            public_list = root / 'build' / 'public-files.txt'
+            public_list.write_text('README.md\nbuild/public-files.txt\n', encoding='utf-8')
+            output = Path(temp) / 'public.zip'
+            with patch.object(package_apzn, 'ROOT', root), patch.object(
+                package_apzn, 'PUBLIC_FILE_LIST', public_list
+            ), patch.object(package_apzn, 'OUTPUT', output):
+                package_apzn.main()
+            with zipfile.ZipFile(output) as archive:
+                names = archive.namelist()
+            self.assertIn('ADHD-v0.1.3/README.md', names)
+            self.assertNotIn('ADHD-v0.1.3/auth.json', names)
+
+    def test_path_traversal_in_manifest_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            public_list = root / 'public-files.txt'
+            public_list.write_text('../private\nbuild/public-files.txt\n', encoding='utf-8')
+            with patch.object(package_apzn, 'ROOT', root), patch.object(
+                package_apzn, 'PUBLIC_FILE_LIST', public_list
+            ):
+                with self.assertRaisesRegex(ValueError, 'Unsafe public path'):
+                    package_apzn.public_files()
+
+
+if __name__ == '__main__':
+    unittest.main()

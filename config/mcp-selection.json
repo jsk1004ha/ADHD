@@ -1,0 +1,239 @@
+{
+  "schema": "APZN recommendations, NOT a Codex MCP config",
+  "auto_install": false,
+  "profiles": {
+    "research": [
+      "existing-search-or-ONE-of-Exa/Tavily/Brave",
+      "arxiv",
+      "jupyter",
+      "existing-zotero-if-used"
+    ],
+    "report": [
+      "existing-document-tools",
+      "drawio"
+    ],
+    "coding": [
+      "existing-context7",
+      "existing-browser-or-chrome-devtools",
+      "openai-docs-if-needed"
+    ],
+    "game": [
+      "blender",
+      "godot-OR-unity"
+    ],
+    "windows-or-macos-browser-optional": [
+      "aside"
+    ]
+  },
+  "servers": [
+    {
+      "id": "M01",
+      "name": "Blender MCP",
+      "url": "https://github.com/ahujasid/mcp-for-blender",
+      "maintainer": "커뮤니티 / ahujasid",
+      "use": "게임 3D 자산·장면·재질·렌더·내보내기",
+      "prerequisites": "Blender와 addon, Python/uv. Windows/macOS/Linux용 안내가 있음",
+      "risks": "임의 Blender Python 실행 가능. 프로젝트 복사본, 로컬 연결부터. 외부 자산·생성 서비스는 별도 인증/비용",
+      "activation": "게임/3D 작업 때만",
+      "note": "현재 확인된 저장소/패키지는 mcp-for-blender. 종전 blender-mcp URL은 이 조사에서 읽히지 않아 낡은 설치 명령을 기본값으로 넣지 않음",
+      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
+      "checked_date": "2026-09-26"
+    },
+    {
+      "id": "M02",
+      "name": "Aside MCP",
+      "url": "https://docs.aside.com/changelog/native",
+      "maintainer": "Aside 공식",
+      "use": "로그인된 브라우저의 작업·검사·자동화",
+      "prerequisites": "Windows or macOS: verify installed Aside binary, official CLI help and real MCP handshake. Existing login and permissions required.",
+      "risks": "로그인 쿠키·계정의 작업 권한과 서비스 이용 요금 주의. 읽기/저장/제출 구분",
+      "activation": "macOS 선택; Windows 기본 제외",
+      "note": "공식 연결은 aside mcp. 비공식 동명 wrapper 대신 공식 CLI 경로 사용",
+      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
+      "checked_date": "2026-09-26",
+      "warning": "v1.1 macOS-only statement superseded. Do not run Unix installer scripts on Windows or treat registration as runtime success."
+    },
+    {
+      "id": "M03",
+      "name": "Chrome DevTools MCP",
+      "url": "https://github.com/ChromeDevTools/chrome-devtools-mcp",
+      "maintainer": "Google 공식",
+      "use": "콘솔·네트워크·성능 진단과 브라우저 검증",
+      "prerequisites": "Chrome + 지원 Node LTS. OS별 설치 안내 확인",
+      "risks": "브라우저 데이터 노출. usage statistics 기본값 확인, 원치 않으면 --no-usage-statistics. CrUX는 --no-performance-crux",
+      "activation": "기존 브라우저가 부족할 때",
+      "note": "전용 테스트 프로필 권장; 기존 브라우저 MCP와 상시 중복 사용 안 함",
+      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
+      "checked_date": "2026-09-26"
+    },
+    {
+      "id": "M04",
+      "name": "Firecrawl MCP",
+      "url": "https://github.com/firecrawl/firecrawl-mcp-server",
+      "maintainer": "Firecrawl 공식",
+      "use": "여러 웹페이지 수집·구조화·사이트 탐색",
+      "prerequisites": "원격 서비스/API key 또는 해당 배포 지원 조건",
+      "risks": "크레딧/호출 비용, 사이트 약관·접근 권한, 개인정보 반출",
+      "activation": "대량 문서 수집 때",
+      "note": "단순 검색이면 기존 검색 도구로 충분",
+      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
+      "checked_date": "2026-09-26"
+    },
+    {
+      "id": "M05",
+      "name": "Exa MCP",
+      "url": "https://github.com/exa-labs/exa-mcp-server",
+      "maintainer": "Exa 공식",
+      "use": "관련 웹자료 탐색·의미 기반 검색",
+      "prerequisites": "서비스 접속/인증 조건 확인",
+      "risks": "API 요금·원격 전송. 결과를 실제로 읽기 전 인용 금지",
+      "activation": "검색 공급자 후보 1",
+      "note": "Exa/Tavily/Brave를 모두 켜지 말고 한 개부터",
+      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
+      "checked_date": "2026-09-26"
+    },
+    {
+      "id": "M06",
+      "name": "Tavily MCP",
+      "url": "https://github.com/tavily-ai/tavily-mcp",
+      "maintainer": "Tavily 공식",
+      "use": "검색·페이지 추출·맵/크롤링",
+      "prerequisites": "서비스/API key 조건 확인",
+      "risks": "요금 및 외부 전송. 검색 요약을 논문의 직접 증거로 쓰지 않음",
+      "activation": "검색 공급자 후보 2",
+      "note": "기존 검색 도구와 품질/비용을 비교 후 선택",
+      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
+      "checked_date": "2026-09-26"
+    },
+    {
+      "id": "M07",
+      "name": "Brave Search MCP",
+      "url": "https://github.com/brave/brave-search-mcp-server",
+      "maintainer": "Brave 공식",
+      "use": "웹·뉴스 등 검색",
+      "prerequisites": "Brave Search API 인증",
+      "risks": "할당량·요금. 출처 신뢰도는 별도 판단",
+      "activation": "검색 공급자 후보 3",
+      "note": "공급자 하나로 시작해 실제 병목 때 교체",
+      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
+      "checked_date": "2026-09-26"
+    },
+    {
+      "id": "M08",
+      "name": "arXiv MCP",
+      "url": "https://github.com/blazickjp/arxiv-mcp-server",
+      "maintainer": "커뮤니티",
+      "use": "논문 탐색·다운로드·자료 회수",
+      "prerequisites": "Python/uv 등 저장소의 현재 설치 조건",
+      "risks": "arXiv preprint는 심사 완료 보증 아님. 초록/본문 확인 범위 기록",
+      "activation": "연구",
+      "note": "논문 번호·버전·원문 위치를 근거 장부에 보관",
+      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
+      "checked_date": "2026-09-26"
+    },
+    {
+      "id": "M09",
+      "name": "Jupyter MCP",
+      "url": "https://github.com/datalayer/jupyter-mcp-server",
+      "maintainer": "Datalayer 제작",
+      "use": "노트북·커널·분석 코드 상호작용",
+      "prerequisites": "실행 중인 Jupyter 환경과 인증 토큰",
+      "risks": "임의 코드 실행, 커널/데이터 상태 변화. 분리 환경 사용",
+      "activation": "연구·실험 분석",
+      "note": "실행 셀/환경/원자료 해시를 저장하고 순서 의존 검증",
+      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
+      "checked_date": "2026-09-26"
+    },
+    {
+      "id": "M10",
+      "name": "Godot MCP",
+      "url": "https://github.com/Coding-Solo/godot-mcp",
+      "maintainer": "커뮤니티",
+      "use": "Godot 실행·프로젝트·장면·로그 확인",
+      "prerequisites": "Godot와 Node 등 저장소 요구 환경",
+      "risks": "프로젝트 수정 가능. 브랜치/복사본에서 먼저",
+      "activation": "Godot 게임 작업",
+      "note": "Unity용 도구와 동시에 기본 활성화할 이유 없음",
+      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
+      "checked_date": "2026-09-26"
+    },
+    {
+      "id": "M11",
+      "name": "Unity MCP",
+      "url": "https://github.com/CoplayDev/unity-mcp",
+      "maintainer": "Coplay / 커뮤니티, Unity 공식 아님",
+      "use": "Unity 편집기·장면·자산·스크립트 작업",
+      "prerequisites": "호환 Unity Editor와 연결 패키지",
+      "risks": "씬/자산 변경, 스크립트 실행. Unity 계정/버전 조건 별도",
+      "activation": "Unity 게임 작업",
+      "note": "Blender와 역할 구분: 자산 제작 vs 게임 편집기 검증",
+      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
+      "checked_date": "2026-09-26"
+    },
+    {
+      "id": "M12",
+      "name": "draw.io MCP",
+      "url": "https://github.com/jgraph/drawio-mcp",
+      "maintainer": "jgraph / draw.io 제작사",
+      "use": "편집 가능한 시스템·실험·파이프라인 도식",
+      "prerequisites": "공식 저장소의 배포/연결 방식 선택",
+      "risks": "외부 전송 및 로컬 파일 덮어쓰기 범위 확인",
+      "activation": "보고서·설계",
+      "note": "이미지 생성만이 아니라 편집 가능한 원본도 남기기",
+      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
+      "checked_date": "2026-09-26"
+    },
+    {
+      "id": "M13",
+      "name": "Figma MCP",
+      "url": "https://developers.figma.com/docs/figma-mcp-server/",
+      "maintainer": "Figma 공식",
+      "use": "디자인 맥락을 받아 UI 구현",
+      "prerequisites": "Figma 권한·인증과 제공 서버의 이용 조건",
+      "risks": "비공개 디자인 접근, 서비스 플랜 제약",
+      "activation": "UI/프런트엔드",
+      "note": "디자인 정보 회수와 최종 브라우저 렌더 검사는 별개",
+      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
+      "checked_date": "2026-09-26"
+    },
+    {
+      "id": "M14",
+      "name": "Sentry MCP",
+      "url": "https://github.com/getsentry/sentry-mcp",
+      "maintainer": "Sentry 공식",
+      "use": "배포 후 오류·트레이스 원인 조사",
+      "prerequisites": "Sentry 프로젝트 인증",
+      "risks": "운영 로그의 개인정보/토큰 주의. 자동 운영 변경 금지",
+      "activation": "운영 중인 앱 디버깅",
+      "note": "연구/학습 과제에는 상시 불필요",
+      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
+      "checked_date": "2026-09-26"
+    },
+    {
+      "id": "M15",
+      "name": "OpenAI Docs MCP",
+      "url": "https://developers.openai.com/learn/docs-mcp",
+      "maintainer": "OpenAI 공식",
+      "use": "OpenAI/Codex 공식 문서 검색·회수",
+      "prerequisites": "공식 read-only 원격 문서 서버",
+      "risks": "문서 조회 도구이며 사용자 대신 모델 API를 실행하는 서버가 아님",
+      "activation": "Codex/API 작업",
+      "note": "문서 최신성 확인용; 실제 계정 모델 권한 확인을 대체하지 않음",
+      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
+      "checked_date": "2026-09-26"
+    },
+    {
+      "id": "M16",
+      "name": "Notion MCP",
+      "url": "https://developers.notion.com/guides/mcp/overview",
+      "maintainer": "Notion 공식",
+      "use": "연구 기록·페이지·데이터베이스 읽기와 작성",
+      "prerequisites": "Notion-hosted remote MCP + OAuth",
+      "risks": "연결 계정 권한으로 쓰기 가능. 작업 범위 밖 페이지 변경 금지",
+      "activation": "Notion을 실제 쓰는 작업",
+      "note": "이미 연결된 Notion 도구가 있으면 중복 추가하지 않음",
+      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
+      "checked_date": "2026-09-26"
+    }
+  ]
+}
