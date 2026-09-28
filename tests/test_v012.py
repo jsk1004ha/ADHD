@@ -15,7 +15,7 @@ import os
 import shutil
 import uuid
 
-from apzn.core import digest, file_hash
+from adhd.core import digest, file_hash
 
 
 class ProvenanceTests(unittest.TestCase):
@@ -53,39 +53,39 @@ class ProvenanceTests(unittest.TestCase):
         return path
 
     def test_real_hashed_chain_and_numeric_claim(self):
-        from apzn.provenance import validate_provenance
+        from adhd.provenance import validate_provenance
         result = validate_provenance(self.root, self._write())
         self.assertEqual(result['verified_claims'], ['mean'])
         self.assertEqual(result['coverage'], 'declared_claims_only')
 
     def test_mismatched_report_number_rejected(self):
-        from apzn.provenance import validate_provenance
+        from adhd.provenance import validate_provenance
         self.manifest['claims'][0]['value'] = '2.1'
         with self.assertRaises(ValueError):
             validate_provenance(self.root, self._write())
 
     def test_stale_raw_hash_rejected(self):
-        from apzn.provenance import validate_provenance
+        from adhd.provenance import validate_provenance
         path = self._write()
         (self.root / 'raw.csv').write_text('mass\n9.0\n', encoding='utf-8')
         with self.assertRaises(ValueError):
             validate_provenance(self.root, path)
 
     def test_raw_file_cannot_impersonate_analysis_code(self):
-        from apzn.provenance import validate_provenance
+        from adhd.provenance import validate_provenance
         self.manifest['nodes'][1].update(path='raw.csv',sha256=file_hash(self.root/'raw.csv'))
         with self.assertRaisesRegex(ValueError,'distinct artifact paths'):
             validate_provenance(self.root,self._write())
 
     def test_noncode_analysis_file_is_rejected(self):
-        from apzn.provenance import validate_provenance
+        from adhd.provenance import validate_provenance
         extra=self.root/'other.csv';extra.write_text('1,2\n',encoding='utf-8')
         self.manifest['nodes'][1].update(path='other.csv',sha256=file_hash(extra))
         with self.assertRaisesRegex(ValueError,'code artifact'):
             validate_provenance(self.root,self._write())
 
     def test_declared_presentation_number_uses_native_text(self):
-        from apzn.provenance import validate_provenance
+        from adhd.provenance import validate_provenance
         slide = self.root / 'slides.pptx'
         with zipfile.ZipFile(slide, 'w') as archive:
             archive.writestr('ppt/presentation.xml', '<p:presentation xmlns:p="urn:p"/>')
@@ -98,7 +98,7 @@ class ProvenanceTests(unittest.TestCase):
 
 class LargeArtifactTests(unittest.TestCase):
     def test_explicit_large_artifact_uses_separate_streamed_budget(self):
-        from apzn.snapshots import build_snapshot, validate_snapshot
+        from adhd.snapshots import build_snapshot, validate_snapshot
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             (root / 'model.bin').write_bytes(b'x' * 4096)
@@ -116,7 +116,7 @@ class LargeArtifactTests(unittest.TestCase):
 
 class RecoveryTests(unittest.TestCase):
     def test_failure_categories_are_bounded_and_actionable(self):
-        from apzn.recovery import record_failure
+        from adhd.recovery import record_failure
         state = {}
         first = record_failure(state, 'test_failure', 'Observed command exited 1', 'checks/one.json')
         second = record_failure(state, 'test_failure', 'Same assertion still fails', 'checks/two.json')
@@ -127,7 +127,7 @@ class RecoveryTests(unittest.TestCase):
             record_failure(state, 'success', 'fake', 'checks/three.json')
 
     def test_failure_receipt_is_real_nonzero_and_current(self):
-        from apzn.evidence import run_check, validate_execution
+        from adhd.evidence import run_check, validate_execution
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             (root / 'subject.txt').write_text('input', encoding='utf-8')
@@ -141,13 +141,13 @@ class RecoveryTests(unittest.TestCase):
                 validate_execution(root,receipt,run_id='run-fixture',revision=3)
 
     def test_auth_failure_cannot_be_fabricated_and_blocks_retry(self):
-        from apzn.native import apply_request, initial
-        from apzn.evidence import run_check
+        from adhd.native import apply_request, initial
+        from adhd.evidence import run_check
         with tempfile.TemporaryDirectory() as directory:
             base=Path(directory);ws=base/'workspace';ws.mkdir()
             codex=base/'codex';codex.mkdir()
             (ws/'subject.txt').write_text('input',encoding='utf-8')
-            with patch.dict(os.environ,{'CODEX_HOME':str(codex),'APZN_EXEC_OWNER':''}):
+            with patch.dict(os.environ,{'CODEX_HOME':str(codex),'ADHD_EXEC_OWNER':''}):
                 state=initial('0'*24,ws);state.update(status='working',run_id='run-auth',intent_version=1)
                 state['contract']={'criteria':[],'artifacts':[],'intent_version':1}
                 state['contract_hash']=digest(state['contract'])
@@ -171,8 +171,8 @@ class RecoveryTests(unittest.TestCase):
                     apply_request(state,'checkpoint',payload,base)
 
     def test_repeated_test_failure_requires_changed_plan(self):
-        from apzn.native import apply_request, initial
-        from apzn.evidence import run_check
+        from adhd.native import apply_request, initial
+        from adhd.evidence import run_check
         with tempfile.TemporaryDirectory() as directory:
             base=Path(directory);ws=base/'workspace';ws.mkdir()
             codex=base/'codex';codex.mkdir()
@@ -182,7 +182,7 @@ class RecoveryTests(unittest.TestCase):
                   'risks':['Wrong assumption'],'alternatives':['Different input'],
                   'steps':[{'id':'S1','action':'Check','depends_on':[],
                             'requirements':['R1']}]}
-            with patch.dict(os.environ,{'CODEX_HOME':str(codex),'APZN_EXEC_OWNER':''}):
+            with patch.dict(os.environ,{'CODEX_HOME':str(codex),'ADHD_EXEC_OWNER':''}):
                 state=initial('0'*24,ws);state.update(status='working',run_id='run-retry',intent_version=1)
                 state['contract']={'criteria':[{'id':'R1','kind':'test','text':'Pass'}],
                                    'artifacts':['subject.txt'],'intent_version':1}
@@ -208,14 +208,14 @@ class RecoveryTests(unittest.TestCase):
 
 class ModelObservationTests(unittest.TestCase):
     def test_unavailable_usage_stays_unmeasured(self):
-        from apzn.native import initial, start_child, stop_child
+        from adhd.native import initial, start_child, stop_child
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             state = initial('0'*24, root)
             state['status'] = 'working'
-            state['reservations'] = {'tool-1': {'role':'apzn-scout','time':0,
+            state['reservations'] = {'tool-1': {'role':'adhd-scout','time':0,
                 'tool_use_id':'tool-1','selection_reason':'Read a bounded source'}}
-            start_child(state,{'agent_type':'apzn-scout','agent_id':'agent-1',
+            start_child(state,{'agent_type':'adhd-scout','agent_id':'agent-1',
                                'tool_use_id':'tool-1','model':'gpt-6-luna'})
             stop_child(state,{'agent_id':'agent-1','last_assistant_message':'Found one file'},root)
             row = state['model_calls'][0]
@@ -227,7 +227,7 @@ class ModelObservationTests(unittest.TestCase):
 
 class ProcedureBundleTests(unittest.TestCase):
     def test_bundle_is_recalled_only_in_matching_environment(self):
-        from apzn.memory import Memory
+        from adhd.memory import Memory
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             bundle = {'input_conditions': ['A source PDF exists'],
@@ -244,7 +244,7 @@ class ProcedureBundleTests(unittest.TestCase):
 
 class LearningModeTests(unittest.TestCase):
     def test_study_needs_self_check_but_production_does_not(self):
-        from apzn.gates import validate_learning_check
+        from adhd.gates import validate_learning_check
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             (root / 'answer.md').write_text('설명과 예제', encoding='utf-8')
@@ -265,7 +265,7 @@ class LearningModeTests(unittest.TestCase):
 
 class McpSmokeTests(unittest.TestCase):
     def test_probe_calls_only_a_reviewed_read_only_tool(self):
-        from apzn import extensions
+        from adhd import extensions
         calls = []
         class Result:
             isError = False
@@ -294,7 +294,7 @@ class McpSmokeTests(unittest.TestCase):
                   'probe_call': {'tool': 'ping', 'arguments': {}, 'read_only': True,
                                  'purpose': 'Check local response'}}
         with (patch.dict(sys.modules, {'mcp':mcp,'mcp.client':client,'mcp.client.stdio':stdio}),
-              patch('apzn.extensions._runtime_env', return_value={})):
+              patch('adhd.extensions._runtime_env', return_value={})):
             result = asyncio.run(extensions._probe_stdio(record))
         self.assertEqual(calls, [('ping', {})])
         self.assertEqual(result['tool_call']['status'], 'succeeded')
@@ -308,7 +308,7 @@ class McpSmokeTests(unittest.TestCase):
 
 class HostObservationTests(unittest.TestCase):
     def test_only_observed_browser_result_can_satisfy_browser_evidence(self):
-        from apzn.evidence import observe_host_tool, validate_tool_observations
+        from adhd.evidence import observe_host_tool, validate_tool_observations
         state = {'status':'working','run_id':'run-1','intent_version':2,'tool_observations':[]}
         self.assertIsNone(observe_host_tool(state, {'tool_name':'mcp__cua_repl__js',
                                                     'tool_response':{'content':'clicked'}}))
@@ -327,8 +327,8 @@ class HostObservationTests(unittest.TestCase):
             'tool_response':{'content':[],'isError':False}}))
 
     def test_unrelated_mcp_result_cannot_satisfy_criterion(self):
-        from apzn.evidence import observe_host_tool
-        from apzn.native import result_valid
+        from adhd.evidence import observe_host_tool
+        from adhd.native import result_valid
         contract={'name':'mcp__database__read','request_sha256':digest({'table':'items'}),
                   'result_type':'structured'}
         state={'status':'working','run_id':'run-1','intent_version':2,
@@ -342,7 +342,7 @@ class HostObservationTests(unittest.TestCase):
                                   'observation_ids':[unrelated['id']]}],require_execution=True)
 
     def test_free_text_cannot_satisfy_browser_or_provenance_gate(self):
-        from apzn.native import result_valid
+        from adhd.native import result_valid
         with tempfile.TemporaryDirectory() as d:
             state={'workspace':d,'run_id':'run-1','intent_version':2,'tool_observations':[],
                    'contract':{'criteria':[{'id':'R1','kind':'browser'},
@@ -355,9 +355,9 @@ class HostObservationTests(unittest.TestCase):
 
 class NativeProvenanceGateTests(unittest.TestCase):
     def test_candidate_requires_manifest_and_real_subject_bound_check(self):
-        from apzn.native import handle_event, session_key, submit_request, folder
-        from apzn.core import read_json
-        from apzn.evidence import run_check
+        from adhd.native import handle_event, session_key, submit_request, folder
+        from adhd.core import read_json
+        from adhd.evidence import run_check
         with tempfile.TemporaryDirectory() as directory:
             base=Path(directory);ws=base/'workspace';ws.mkdir()
             codex=base/'codex';codex.mkdir()
@@ -369,7 +369,7 @@ class NativeProvenanceGateTests(unittest.TestCase):
                 queued=submit_request(key,ws,op,payload)
                 event('PostToolUse',turn,tool_name='Bash')
                 return read_json(Path(queued['receipt']))
-            with patch.dict(os.environ,{'CODEX_HOME':str(codex),'APZN_EXEC_OWNER':''}):
+            with patch.dict(os.environ,{'CODEX_HOME':str(codex),'ADHD_EXEC_OWNER':''}):
                 event('UserPromptSubmit',1,prompt='검증된 평균값 보고서를 작성해')
                 plan={'objective':'Report one measured result','approach':'Hash and compare',
                       'verification':'Run check and validate manifest','preflight':['Read data'],

@@ -1,5 +1,5 @@
 {
-  "note": "Legacy batch examples only, not automatically loaded. Native v0.1 model policy is in apzn/models.py.",
+  "note": "Legacy batch examples only, not automatically loaded. Native v0.1 model policy is in adhd/models.py.",
   "inherit": {
     "effort": "inherit",
     "iterations": 8,

@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from apzn.memory import Memory
+from adhd.memory import Memory
 
 
 class MemoryMigrationTests(unittest.TestCase):

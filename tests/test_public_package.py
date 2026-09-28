@@ -6,7 +6,7 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-from build import package_apzn
+from build import package_adhd
 
 
 class PublicPackageTests(unittest.TestCase):
@@ -19,10 +19,10 @@ class PublicPackageTests(unittest.TestCase):
             public_list = root / 'build' / 'public-files.txt'
             public_list.write_text('README.md\nbuild/public-files.txt\n', encoding='utf-8')
             output = Path(temp) / 'public.zip'
-            with patch.object(package_apzn, 'ROOT', root), patch.object(
-                package_apzn, 'PUBLIC_FILE_LIST', public_list
-            ), patch.object(package_apzn, 'OUTPUT', output):
-                package_apzn.main()
+            with patch.object(package_adhd, 'ROOT', root), patch.object(
+                package_adhd, 'PUBLIC_FILE_LIST', public_list
+            ), patch.object(package_adhd, 'OUTPUT', output):
+                package_adhd.main()
             with zipfile.ZipFile(output) as archive:
                 names = archive.namelist()
             self.assertIn('ADHD-v0.1.3/README.md', names)
@@ -33,11 +33,11 @@ class PublicPackageTests(unittest.TestCase):
             root = Path(temp)
             public_list = root / 'public-files.txt'
             public_list.write_text('../private\nbuild/public-files.txt\n', encoding='utf-8')
-            with patch.object(package_apzn, 'ROOT', root), patch.object(
-                package_apzn, 'PUBLIC_FILE_LIST', public_list
+            with patch.object(package_adhd, 'ROOT', root), patch.object(
+                package_adhd, 'PUBLIC_FILE_LIST', public_list
             ):
                 with self.assertRaisesRegex(ValueError, 'Unsafe public path'):
-                    package_apzn.public_files()
+                    package_adhd.public_files()
 
 
 if __name__ == '__main__':

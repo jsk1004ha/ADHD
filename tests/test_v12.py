@@ -3,14 +3,14 @@ from __future__ import annotations
 import copy,json,os,sys,tempfile,time,unittest,zipfile
 from pathlib import Path
 from unittest.mock import patch,AsyncMock
-from apzn.core import atomic_json,file_hash,read_json,store
-from apzn.memory import Memory,namespace
-from apzn import documents as docs,extensions as ext
-from apzn.gates import validate_plan,validate_document_contract,review_documents
-from apzn.native import checked_path,handle_event,session_key,folder,submit_request
-from apzn.skill_router import route_skills,configure_router
-from apzn.wiki import import_zip,scan_zip
-from apzn.native_install import install_native,upgrade_native,rollback_native
+from adhd.core import atomic_json,file_hash,read_json,store
+from adhd.memory import Memory,namespace
+from adhd import documents as docs,extensions as ext
+from adhd.gates import validate_plan,validate_document_contract,review_documents
+from adhd.native import checked_path,handle_event,session_key,folder,submit_request
+from adhd.skill_router import route_skills,configure_router
+from adhd.wiki import import_zip,scan_zip
+from adhd.native_install import install_native,upgrade_native,rollback_native
 
 PLAN={'objective':'Satisfy exact original requirements','approach':'Small change with baseline checks',
  'verification':'Run original behavior and regression tests','preflight':['Check input and dependencies'],
@@ -20,7 +20,7 @@ PLAN={'objective':'Satisfy exact original requirements','approach':'Small change
 class Isolated(unittest.TestCase):
  def setUp(self):
   self.temp=tempfile.TemporaryDirectory();self.base=Path(self.temp.name);self.ws=self.base/'project';self.ws.mkdir()
-  self.ch=self.base/'codex';self.ch.mkdir();self.env=patch.dict(os.environ,{'CODEX_HOME':str(self.ch),'APZN_HOME':str(self.ch/'apzn'),'APZN_EXEC_OWNER':''});self.env.start()
+  self.ch=self.base/'codex';self.ch.mkdir();self.env=patch.dict(os.environ,{'CODEX_HOME':str(self.ch),'ADHD_HOME':str(self.ch/'adhd'),'ADHD_EXEC_OWNER':''});self.env.start()
  def tearDown(self):self.env.stop();self.temp.cleanup()
 
 class MemoryTests(Isolated):
@@ -150,7 +150,7 @@ class PlanTests(Isolated):
   ev('UserPromptSubmit',prompt='Implement a feature and test it')
   req=submit_request(key,self.ws,'begin',{'mode':'coding','artifacts':['a.txt'],'criteria':[{'id':'R1','text':'Correct','kind':'behavior'}]});ev('PostToolUse',tool_name='Bash');self.assertTrue(read_json(Path(req['receipt']))['ok'])
   (self.ws/'a.txt').write_text('file');r=submit_request(key,self.ws,'candidate',{'files':['a.txt'],'criterion_results':[{'id':'R1','pass':True,'evidence':'x'}]});ev('PostToolUse',tool_name='Bash');self.assertFalse(read_json(Path(r['receipt']))['ok'])
-  denied=ev('PreToolUse',tool_name='spawn_agent',tool_input={'agent_type':'apzn-implementer','message':'Implement'})
+  denied=ev('PreToolUse',tool_name='spawn_agent',tool_input={'agent_type':'adhd-implementer','message':'Implement'})
   self.assertEqual(denied['hookSpecificOutput']['permissionDecision'],'deny')
 
 class ExtensionTests(Isolated):
@@ -175,10 +175,10 @@ class ExtensionTests(Isolated):
  def test_mcp_disabled_until_probe(self):
   ext.stage(self.mcp());r=ext.apply('test-mcp',reviewed=True,codex_home=self.ch);self.assertFalse(r['entry']['enabled']);self.assertFalse(r['runtime_verified'])
  def test_mcp_auth_missing_not_success(self):
-  ext.stage(self.mcp(env_vars=['APZN_UNSET_TEST_AUTH']));ext.apply('test-mcp',reviewed=True,codex_home=self.ch);self.assertEqual(ext.probe('test-mcp')['status'],'auth_required')
+  ext.stage(self.mcp(env_vars=['ADHD_UNSET_TEST_AUTH']));ext.apply('test-mcp',reviewed=True,codex_home=self.ch);self.assertEqual(ext.probe('test-mcp')['status'],'auth_required')
  def test_mock_handshake_without_real_call_stays_disabled(self):
   ext.stage(self.mcp());ext.apply('test-mcp',reviewed=True,codex_home=self.ch)
-  with patch('apzn.extensions.importlib.util.find_spec',return_value=object()),patch('apzn.extensions._probe_stdio',new=AsyncMock(return_value={'server':{'name':'mock'},'tools':['read_test']})):
+  with patch('adhd.extensions.importlib.util.find_spec',return_value=object()),patch('adhd.extensions._probe_stdio',new=AsyncMock(return_value={'server':{'name':'mock'},'tools':['read_test']})):
    r=ext.probe('test-mcp');self.assertFalse(r['entry']['enabled']);self.assertEqual(r['status'],'tool_call_required')
  def test_mcp_no_inline_eval(self):
   with self.assertRaises(ValueError):ext.stage(self.mcp(args=['-c','print(1)']))
@@ -200,14 +200,14 @@ class WikiRouterTests(Isolated):
   p=self.zip();a=import_zip(p,self.ws);b=import_zip(p,self.ws);self.assertEqual(a['records'][0]['id'],b['records'][0]['id'])
  def test_route_only_small_catalog(self):
   entries=[{'name':'문서'+str(n),'description':'보고서 편집','path':'x'} for n in range(10)]
-  with patch('apzn.skill_router.discover_skills',return_value=entries):
+  with patch('adhd.skill_router.discover_skills',return_value=entries):
    r=route_skills('보고서 편집');self.assertLessEqual(len(r['primary'])+len(r['supporting']),4)
  def test_router_change_requires_review(self):
   p=self.base/'skill_wiki.py';p.write_text('print("{}")');configure_router(p);p.write_text('print("changed")')
   with self.assertRaises(ValueError):route_skills('보고서')
  def test_upgrade_new_install_and_refs(self):
-  from apzn import __version__
-  r=upgrade_native(self.ch,self.base/'agents');self.assertEqual(r['version'],__version__);self.assertTrue((self.base/'agents/skills/apzn-native/references/v12-gates.md').is_file());rollback_native(self.ch)
+  from adhd import __version__
+  r=upgrade_native(self.ch,self.base/'agents');self.assertEqual(r['version'],__version__);self.assertTrue((self.base/'agents/skills/adhd-native/references/v12-gates.md').is_file());rollback_native(self.ch)
 
 class NativeDocumentFlowTests(Isolated):
  def setUp(self):
@@ -231,13 +231,13 @@ class NativeDocumentFlowTests(Isolated):
  def test_native_protected_original_blocks_candidate(self):
   self.begin();(self.ws/'original.txt').write_text('changed');self.assertFalse(self.candidate()['ok'])
  def test_native_pdf_observed_reviewer_completes(self):
-  self.begin();self.assertTrue(self.candidate()['ok']);self.event('PreToolUse',tool_name='spawn_agent',tool_use_id='document-review-tool',tool_input={'agent_type':'apzn-verifier','message':'Review final PDF and original input'})
-  self.event('SubagentStart',agent_type='apzn-verifier',agent_id='observed-reviewer',tool_use_id='document-review-tool',model='gpt-6-sol')
+  self.begin();self.assertTrue(self.candidate()['ok']);self.event('PreToolUse',tool_name='spawn_agent',tool_use_id='document-review-tool',tool_input={'agent_type':'adhd-verifier','message':'Review final PDF and original input'})
+  self.event('SubagentStart',agent_type='adhd-verifier',agent_id='observed-reviewer',tool_use_id='document-review-tool',model='gpt-6-sol')
   s=read_json(folder(self.key)/'state.json');c=s['candidate'];e=c['document_evidence'][0]
   verdict={'verdict':'approve','reviewed_digest':c['digest'],'reviewed_contract_hash':s['contract_hash'],
    'reviewed_turn_ids':[p['turn_id'] for p in s['prompts']],'intent_alignment':True,
    'criterion_results':c['criterion_results'],'findings':[],
    'document_reviews':[{'path':e['path'],'render_sha256':e['render_sha256'],'inspected_pages':[1],'pass':True,'evidence':'Test double: explicit complete visual review record'}]}
-  self.event('SubagentStop',agent_type='apzn-verifier',agent_id='observed-reviewer',last_assistant_message=json.dumps(verdict))
+  self.event('SubagentStop',agent_type='adhd-verifier',agent_id='observed-reviewer',last_assistant_message=json.dumps(verdict))
   self.assertEqual(read_json(folder(self.key)/'state.json')['status'],'complete')
   (self.ws/'original.txt').write_text('late mutation');self.assertEqual(self.event('Stop')['decision'],'block')

@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from apzn.evaluation import run_evaluation
+from adhd.evaluation import run_evaluation
 
 
 class PersonalEvaluationTests(unittest.TestCase):
@@ -14,7 +14,7 @@ class PersonalEvaluationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             output = root / 'scorecard.json'
-            with patch('apzn.evaluation.subprocess.run', return_value=SimpleNamespace(
+            with patch('adhd.evaluation.subprocess.run', return_value=SimpleNamespace(
                     returncode=0, stdout=b'', stderr=b'OK')) as process:
                 result = run_evaluation(output, root=root,
                     scenarios=(('fixture','tests.test_v012.ProvenanceTests.test_mismatched_report_number_rejected'),))

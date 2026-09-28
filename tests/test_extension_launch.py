@@ -10,15 +10,15 @@ from pathlib import Path
 from unittest.mock import patch
 from unittest.mock import AsyncMock
 
-from apzn import extensions
-from apzn.core import digest
+from adhd import extensions
+from adhd.core import digest
 
 
 class ExtensionLaunchTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name)
         self.codex=self.root/'codex';self.codex.mkdir();(self.codex/'config.toml').write_text('# retained\n',encoding='utf-8')
-        self.env=patch.dict(os.environ,{'CODEX_HOME':str(self.codex),'APZN_HOME':str(self.codex/'apzn')});self.env.start()
+        self.env=patch.dict(os.environ,{'CODEX_HOME':str(self.codex),'ADHD_HOME':str(self.codex/'adhd')});self.env.start()
         self.runtime=self.root/'runtime';self.runtime.mkdir()
         self.script=self.runtime/'server.py';self.script.write_text('print("server")\n',encoding='utf-8')
 
@@ -111,23 +111,23 @@ class ExtensionLaunchTests(unittest.TestCase):
     def test_launcher_checks_every_restart_and_preserves_exit_code(self):
         extensions.stage(self.manifest());extensions.apply('sample-mcp',reviewed=True,codex_home=self.codex)
         record=extensions.status('sample-mcp');record['status']='active_reload_required'
-        (self.codex/'apzn/extensions/sample-mcp/record.json').write_text(json.dumps(record),encoding='utf-8')
+        (self.codex/'adhd/extensions/sample-mcp/record.json').write_text(json.dumps(record),encoding='utf-8')
         process=type('Process',(),{'wait':lambda self:7})()
-        with patch('apzn.extensions.subprocess.Popen',return_value=process) as popen:
+        with patch('adhd.extensions.subprocess.Popen',return_value=process) as popen:
             self.assertEqual(extensions.launch('sample-mcp'),7)
         self.assertFalse(popen.call_args.kwargs['shell']);self.assertIsNone(popen.call_args.kwargs['stdout'])
 
     def test_launcher_code_change_is_rejected_at_restart(self):
         extensions.stage(self.manifest());extensions.apply('sample-mcp',reviewed=True,codex_home=self.codex)
         record=extensions.status('sample-mcp');record['status']='active_reload_required'
-        (self.codex/'apzn/extensions/sample-mcp/record.json').write_text(json.dumps(record),encoding='utf-8')
-        with patch('apzn.native_install.release_identity',return_value={'code_digest':'0'*64,'native_schema_version':2,'build_id':'changed'}):
+        (self.codex/'adhd/extensions/sample-mcp/record.json').write_text(json.dumps(record),encoding='utf-8')
+        with patch('adhd.native_install.release_identity',return_value={'code_digest':'0'*64,'native_schema_version':2,'build_id':'changed'}):
             with self.assertRaises(ValueError):extensions.launch('sample-mcp')
 
     def test_disabled_server_only_probe_can_launch(self):
         extensions.stage(self.manifest());extensions.apply('sample-mcp',reviewed=True,codex_home=self.codex)
         with self.assertRaises(ValueError):extensions.launch('sample-mcp')
-        with patch('apzn.extensions.subprocess.Popen') as popen:
+        with patch('adhd.extensions.subprocess.Popen') as popen:
             popen.return_value.wait.return_value=0;self.assertEqual(extensions.launch('sample-mcp',probe_mode=True),0)
 
     def test_module_file_changed_with_same_lock_rejected(self):
@@ -153,8 +153,8 @@ class ExtensionLaunchTests(unittest.TestCase):
         extensions.stage(manifest);extensions.apply('sample-mcp',reviewed=True,codex_home=self.codex)
         call={'tool':'ping','request_sha256':digest({}),'result_sha256':'a'*64,
               'read_only_hint_observed':True,'status':'succeeded'}
-        with (patch('apzn.extensions.importlib.util.find_spec',return_value=object()),
-              patch('apzn.extensions._probe_stdio',new=AsyncMock(return_value={
+        with (patch('adhd.extensions.importlib.util.find_spec',return_value=object()),
+              patch('adhd.extensions._probe_stdio',new=AsyncMock(return_value={
                   'server':{'name':'fixture'},'tools':['ping'],'tool_call':call}))):
             result=extensions.probe('sample-mcp')
         self.assertEqual(result['status'],'active_reload_required')

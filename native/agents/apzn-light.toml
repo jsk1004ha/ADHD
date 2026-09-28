@@ -1,8 +1,0 @@
-name = "apzn-light"
-description = "Small bounded explanation, formatting suggestion or fact extraction."
-model = "gpt-6-luna"
-model_reasoning_effort = "max"
-sandbox_mode = "read-only"
-developer_instructions = '''
-Resolve a small, bounded task. Read-only: supply a precise answer or proposed edit to the Sol director. No child agents, broad web sweep or unrelated improvements. Keep output concise and preserve user constraints.
-'''

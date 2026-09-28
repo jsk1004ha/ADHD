@@ -8,15 +8,15 @@ import unittest
 from unittest.mock import patch
 import zipfile
 
-from apzn.memory import Memory, namespace
-from apzn.wiki import import_zip
+from adhd.memory import Memory, namespace
+from adhd.wiki import import_zip
 
 
 class MemoryLifecycleTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.base=Path(self.tmp.name)
         self.ws=self.base/'workspace';self.ws.mkdir()
-        self.env=patch.dict(os.environ,{'APZN_HOME':str(self.base/'state'),'CODEX_HOME':str(self.base/'codex')})
+        self.env=patch.dict(os.environ,{'ADHD_HOME':str(self.base/'state'),'CODEX_HOME':str(self.base/'codex')})
         self.env.start();self.db=self.base/'memory.sqlite3';self.memory=Memory(self.db);self.scope=namespace(self.ws)
 
     def tearDown(self):

@@ -12,10 +12,10 @@ import time
 import unittest
 from unittest.mock import patch
 
-from apzn import core
-from apzn import install as installer
-from apzn import runner
-from apzn.cli import main, output
+from adhd import core
+from adhd import install as installer
+from adhd import runner
+from adhd.cli import main, output
 
 
 class CliEncodingTests(unittest.TestCase):
@@ -39,10 +39,10 @@ class Base(unittest.TestCase):
         self.base = Path(self.tmp.name)
         self.workspace = self.base / 'project'; self.workspace.mkdir()
         self.codex_home = self.base / 'codex-home'; self.codex_home.mkdir()
-        self.env = patch.dict(os.environ, {'CODEX_HOME':str(self.codex_home), 'APZN_HOME':str(self.base/'state'),
+        self.env = patch.dict(os.environ, {'CODEX_HOME':str(self.codex_home), 'ADHD_HOME':str(self.base/'state'),
                                          'FAKE_COUNTER':str(self.base/'counter.json'), 'FAKE_SCENARIO':'success'})
         self.env.start()
-        self.cli = patch('apzn.runner.executable_command', return_value=[sys.executable, str(Path(__file__).with_name('fake_codex.py'))])
+        self.cli = patch('adhd.runner.executable_command', return_value=[sys.executable, str(Path(__file__).with_name('fake_codex.py'))])
         self.cli.start()
         self.settings = {'codex':'fake','model':None,'effort':'inherit','max_iterations':4,
                          'max_seconds':40,'max_tokens':10000,'call_timeout':5,'check_timeout':4,
@@ -223,7 +223,7 @@ class InstallerTests(Base):
     def test_compact_mode_archives_original(self):
         self.baseline();old=(self.codex_home/'AGENTS.md').read_bytes()
         installer.install(self.codex_home,compact=True)
-        self.assertEqual((self.codex_home/'apzn/legacy/AGENTS.original.md').read_bytes(),old)
+        self.assertEqual((self.codex_home/'adhd/legacy/AGENTS.original.md').read_bytes(),old)
         installer.uninstall(self.codex_home);self.assertEqual((self.codex_home/'AGENTS.md').read_bytes(),old)
     def test_uninstall_does_not_overwrite_new_user_guidance(self):
         self.baseline();installer.install(self.codex_home)
@@ -234,7 +234,7 @@ class InstallerTests(Base):
         (Path(record['backup'])/'AGENTS.md').write_text('tampered backup')
         with self.assertRaises(ValueError):installer.uninstall(self.codex_home)
     def test_existing_same_name_skill_is_not_overwritten(self):
-        (self.codex_home/'skills/apzn').mkdir(parents=True)
+        (self.codex_home/'skills/adhd').mkdir(parents=True)
         with self.assertRaises(ValueError):installer.install(self.codex_home)
     def test_doctor_labels_runtime_unverified(self):
         self.baseline();report=installer.audit(self.codex_home);self.assertIn('NOT_TESTED',report['runtime_status'])

@@ -8,8 +8,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from apzn.core import discover_skills
-from apzn.skill_router import configure_router, route_skills
+from adhd.core import discover_skills
+from adhd.skill_router import configure_router, route_skills
 
 
 def make_skill(root: Path, folder: str, name: str='same-name') -> Path:
@@ -22,7 +22,7 @@ class SkillDiscoveryTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.base=Path(self.tmp.name)
         self.repo=self.base/'repo';self.repo.mkdir();(self.repo/'.git').mkdir();self.ws=self.repo/'a'/'b';self.ws.mkdir(parents=True)
-        self.codex=self.base/'codex';self.codex.mkdir();self.env=patch.dict(os.environ,{'CODEX_HOME':str(self.codex),'APZN_HOME':str(self.base/'state')})
+        self.codex=self.base/'codex';self.codex.mkdir();self.env=patch.dict(os.environ,{'CODEX_HOME':str(self.codex),'ADHD_HOME':str(self.base/'state')})
         self.env.start()
 
     def tearDown(self): self.env.stop();self.tmp.cleanup()
@@ -51,7 +51,7 @@ class SkillDiscoveryTests(unittest.TestCase):
         script=self.base/'skill_wiki.py';script.write_text('print(1)');configure_router(script)
         payload={'status':'stale','warnings':['refresh_failed:plugin-discovery:timeout']}
         completed=subprocess.CompletedProcess([],3,stdout=json.dumps(payload),stderr='')
-        with patch('apzn.skill_router.subprocess.run',return_value=completed) as run:
+        with patch('adhd.skill_router.subprocess.run',return_value=completed) as run:
             result=route_skills('parser',workspace=self.ws)
         self.assertEqual(result['status'],'stale');self.assertEqual(run.call_count,1)
         self.assertEqual(run.call_args.args[0].count('--refresh-stale'),1)
@@ -62,7 +62,7 @@ class SkillDiscoveryTests(unittest.TestCase):
         script=self.base/'skill_wiki.py';script.write_text('print(1)');configure_router(script)
         payload={'status':'ok','warnings':['artifacts_refreshed'],'read_order':[{'name':'test-skill'}]}
         completed=subprocess.CompletedProcess([],0,stdout=json.dumps(payload),stderr='')
-        with patch('apzn.skill_router.subprocess.run',return_value=completed) as run:
+        with patch('adhd.skill_router.subprocess.run',return_value=completed) as run:
             result=route_skills('parser',workspace=self.ws)
         self.assertEqual(result['engine'],'existing-wiki-route-v7')
         self.assertEqual(result['status'],'ok')
@@ -72,14 +72,14 @@ class SkillDiscoveryTests(unittest.TestCase):
     def test_valid_no_match_is_preserved(self):
         script=self.base/'skill_wiki.py';script.write_text('print(1)');configure_router(script)
         completed=subprocess.CompletedProcess([],0,stdout=json.dumps({'status':'no_match'}),stderr='')
-        with patch('apzn.skill_router.subprocess.run',return_value=completed):
+        with patch('adhd.skill_router.subprocess.run',return_value=completed):
             result=route_skills('uncovered',workspace=self.ws)
         self.assertEqual(result['engine'],'existing-wiki-route-v7')
         self.assertEqual(result['status'],'no_match')
 
     def test_outer_router_timeout_is_visible(self):
         script=self.base/'skill_wiki.py';script.write_text('print(1)');configure_router(script)
-        with patch('apzn.skill_router.subprocess.run',side_effect=subprocess.TimeoutExpired(['wiki'],90)) as run:
+        with patch('adhd.skill_router.subprocess.run',side_effect=subprocess.TimeoutExpired(['wiki'],90)) as run:
             result=route_skills('parser',workspace=self.ws)
         self.assertEqual(run.call_count,1)
         self.assertEqual(result['engine'],'local-metadata-fallback')

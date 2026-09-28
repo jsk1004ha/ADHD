@@ -3,6 +3,7 @@ __pycache__/
 .venv/
 .pytest_cache/
 .mypy_cache/
+.adhd/
 .apzn/
 .omx/
 .env

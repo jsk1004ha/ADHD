@@ -6,9 +6,9 @@ import tempfile
 import unittest
 import zipfile
 
-from apzn import documents
-from apzn.gates import document_candidate,validate_document_contract
-from apzn.native import checked_path
+from adhd import documents
+from adhd.gates import document_candidate,validate_document_contract
+from adhd.native import checked_path
 
 
 class EditableElementTests(unittest.TestCase):

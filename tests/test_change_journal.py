@@ -4,8 +4,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from apzn.change_journal import apply_toml_entry, recover, rollback
-from apzn.core import atomic_json
+from adhd.change_journal import apply_toml_entry, recover, rollback
+from adhd.core import atomic_json
 import tomlkit
 
 

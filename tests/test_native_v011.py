@@ -10,10 +10,10 @@ import unittest
 import uuid
 from unittest.mock import patch
 
-from apzn.core import read_json
-from apzn.evidence import run_check, validate_execution
-from apzn import leases
-from apzn.native import folder, handle_event, session_key, submit_request
+from adhd.core import read_json
+from adhd.evidence import run_check, validate_execution
+from adhd import leases
+from adhd.native import folder, handle_event, session_key, submit_request
 
 
 class NativeV011Tests(unittest.TestCase):
@@ -25,7 +25,7 @@ class NativeV011Tests(unittest.TestCase):
         self.ws.mkdir()
         codex_home = self.base / 'codex'
         codex_home.mkdir()
-        env = patch.dict(os.environ, {'CODEX_HOME': str(codex_home), 'APZN_EXEC_OWNER': ''})
+        env = patch.dict(os.environ, {'CODEX_HOME': str(codex_home), 'ADHD_EXEC_OWNER': ''})
         env.start()
         self.addCleanup(env.stop)
         self.sid = uuid.uuid4().hex
@@ -88,9 +88,9 @@ class NativeV011Tests(unittest.TestCase):
         (self.ws / 'result.txt').write_text('one', encoding='utf-8')
         self.assertTrue(self.candidate(self.check())['ok'])
         pre = self.event('PreToolUse', tool_name='spawn_agent', tool_use_id='tool-a',
-                         tool_input={'agent_type': 'apzn-verifier'})
+                         tool_input={'agent_type': 'adhd-verifier'})
         self.assertNotEqual(pre.get('hookSpecificOutput', {}).get('permissionDecision'), 'deny')
-        self.event('SubagentStart', agent_type='apzn-verifier', agent_id='agent-a',
+        self.event('SubagentStart', agent_type='adhd-verifier', agent_id='agent-a',
                    tool_use_id='wrong-tool', model='gpt-6-sol')
         state=self.state();row = state['candidate']
         self.event('SubagentStop', agent_id='agent-a', last_assistant_message=json.dumps({
@@ -107,8 +107,8 @@ class NativeV011Tests(unittest.TestCase):
         (self.ws / 'result.txt').write_text('one', encoding='utf-8')
         self.assertTrue(self.candidate(self.check())['ok'])
         self.event('PreToolUse', tool_name='spawn_agent', tool_use_id='tool-a',
-                   tool_input={'agent_type': 'apzn-verifier'})
-        self.event('SubagentStart', agent_type='apzn-verifier', agent_id='agent-a',
+                   tool_input={'agent_type': 'adhd-verifier'})
+        self.event('SubagentStart', agent_type='adhd-verifier', agent_id='agent-a',
                    tool_use_id='tool-a', model='gpt-6-sol')
         state=self.state();candidate = state['candidate']
         self.event('SubagentStop', agent_id='agent-a', last_assistant_message=json.dumps({
@@ -133,8 +133,8 @@ class NativeV011Tests(unittest.TestCase):
         owner = leases.lease_path(self.ws)
         self.assertTrue(owner.exists())
         self.event('PreToolUse', tool_name='spawn_agent', tool_use_id='tool-a',
-                   tool_input={'agent_type': 'apzn-scout'})
-        self.event('SubagentStart', agent_type='apzn-scout', agent_id='agent-a',
+                   tool_input={'agent_type': 'adhd-scout'})
+        self.event('SubagentStart', agent_type='adhd-scout', agent_id='agent-a',
                    tool_use_id='tool-a', model='gpt-6-luna')
         self.event('Interrupt')
         self.assertEqual(self.state()['status'], 'interrupt_pending')
@@ -172,8 +172,8 @@ class NativeV011Tests(unittest.TestCase):
         self.begin()
         owner = leases.lease_path(self.ws)
         self.event('PreToolUse', tool_name='spawn_agent', tool_use_id='tool-a',
-                   tool_input={'agent_type': 'apzn-scout'})
-        self.event('SubagentStart', agent_type='apzn-scout', agent_id='agent-a',
+                   tool_input={'agent_type': 'adhd-scout'})
+        self.event('SubagentStart', agent_type='adhd-scout', agent_id='agent-a',
                    tool_use_id='tool-a', model='gpt-6-luna')
         self.event('UserPromptSubmit', prompt='Now do a different task')
         pending = self.state()['pending_turn_ids'][0]

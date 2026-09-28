@@ -9,10 +9,10 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from apzn import documents
-from apzn.core import file_hash
-from apzn.gates import document_candidate
-from apzn.native import checked_path
+from adhd import documents
+from adhd.core import file_hash
+from adhd.gates import document_candidate
+from adhd.native import checked_path
 
 
 class DocumentEvidenceTests(unittest.TestCase):
@@ -69,7 +69,7 @@ class DocumentEvidenceTests(unittest.TestCase):
             calls+=1
             if calls==4:Path(path).write_bytes(Path(path).read_bytes()+b' ')
             return real(Path(path))
-        with patch('apzn.documents.file_hash',side_effect=changing):
+        with patch('adhd.documents.file_hash',side_effect=changing):
             with self.assertRaisesRegex(ValueError,'changed during validation'):documents.validate_render(manifest,source)
 
     def test_schema1_requires_regeneration_for_full_derivation(self):

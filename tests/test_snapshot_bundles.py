@@ -6,8 +6,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from apzn import documents
-from apzn.snapshots import SnapshotPolicy,build_snapshot,preflight_snapshot,validate_snapshot
+from adhd import documents
+from adhd.snapshots import SnapshotPolicy,build_snapshot,preflight_snapshot,validate_snapshot
 
 
 class SnapshotBundleTests(unittest.TestCase):

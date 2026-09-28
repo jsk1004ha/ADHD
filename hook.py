@@ -2,7 +2,7 @@
 """Native Codex hook: JSON on stdout only, never run model-supplied commands."""
 import json
 import sys
-from apzn.native import handle_event
+from adhd.native import handle_event
 
 def main():
     event={}

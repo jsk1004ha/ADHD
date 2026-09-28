@@ -17,7 +17,7 @@ class CliBrandingTests(unittest.TestCase):
     def test_primary_and_compatibility_help_work_with_cp949_stdout(self):
         env = os.environ.copy()
         env['PYTHONIOENCODING'] = 'cp949'
-        for entry in ('adhd.py', 'apzn.py'):
+        for entry in ('adhd.py',):
             with self.subTest(entry=entry):
                 result = subprocess.run(
                     [sys.executable, str(ROOT / entry), '--help'],

@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from apzn.native_install import audit_native, install_native, release_identity, rollback_native, upgrade_native
+from adhd.native_install import audit_native, install_native, release_identity, rollback_native, upgrade_native
 
 
 class NativeInstallIntegrityTests(unittest.TestCase):
@@ -30,7 +30,7 @@ class NativeInstallIntegrityTests(unittest.TestCase):
         self.assertEqual(record['release_identity'], release_identity(release))
         self.assertTrue(record['release_identity']['files'])
         self.assertNotEqual(record['release_identity']['code_digest'], record['source_identity']['code_digest'])
-        self.assertNotIn('APZN_ROOT', (release / 'skills/apzn-native/SKILL.md').read_text(encoding='utf-8'))
+        self.assertNotIn('ADHD_ROOT', (release / 'skills/adhd-native/SKILL.md').read_text(encoding='utf-8'))
         rollback_native(self.codex)
         for relative, content in self.original.items():
             self.assertEqual((self.codex / relative).read_bytes(), content)
@@ -52,10 +52,10 @@ class NativeInstallIntegrityTests(unittest.TestCase):
         self.assertEqual((self.codex / 'AGENTS.md').read_bytes().split(b'\n\n')[0] + b'\n', self.original['AGENTS.md'])
 
     def test_destination_conflict_is_rejected_before_release_creation(self):
-        conflict = self.agents / 'skills/apzn-native/SKILL.md'
+        conflict = self.agents / 'skills/adhd-native/SKILL.md'
         conflict.parent.mkdir(parents=True)
         conflict.write_text('user owned', encoding='utf-8')
-        with self.assertRaisesRegex(ValueError, 'Unmanaged apzn-native skill'):
+        with self.assertRaisesRegex(ValueError, 'Unmanaged adhd-native skill'):
             install_native(self.codex, self.agents, fixture_mode=True)
         releases = self.codex / 'adhd/releases'
         self.assertFalse(releases.exists() and any(releases.iterdir()))

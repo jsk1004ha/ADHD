@@ -14,7 +14,7 @@ class AuditLocalInstallTests(unittest.TestCase):
             root = Path(directory)
             user = {'hooks': [{'type': 'command', 'command': 'python C:\\tools\\user-hook.py'}]}
             legacy = {'hooks': [{'type': 'command', 'command':
-                                 'python C:\\example\\.codex\\apzn\\releases\\old\\hook.py'}]}
+                                 'python C:\\example\\.codex\\adhd\\releases\\old\\hook.py'}]}
             renamed = {'hooks': [{'type': 'command', 'command':
                                   'python C:\\example\\.codex\\adhd\\releases\\new\\hook.py'}]}
             hooks = {'hooks': {'SessionStart': [user, legacy, renamed]}}

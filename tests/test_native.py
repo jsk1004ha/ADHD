@@ -2,19 +2,19 @@ from __future__ import annotations
 import copy,json,os,subprocess,sys,tempfile,unittest,uuid
 from pathlib import Path
 from unittest.mock import patch
-from apzn.core import atomic_json,read_json,file_hash,store
-from apzn.native import handle_event,session_key,folder,bridge,submit_request,checked_path,lease_path,DEFAULTS
-from apzn.native_install import install_native,rollback_native,command_line
-from apzn.models import route
-from apzn.evidence import run_check
-from apzn.vendor.smolagents_context import truncate_content
+from adhd.core import atomic_json,read_json,file_hash,store
+from adhd.native import handle_event,session_key,folder,bridge,submit_request,checked_path,lease_path,DEFAULTS
+from adhd.native_install import install_native,rollback_native,command_line
+from adhd.models import route
+from adhd.evidence import run_check
+from adhd.vendor.smolagents_context import truncate_content
 ROOT=Path(__file__).resolve().parents[1]
 
 class NativeTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.base=Path(self.tmp.name)
         self.ws=self.base/'project';self.ws.mkdir();self.ch=self.base/'codex';self.ch.mkdir()
-        self.env=patch.dict(os.environ,{'CODEX_HOME':str(self.ch),'APZN_EXEC_OWNER':''});self.env.start()
+        self.env=patch.dict(os.environ,{'CODEX_HOME':str(self.ch),'ADHD_EXEC_OWNER':''});self.env.start()
         self.sid='test-'+uuid.uuid4().hex;self.key=session_key(self.sid);self.counter=0
         self.event('UserPromptSubmit',prompt='Make a working program, preserve existing features and verify it.')
     def tearDown(self): self.env.stop();self.tmp.cleanup()
@@ -37,7 +37,7 @@ class NativeTests(unittest.TestCase):
                            'argv':[sys.executable,'-c','print("ok")']},self.ws)
         payload={'files':['answer.txt'],'criterion_results':[{'id':'R1','pass':True,'evidence':'Observed local process with exit code 0','evidence_ids':[receipt['receipt']]}],'sources':[],'procedure':['Run the correct test then inspect the output']};payload.update(extra)
         return self.request('candidate',payload)
-    def spawn(self,role='apzn-verifier',model=None,aid='child'):
+    def spawn(self,role='adhd-verifier',model=None,aid='child'):
         tool_use_id=uuid.uuid4().hex
         out=self.event('PreToolUse',tool_name='spawn_agent',tool_use_id=tool_use_id,tool_input={'agent_type':role,'message':'Read the given current candidate.'})
         self.assertNotEqual(out.get('hookSpecificOutput',{}).get('permissionDecision'),'deny',out)
@@ -50,16 +50,16 @@ class NativeTests(unittest.TestCase):
               'reviewed_turn_ids':[p['turn_id'] for p in s['prompts']],
               'intent_alignment':True,
               'criterion_results':c['criterion_results'],'findings':[] if approve else ['Real test is missing']};data.update(kw)
-        return self.event('SubagentStop',agent_type='apzn-verifier',agent_id=aid,last_assistant_message=json.dumps(data))
+        return self.event('SubagentStop',agent_type='adhd-verifier',agent_id=aid,last_assistant_message=json.dumps(data))
     def installed_verifier_profile(self):
-        target=self.ch/'agents'/'apzn-verifier.toml';target.parent.mkdir(parents=True,exist_ok=True)
-        template=(ROOT/'native'/'agents'/'apzn-verifier.toml').read_text(encoding='utf-8')
-        target.write_text(template.replace('APZN_ROOT',str(ROOT)),encoding='utf-8')
+        target=self.ch/'agents'/'adhd-verifier.toml';target.parent.mkdir(parents=True,exist_ok=True)
+        template=(ROOT/'native'/'agents'/'adhd-verifier.toml').read_text(encoding='utf-8')
+        target.write_text(template.replace('ADHD_ROOT',str(ROOT)),encoding='utf-8')
         return target
     def observed_verifier_start(self,**kw):
         self.installed_verifier_profile()
         self.event('SessionStart')
-        self.event('SubagentStart',agent_type='apzn-verifier',agent_id='app-reviewer',
+        self.event('SubagentStart',agent_type='adhd-verifier',agent_id='app-reviewer',
                     model='gpt-6-sol',**kw)
     def test_idle_does_not_loop(self): self.assertEqual(self.event('Stop'),{})
     def test_post_compact_uses_supported_output_and_keeps_state(self):
@@ -104,7 +104,7 @@ class NativeTests(unittest.TestCase):
     def test_verifier_spawn_rejects_conflicting_effort_override(self):
         self.begin();self.assertTrue(self.candidate()['ok'])
         out=self.event('PreToolUse',tool_name='spawn_agent',tool_use_id='wrong-effort',
-                       tool_input={'agent_type':'apzn-verifier','reasoning_effort':'low',
+                       tool_input={'agent_type':'adhd-verifier','reasoning_effort':'low',
                                    'message':'Review the current candidate.'})
         self.assertEqual(out['hookSpecificOutput']['permissionDecision'],'deny')
         self.assertFalse(self.state()['reservations'])
@@ -116,43 +116,43 @@ class NativeTests(unittest.TestCase):
     def test_app_observed_lifecycle_rejects_profile_change(self):
         self.begin();self.assertTrue(self.candidate()['ok'])
         self.observed_verifier_start()
-        (self.ch/'agents'/'apzn-verifier.toml').write_text('model = "gpt-6-luna"')
+        (self.ch/'agents'/'adhd-verifier.toml').write_text('model = "gpt-6-luna"')
         self.review(aid='app-reviewer')
         self.assertEqual(self.state()['status'],'revising')
     def test_app_lifecycle_rejects_hot_upgrade_after_session_start(self):
         self.begin();self.assertTrue(self.candidate()['ok'])
         installed=self.installed_verifier_profile()
         self.event('SessionStart')
-        new_root=self.base/'next-release';profile=new_root/'native'/'agents'/'apzn-verifier.toml'
+        new_root=self.base/'next-release';profile=new_root/'native'/'agents'/'adhd-verifier.toml'
         profile.parent.mkdir(parents=True)
-        template=(ROOT/'native'/'agents'/'apzn-verifier.toml').read_text(encoding='utf-8')
+        template=(ROOT/'native'/'agents'/'adhd-verifier.toml').read_text(encoding='utf-8')
         template=template.replace('Independent READ-ONLY reviewer.','Independent READ-ONLY reviewer. New release.')
         profile.write_text(template,encoding='utf-8')
-        installed.write_text(template.replace('APZN_ROOT',str(new_root)),encoding='utf-8')
-        with patch('apzn.native.ROOT',new_root):
-            self.event('SubagentStart',agent_type='apzn-verifier',agent_id='app-reviewer',model='gpt-6-sol')
+        installed.write_text(template.replace('ADHD_ROOT',str(new_root)),encoding='utf-8')
+        with patch('adhd.native.ROOT',new_root):
+            self.event('SubagentStart',agent_type='adhd-verifier',agent_id='app-reviewer',model='gpt-6-sol')
             self.review(aid='app-reviewer')
         self.assertEqual(self.state()['status'],'revising')
     def test_app_lifecycle_requires_session_start_attestation(self):
         self.begin();self.assertTrue(self.candidate()['ok']);self.installed_verifier_profile()
-        self.event('SubagentStart',agent_type='apzn-verifier',agent_id='app-reviewer',model='gpt-6-sol')
+        self.event('SubagentStart',agent_type='adhd-verifier',agent_id='app-reviewer',model='gpt-6-sol')
         self.review(aid='app-reviewer')
         self.assertEqual(self.state()['status'],'revising')
     def test_app_observed_lifecycle_requires_profile(self):
         self.begin();self.assertTrue(self.candidate()['ok'])
-        self.event('SubagentStart',agent_type='apzn-verifier',agent_id='app-reviewer',model='gpt-6-sol')
+        self.event('SubagentStart',agent_type='adhd-verifier',agent_id='app-reviewer',model='gpt-6-sol')
         self.review(aid='app-reviewer')
         self.assertEqual(self.state()['status'],'revising')
     def test_app_observed_lifecycle_rejects_wrong_model(self):
         self.begin();self.assertTrue(self.candidate()['ok']);self.installed_verifier_profile()
         self.event('SessionStart')
-        self.event('SubagentStart',agent_type='apzn-verifier',agent_id='app-reviewer',model='gpt-6-luna')
+        self.event('SubagentStart',agent_type='adhd-verifier',agent_id='app-reviewer',model='gpt-6-luna')
         self.review(aid='app-reviewer')
         self.assertEqual(self.state()['status'],'revising')
     def test_app_observed_lifecycle_rejects_duplicate_agent_id(self):
         self.begin();self.assertTrue(self.candidate()['ok'])
         self.observed_verifier_start()
-        self.event('SubagentStart',agent_type='apzn-verifier',agent_id='app-reviewer',model='gpt-6-sol')
+        self.event('SubagentStart',agent_type='adhd-verifier',agent_id='app-reviewer',model='gpt-6-sol')
         self.review(aid='app-reviewer')
         self.assertEqual(self.state()['status'],'revising')
     def test_app_observed_lifecycle_rejects_mismatched_stop_role(self):
@@ -163,7 +163,7 @@ class NativeTests(unittest.TestCase):
                  'reviewed_contract_hash':state['contract_hash'],
                  'reviewed_turn_ids':[p['turn_id'] for p in state['prompts']],
                  'intent_alignment':True,'criterion_results':candidate['criterion_results'],'findings':[]}
-        self.event('SubagentStop',agent_type='apzn-scout',agent_id='app-reviewer',
+        self.event('SubagentStop',agent_type='adhd-scout',agent_id='app-reviewer',
                    last_assistant_message=json.dumps(verdict))
         self.assertEqual(self.state()['status'],'revising')
     def test_worker_cannot_self_approve(self):
@@ -200,7 +200,7 @@ class NativeTests(unittest.TestCase):
             'locator':'L1','basis':'read','evidence_ref':'source.txt'}])['ok'])
         (self.ws/'source.txt').write_text('Changed citation',encoding='utf-8')
         out=self.event('PreToolUse',tool_name='spawn_agent',tool_use_id='stale-source',
-                       tool_input={'agent_type':'apzn-verifier'})
+                       tool_input={'agent_type':'adhd-verifier'})
         self.assertEqual(out['hookSpecificOutput']['permissionDecision'],'deny')
     def test_original_prompt_not_replaced_by_stop(self):
         self.begin();s=self.state();out=self.event('Stop');self.event('UserPromptSubmit',prompt=out['reason'])
@@ -229,25 +229,25 @@ class NativeTests(unittest.TestCase):
         self.begin();s=self.state();s['started']-=7200;self.save(s);self.assertFalse(self.event('Stop')['continue'])
     def test_native_tokens_not_fabricated(self): self.assertIsNone(self.state()['usage']['tokens']);self.assertFalse(self.state()['usage']['observed'])
     def test_astra_once(self):
-        self.begin();self.spawn('apzn-architect',aid='A');self.event('SubagentStop',agent_type='apzn-architect',agent_id='A',last_assistant_message='decision')
-        out=self.event('PreToolUse',tool_name='spawn_agent',tool_input={'agent_type':'apzn-architect','message':'another'})
+        self.begin();self.spawn('adhd-architect',aid='A');self.event('SubagentStop',agent_type='adhd-architect',agent_id='A',last_assistant_message='decision')
+        out=self.event('PreToolUse',tool_name='spawn_agent',tool_input={'agent_type':'adhd-architect','message':'another'})
         self.assertEqual(out['hookSpecificOutput']['permissionDecision'],'deny')
     def test_astra_brief_limit(self):
-        self.begin();out=self.event('PreToolUse',tool_name='spawn_agent',tool_input={'agent_type':'apzn-architect','message':'x'*8001})
+        self.begin();out=self.event('PreToolUse',tool_name='spawn_agent',tool_input={'agent_type':'adhd-architect','message':'x'*8001})
         self.assertEqual(out['hookSpecificOutput']['permissionDecision'],'deny');self.assertEqual(self.state()['astra_calls'],0)
     def test_parallel_limit(self):
         self.begin()
-        for i in range(3): self.spawn('apzn-scout',aid=str(i))
-        out=self.event('PreToolUse',tool_name='spawn_agent',tool_input={'agent_type':'apzn-scout'})
+        for i in range(3): self.spawn('adhd-scout',aid=str(i))
+        out=self.event('PreToolUse',tool_name='spawn_agent',tool_input={'agent_type':'adhd-scout'})
         self.assertEqual(out['hookSpecificOutput']['permissionDecision'],'deny')
     def test_one_delegated_writer(self):
-        self.begin();self.spawn('apzn-implementer');out=self.event('PreToolUse',tool_name='spawn_agent',tool_input={'agent_type':'apzn-implementer'})
+        self.begin();self.spawn('adhd-implementer');out=self.event('PreToolUse',tool_name='spawn_agent',tool_input={'agent_type':'adhd-implementer'})
         self.assertEqual(out['hookSpecificOutput']['permissionDecision'],'deny')
     def test_explicit_model_mismatch_denied(self):
-        self.begin();out=self.event('PreToolUse',tool_name='spawn_agent',tool_input={'agent_type':'apzn-scout','model':'gpt-6-astra'})
+        self.begin();out=self.event('PreToolUse',tool_name='spawn_agent',tool_input={'agent_type':'adhd-scout','model':'gpt-6-astra'})
         self.assertEqual(out['hookSpecificOutput']['permissionDecision'],'deny')
     def test_child_cannot_spawn(self):
-        self.begin();out=self.event('PreToolUse',model='gpt-6-astra',tool_name='spawn_agent',tool_input={'agent_type':'apzn-scout'})
+        self.begin();out=self.event('PreToolUse',model='gpt-6-astra',tool_name='spawn_agent',tool_input={'agent_type':'adhd-scout'})
         self.assertEqual(out['hookSpecificOutput']['permissionDecision'],'deny')
     def test_native_and_legacy_exclusion(self):
         p=lease_path(self.ws);atomic_json(p,{'run_id':'legacy-running'})
@@ -275,7 +275,7 @@ class NativeTests(unittest.TestCase):
         p=subprocess.run([sys.executable,str(ROOT/'hook.py')],input=json.dumps(ev),text=True,capture_output=True,env=os.environ,timeout=10)
         self.assertEqual(p.returncode,0,p.stderr);self.assertIn('hookSpecificOutput',json.loads(p.stdout))
     def test_legacy_child_does_not_arm_native(self):
-        with patch.dict(os.environ,{'APZN_EXEC_OWNER':'legacy'}):self.assertEqual(self.event('UserPromptSubmit',prompt='legacy'),{})
+        with patch.dict(os.environ,{'ADHD_EXEC_OWNER':'legacy'}):self.assertEqual(self.event('UserPromptSubmit',prompt='legacy'),{})
     def test_vendor_compaction_hard_character_limit(self):
         for n in [0,1,50,200,5000]:self.assertLessEqual(len(truncate_content('A'*4000+'Z'*4000,n)),n)
         self.assertTrue(truncate_content('A'*4000+'Z'*4000,200).endswith('Z'))
@@ -296,7 +296,7 @@ class NativeTests(unittest.TestCase):
         self.assertEqual(p.returncode,0);self.assertIn('systemMessage',json.loads(p.stdout))
     def test_final_verifier_slot_reserved(self):
         self.begin();self.candidate();s=self.state();s['total_children']=11;self.save(s)
-        out=self.event('PreToolUse',tool_name='spawn_agent',tool_input={'agent_type':'apzn-scout','message':'read'})
+        out=self.event('PreToolUse',tool_name='spawn_agent',tool_input={'agent_type':'adhd-scout','message':'read'})
         self.assertEqual(out['hookSpecificOutput']['permissionDecision'],'deny')
         self.spawn();self.review();self.assertEqual(self.state()['status'],'complete')
     def test_two_native_sessions_cannot_write_same_workspace(self):
@@ -317,21 +317,21 @@ class NativeInstallTests(unittest.TestCase):
     def test_install_restore(self):
         result=install_native(self.c,self.a);self.assertEqual(result['migrated_roles'],[])
         import tomllib
-        self.assertEqual(route('apzn-planner')['effort'],'max')
-        self.assertEqual(route('apzn-scout')['effort'],'max')
-        self.assertEqual(route('apzn-architect')['effort'],'low')
+        self.assertEqual(route('adhd-planner')['effort'],'max')
+        self.assertEqual(route('adhd-scout')['effort'],'max')
+        self.assertEqual(route('adhd-architect')['effort'],'low')
         cfg=tomllib.loads((self.c/'config.toml').read_text());self.assertEqual(cfg['model'],'gpt-5.6-sol');self.assertEqual((self.c/'config.toml').read_bytes(),self.original['config.toml']);self.assertEqual(cfg['model_providers']['router']['base_url'],'http://127.0.0.1:4202/v1')
         self.assertEqual((self.c/'agents/researcher.toml').read_bytes(),self.original[str(Path('agents')/'researcher.toml')])
         hooks=read_json(self.c/'hooks.json');self.assertEqual(hooks['hooks']['SessionStart'][0]['hooks'][0]['trusted_hash'],'existing-do-not-change')
         self.assertNotIn('trusted_hash',hooks['hooks']['Stop'][-1]['hooks'][0]);self.assertLessEqual(hooks['hooks']['SessionEnd'][-1]['hooks'][0]['timeout'],3)
         self.assertNotIn('additionalContextLimit',hooks['hooks']['SubagentStop'][-1]['hooks'][0])
         self.assertNotIn('additionalContextLimit',hooks['hooks']['PostCompact'][-1]['hooks'][0])
-        self.assertEqual(len(list((self.c/'agents').glob('apzn-*.toml'))),6)
+        self.assertEqual(len(list((self.c/'agents').glob('adhd-*.toml'))),6)
         for name in ('planner','scout','light','implementer','verifier'):
-            role=tomllib.loads((self.c/'agents'/f'apzn-{name}.toml').read_text(encoding='utf-8'))
+            role=tomllib.loads((self.c/'agents'/f'adhd-{name}.toml').read_text(encoding='utf-8'))
             self.assertEqual(role['model_reasoning_effort'],'max')
-        self.assertNotIn('APZN_ROOT',(Path(result['release'])/'skills/apzn-native/SKILL.md').read_text(encoding='utf-8'));self.assertNotIn('APZN_PYTHON',(self.a/'skills/apzn-native/SKILL.md').read_text(encoding='utf-8'));
-        self.assertTrue((self.a/'skills/apzn-native/SKILL.md').exists());self.assertTrue((self.c/'AGENTS.md').read_bytes().startswith(self.original['AGENTS.md']))
+        self.assertNotIn('ADHD_ROOT',(Path(result['release'])/'skills/adhd-native/SKILL.md').read_text(encoding='utf-8'));self.assertNotIn('ADHD_PYTHON',(self.a/'skills/adhd-native/SKILL.md').read_text(encoding='utf-8'));
+        self.assertTrue((self.a/'skills/adhd-native/SKILL.md').exists());self.assertTrue((self.c/'AGENTS.md').read_bytes().startswith(self.original['AGENTS.md']))
         rollback_native(self.c)
         for p,v in self.original.items():self.assertEqual((self.c/p).read_bytes(),v,p)
     def test_rollback_refuses_later_user_edit(self):

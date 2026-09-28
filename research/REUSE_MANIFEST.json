@@ -8,7 +8,7 @@
       "third_party/tomlkit"
     ],
     "license": "third_party/tomlkit-LICENSE",
-    "runtime": "apzn/native_install.py",
+    "runtime": "adhd/native_install.py",
     "checked_date": "2026-09-26",
     "packaged_hashes": {
       "third_party/tomlkit/source.py": "362b61ee698f9a14dfe5d31245ce356d8f5cb88451ff80a8a8e8c2f9fc737c2a",
@@ -36,7 +36,7 @@
       "third_party/filelock"
     ],
     "license": "third_party/filelock-LICENSE",
-    "runtime": "apzn/native.py; apzn/native_install.py",
+    "runtime": "adhd/native.py; adhd/native_install.py",
     "checked_date": "2026-09-26",
     "packaged_hashes": {
       "third_party/filelock/__init__.py": "220fd036fb0056d72dcf6f9f92af44502817996e8ce4f0ee762382f39b339a2b",
@@ -62,13 +62,13 @@
     "source_blob_sha": "69ade34311ce18217a008fb3a41cb0da11f0826d",
     "reuse": "Adapted function; total character bound including marker; no entire smolagents runtime",
     "paths": [
-      "apzn/vendor/smolagents_context.py"
+      "adhd/vendor/smolagents_context.py"
     ],
     "license": "third_party/Apache-2.0.txt",
-    "runtime": "apzn/native.py",
+    "runtime": "adhd/native.py",
     "checked_date": "2026-09-26",
     "packaged_hashes": {
-      "apzn/vendor/smolagents_context.py": "a0edf0965caa6c28c5e2e3cc6a0feb22935fff7d19bae8d8ee93742eec899f4f"
+      "adhd/vendor/smolagents_context.py": "a0edf0965caa6c28c5e2e3cc6a0feb22935fff7d19bae8d8ee93742eec899f4f"
     }
   },
   {
@@ -80,7 +80,7 @@
       "third_party/superpowers/verification-before-completion/SKILL.md"
     ],
     "license": "third_party/superpowers/LICENSE",
-    "runtime": "skills/apzn-native/SKILL.md (selective read)",
+    "runtime": "skills/adhd-native/SKILL.md (selective read)",
     "checked_date": "2026-09-26",
     "packaged_hashes": {
       "third_party/superpowers/verification-before-completion/SKILL.md": "cdd7ecf5f01a2aa77538830981c31995bb5a1cab0bd3b679f70411357e12544d"
@@ -95,7 +95,7 @@
       "third_party/spec-kit/checklist-template.md"
     ],
     "license": "third_party/spec-kit/LICENSE",
-    "runtime": "skills/apzn-native/SKILL.md (selective read)",
+    "runtime": "skills/adhd-native/SKILL.md (selective read)",
     "checked_date": "2026-09-26",
     "packaged_hashes": {
       "third_party/spec-kit/checklist-template.md": "4eae37bcc699da4313ccd53c7627565ff167a19692b5256e7dc867bf3be95c03"
