@@ -43,6 +43,8 @@ PYTHON ADHD_ROOT/adhd.py coding-scope capture --workspace WORKSPACE --repository
 `PYTHON` is the installed Python executable; PowerShell uses `&` with quoted paths.
 `--repository` is a checkout root relative to WORKSPACE. `--allow` takes an exact
 source path or directory prefix ending in `/`, with no globs, traversal or Git internals.
+WORKSPACE must include the checkout root. A workspace inside a checkout is detected
+and rejected before begin; use the checkout root or a containing parent as WORKSPACE.
 Choose the paths from the actual requirement. Output files must be new relative paths;
 capture/audit refuse to overwrite existing files. Use another output name when rechecking.
 Declare the baseline path in the begin payload:

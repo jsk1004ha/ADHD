@@ -372,6 +372,8 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         for p in artifacts: checked_path(ws,p)
         scope = None
         repositories = scope_repositories(ws, artifacts) if mode == 'coding' else set()
+        if any(not repository.is_relative_to(ws.resolve()) for repository in repositories):
+            raise ValueError('Git coding scope workspace must include the checkout root')
         if mode == 'coding' and (payload.get('coding_scope') or repositories):
             baseline_rel = payload.get('coding_scope')
             if not isinstance(baseline_rel, str):

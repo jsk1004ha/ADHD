@@ -191,8 +191,6 @@ def scope_repositories(workspace: Path, artifacts: list[str]) -> set[Path]:
     for relative in ['.', *artifacts]:
         path = _path(workspace.resolve(), relative)
         for parent in [path, *path.parents]:
-            if not parent.is_relative_to(workspace.resolve()):
-                break
             if (parent / '.git').exists():
                 found.add(parent)
                 break

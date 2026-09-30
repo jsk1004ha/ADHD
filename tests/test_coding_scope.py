@@ -10,7 +10,7 @@ import unittest
 import uuid
 from unittest.mock import patch
 
-from adhd.coding_scope import audit, capture, validate_report
+from adhd.coding_scope import audit, capture, scope_repositories, validate_report
 from adhd.core import ROOT, atomic_json, read_json
 from adhd.evidence import run_check
 from adhd.native import folder, handle_event, is_fresh, session_key, submit_request
@@ -41,6 +41,12 @@ class GitFixture(unittest.TestCase):
 
 
 class CodingScopeTests(GitFixture):
+    def test_repository_discovery_includes_checkout_above_workspace(self):
+        nested = self.root / 'nested'
+        nested.mkdir()
+        with patch('adhd.coding_scope._git', side_effect=AssertionError('hook ran Git')):
+            self.assertEqual(scope_repositories(nested, ['new.py']), {self.root})
+
     def test_scope_audit_preserves_existing_staged_unstaged_and_untracked_work(self):
         (self.root / 'outside.txt').write_text('staged\n', encoding='utf-8')
         self.git('add', 'outside.txt')
@@ -214,6 +220,25 @@ class NativeCodingScopeTests(GitFixture):
         result = self.begin(scoped=False)
         self.assertFalse(result['ok'])
         self.assertIn('coding_scope baseline', result['message'])
+
+    def test_workspace_inside_checkout_cannot_bypass_scope(self):
+        nested = self.root / 'nested'
+        nested.mkdir()
+        sid = uuid.uuid4().hex
+        handle_event({'hook_event_name': 'UserPromptSubmit', 'session_id': sid,
+                      'cwd': str(nested), 'turn_id': '1', 'prompt': 'Update new.py only'})
+        payload = {'mode': 'coding', 'criteria': [{'id': 'R1', 'kind': 'behavior', 'text': 'Update new.py'}],
+                   'artifacts': ['new.py'], 'plan': {'objective': 'Update new.py', 'approach': 'Minimal edit',
+                   'verification': 'Run scope audit', 'preflight': ['Inspect source'], 'risks': ['Scope escape'],
+                   'alternatives': ['No-op if already correct'], 'steps': [{'id': 'S1', 'action': 'Edit new.py',
+                   'requirements': ['R1'], 'depends_on': []}]}}
+        queued = submit_request(session_key(sid), nested, 'begin', payload)
+        with patch('adhd.coding_scope._git', side_effect=AssertionError('hook ran Git')):
+            handle_event({'hook_event_name': 'PostToolUse', 'session_id': sid,
+                          'cwd': str(nested), 'turn_id': '2', 'tool_name': 'Bash'})
+        result = read_json(Path(queued['receipt']))
+        self.assertFalse(result['ok'])
+        self.assertIn('workspace must include the checkout root', result['message'])
 
     def test_baseline_for_another_repository_cannot_cover_declared_source(self):
         other = self.root / 'other'
