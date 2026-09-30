@@ -116,6 +116,21 @@ class CodingScopeTests(GitFixture):
         self.commit()
         self.assertEqual(audit(self.root, baseline)['changes'], ['a.py'])
 
+    def test_commit_cannot_include_preexisting_staged_work(self):
+        (self.root / 'outside.txt').write_text('staged user work\n', encoding='utf-8')
+        self.git('add', 'outside.txt')
+        baseline = capture(self.root, '.', ['a.py'])
+        (self.root / 'a.py').write_text('requested\n', encoding='utf-8')
+        self.git('add', 'a.py')
+        # Committing only the assigned path leaves the user's staged change intact.
+        self.git('-c', 'commit.gpgsign=false', '-c', 'user.name=Scope fixture',
+                 '-c', 'user.email=scope@example.invalid', 'commit', '-qm', 'requested', '--only', '--', 'a.py')
+        self.assertEqual(audit(self.root, baseline)['changes'], ['a.py'])
+        # A later commit of that same unchanged index must still be rejected.
+        self.commit()
+        with self.assertRaisesRegex(ValueError, 'Pre-existing work committed: outside.txt'):
+            audit(self.root, baseline)
+
     def test_unicode_paths_and_empty_new_files_are_bound(self):
         baseline = capture(self.root, '.', ['한글 파일.py'])
         (self.root / '한글 파일.py').write_bytes(b'')

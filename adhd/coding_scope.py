@@ -149,6 +149,12 @@ def audit(workspace: Path, baseline: dict) -> dict:
     for path, original in baseline['dirty_files'].items():
         if {'sha256': _sha(root, path), 'index': index.get(path)} != original:
             raise ValueError('Pre-existing work changed: ' + path)
+    if baseline['dirty_files']:
+        committed = _names(_git(root, 'diff', '--no-ext-diff', '--no-textconv', '--no-renames',
+                                '--name-only', '-z', baseline['base_ref'], 'HEAD', '--',
+                                *baseline['dirty_files']))
+        if committed:
+            raise ValueError('Pre-existing work committed: ' + ', '.join(committed))
     changes = sorted(_changed(root, baseline['base_ref']) - set(baseline['dirty_files']))
     outside = [p for p in changes if not any(p == a or a.endswith('/') and p.startswith(a)
                                            for a in baseline['allowed_paths'])]

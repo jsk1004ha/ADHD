@@ -57,6 +57,8 @@ The controller pins this baseline hash. The baseline records HEAD and each exist
 staged, unstaged or untracked file's content/index state. Those existing changes must
 remain intact, including when they fall within an allowed directory. Coordinate overlapping
 work in a separate preserved checkout; never reset, delete or overwrite user work to pass.
+The audit also rejects commits that include pre-existing dirty files, even when their
+worktree and index bytes are unchanged. Commit only the assigned source paths.
 One native scope covers one checkout. Non-Git and non-coding tasks use the existing gates;
 old runs are not silently given a new scope contract.
 
