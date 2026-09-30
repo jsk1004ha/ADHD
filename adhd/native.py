@@ -28,6 +28,7 @@ from .host_capabilities import normalize_event, observe_event, completion_capabi
 from .intent import apply_intent_patch
 from .evidence import validate_execution, observe_host_tool, validate_tool_observations
 from .snapshots import build_snapshot, validate_snapshot
+from .coding_scope import validate_baseline, scope_repositories, native_evidence
 from .provenance import validate_provenance
 from .recovery import classify_failure, record_failure
 from .memory import validate_procedure_bundle
@@ -290,6 +291,10 @@ def is_fresh(state: dict) -> bool:
         current={r['id']:r for r in state.get('tool_observations',[])}
         if any(current.get(row['id'])!=row for row in c.get('tool_observations',[])):
             return False
+        if state['contract'].get('coding_scope'):
+            proof, _ = native_evidence(state, c.get('coding_scope_evidence'), checked_path)
+            if proof != c.get('coding_scope_proof'):
+                return False
         return True
     except (ValueError,OSError):
         return False
@@ -365,6 +370,19 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         if len(set(artifacts))!=len(artifacts):
             raise ValueError('Duplicate artifact')
         for p in artifacts: checked_path(ws,p)
+        scope = None
+        repositories = scope_repositories(ws, artifacts) if mode == 'coding' else set()
+        if mode == 'coding' and (payload.get('coding_scope') or repositories):
+            baseline_rel = payload.get('coding_scope')
+            if not isinstance(baseline_rel, str):
+                raise ValueError('Git coding tasks need a CLI-captured coding_scope baseline before begin')
+            baseline_path = checked_path(ws, baseline_rel, existing=True)
+            repository = validate_baseline(ws, bounded_json(baseline_path, 2 * 1024 * 1024))
+            if repositories - {repository}:
+                raise ValueError('Coding artifacts must belong to the scoped repository')
+            scope = {'baseline': baseline_rel, 'sha256': file_hash(baseline_path)}
+        elif payload.get('coding_scope'):
+            raise ValueError('coding_scope is only used for coding tasks')
         documents=validate_document_contract(payload.get('documents',[]),artifacts,ws,checked_path)
         protected=payload.get('protected_inputs',[])
         if not isinstance(protected,list) or len(protected)>40: raise ValueError('At most 40 protected input files')
@@ -378,6 +396,8 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         state['contract']={'criteria':criteria,'artifacts':artifacts,
             'assumptions':payload.get('assumptions',[]), 'non_goals':payload.get('non_goals',[]),
             'intent_version':state['intent_version'], 'documents':documents, 'protected_inputs':protected_hashes}
+        if scope:
+            state['contract']['coding_scope'] = scope
         if 'plan' in payload:
             state['plan']={'content':validate_plan(payload['plan'],criteria),'intent_version':state['intent_version']}
             state['plan']['sha256']=digest(state['plan']['content'])
@@ -525,6 +545,9 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         if state.get('needs_replan'):
             raise ValueError('Change the plan after repeated failed checks before submitting a candidate')
         result_valid(state,payload.get('criterion_results'),require_execution=True)
+        scope_proof = None; scope_files = []
+        if state['contract'].get('coding_scope'):
+            scope_proof, scope_files = native_evidence(state, payload.get('coding_scope_evidence'), checked_path)
         sources=payload.get('sources',[]);source_files=source_check(state,sources)
         expected_provenance={r['id'] for r in state['contract']['criteria'] if r['kind']=='provenance'}
         provenance_rows=payload.get('provenance_manifests',[])
@@ -580,7 +603,7 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         render_manifests=[r['render_manifest'] for r in document_evidence]
         bundle_leaves=set(render_files)
         learning_files=[learning_check['explanation_file']] if learning_check and 'explanation_file' in learning_check else []
-        ordinary=list(dict.fromkeys(files+source_files+provenance_files+learning_files+
+        ordinary=list(dict.fromkeys(files+source_files+provenance_files+learning_files+scope_files+
                                  list(state['contract'].get('protected_inputs',{}))))
         ordinary=[rel for rel in ordinary if rel not in bundle_leaves]
         large=payload.get('large_artifacts',[])
@@ -609,6 +632,9 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             'tool_observations':[observation_by_id[ref] for ref in used_observations],
             'plan_sha256':state.get('plan',{}).get('sha256'),
             'execution_receipts':execution_refs,'evidence_schema':1}
+        if scope_proof:
+            c['coding_scope_proof'] = scope_proof
+            c['coding_scope_evidence'] = payload['coding_scope_evidence']
         c['digest']=digest(c)
         state['candidate']=c; state['status']='reviewing'; state['feedback']=''
         return 'Candidate '+c['digest']+' recorded. Spawn adhd-verifier on this exact digest; do not approve your own work.'

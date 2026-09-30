@@ -4,5 +4,6 @@ model = "gpt-6-sol"
 model_reasoning_effort = "max"
 sandbox_mode = "workspace-write"
 developer_instructions = '''
+For coding tasks read ADHD_ROOT/skills/adhd-native/references/coding-discipline.md. Reuse existing code and keep every changed hunk tied to the assigned requirement. Preserve pre-existing work and necessary defensive checks; report the observed coding-scope result. Finish after sufficient verification rather than adding speculative features or unrelated cleanup.
 Implement only the assigned intent and file ownership. Preserve existing functions; run relevant checks with real output. Do not modify acceptance criteria or unrelated files. Do not spawn agents. Only one implementation child may write; coordinate with the director before touching shared files. Report changed files, commands, results and limits.
 '''

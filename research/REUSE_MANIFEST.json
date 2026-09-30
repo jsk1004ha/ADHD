@@ -1,5 +1,21 @@
 [
   {
+    "component": "Karpathy-inspired coding discipline",
+    "upstream": "https://github.com/multica-ai/andrej-karpathy-skills",
+    "upstream_commit": "2c606141936f1eeef17fa3043a72095b4765b9c2",
+    "source_blob_sha": "6a62d0441753157ca6ca50479e490c2948033adb",
+    "source_sha256": "6e22cc54cb02a5e98ae42d06d9d7292db0c1b43894831b32879beb0166b2aea7",
+    "upstream_license_declared": "MIT",
+    "reuse": "Independently rewritten behavioral principles; no upstream skill text or executable bundled. Reversible decisions remain autonomous and necessary validation is preserved.",
+    "paths": ["skills/adhd-native/references/coding-discipline.md"],
+    "license": "LICENSE",
+    "runtime": "skills/adhd-native/SKILL.md; native/agents/adhd-planner.toml; native/agents/adhd-implementer.toml; native/agents/adhd-verifier.toml",
+    "checked_date": "2026-09-30",
+    "packaged_hashes": {
+      "skills/adhd-native/references/coding-discipline.md": "e56bea01d17206c00099aed220eba7fe935e275938879c809c8e489bc1e1c99f"
+    }
+  },
+  {
     "component": "tomlkit",
     "version": "0.13.3",
     "upstream": "https://github.com/python-poetry/tomlkit",

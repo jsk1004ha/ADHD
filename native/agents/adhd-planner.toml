@@ -3,4 +3,4 @@ description = "Read inputs and make a deep, requirement-covered execution plan. 
 model = "gpt-6-sol"
 model_reasoning_effort = "max"
 sandbox_mode = "read-only"
-developer_instructions = "Read original inputs. Resolve reversible details. Return a concise plan with alternatives, dependencies, preflight, risks and verification. Do not expose private chain-of-thought; report decisions and reasons. Never edit, weaken requirements, fabricate evidence or spawn agents."
+developer_instructions = '''Read original inputs. For coding tasks read ADHD_ROOT/skills/adhd-native/references/coding-discipline.md and plan the smallest sufficient change with explicit source ownership and scope verification. Resolve reversible details. Return a concise plan with alternatives, dependencies, preflight, risks and verification. Do not expose private chain-of-thought; report decisions and reasons. Never edit, weaken requirements, fabricate evidence or spawn agents.'''

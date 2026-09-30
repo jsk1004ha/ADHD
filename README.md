@@ -46,6 +46,18 @@ The [configuration notes](config/README.md) explain which settings are defaults 
 
 ## Verify this checkout
 
+Coding tasks use a short [Karpathy-inspired discipline](skills/adhd-native/references/coding-discipline.md)
+for assumptions, minimal implementation, focused changes and sufficient-evidence stopping.
+The planner, implementer and verifier share it. For Git coding tasks, the CLI captures
+allowed paths and existing dirty/index state before work. Candidate admission requires an
+observed scope-verification receipt and a requirement mapping for every changed file.
+The hooks recheck source hashes, file inventory and captured Git metadata without executing
+commands. The [native protocol](skills/adhd-native/references/protocol.md#coding-scope)
+describes the commands and limits. This gate does not prove semantic simplicity or sandbox tools.
+
+Existing native runs retain their old contract; the scope requirement applies to new coding
+runs after installing this source and starting a fresh Codex session.
+
 ```powershell
 py -3 -m unittest discover -s tests -q
 py -3 -m unittest scripts.test_audit_local_install -q

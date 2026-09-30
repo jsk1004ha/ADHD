@@ -79,6 +79,14 @@ def parser() -> argparse.ArgumentParser:
     q = sub.add_parser('check', help='Run an explicit argv check and emit a structured execution receipt')
     q.add_argument('--spec-file', required=True, type=Path)
     q.add_argument('--workspace', type=Path, default=Path.cwd())
+    q = sub.add_parser('coding-scope', help='Capture or verify a read-only Git change-scope audit')
+    q.add_argument('operation', choices=['capture', 'audit', 'verify'])
+    q.add_argument('--workspace', type=Path, default=Path.cwd())
+    q.add_argument('--repository', default='.')
+    q.add_argument('--allow', action='append', default=[])
+    q.add_argument('--baseline')
+    q.add_argument('--report')
+    q.add_argument('--out')
     from .extra_cli import add_parsers
     add_parsers(sub)
     return p
@@ -105,6 +113,28 @@ def main(argv=None) -> int:
                 raise ValueError('A bounded JSON --spec-file is required')
             spec=json.loads(args.spec_file.read_text(encoding='utf-8-sig'))
             output(run_check(spec,args.workspace.resolve()))
+        elif args.command == 'coding-scope':
+            from .coding_scope import capture, audit as scope_audit, _path
+            from .core import digest, file_hash
+            ws = args.workspace.resolve()
+            if args.operation == 'capture':
+                value = capture(ws, args.repository, args.allow)
+            else:
+                if not args.baseline:
+                    raise ValueError('A captured --baseline is required')
+                value = scope_audit(ws, bounded_json(_path(ws, args.baseline), 2 * 1024 * 1024))
+            if args.operation == 'verify':
+                if not args.report or digest(value) != digest(bounded_json(_path(ws, args.report), 2 * 1024 * 1024)):
+                    raise ValueError('Scope report no longer matches the actual Git audit')
+                output({'verified': True, 'changes': value['changes']})
+            else:
+                if not args.out:
+                    raise ValueError('A new relative --out path is required')
+                target = _path(ws, args.out)
+                if target.exists():
+                    raise ValueError('Refusing to overwrite a scope baseline or report')
+                atomic_json(target, value)
+                output({'path': args.out, 'sha256': file_hash(target)})
         elif args.command == 'upgrade':
             output(upgrade_native(args.codex_home,args.agents_home,args.compact,args.migrate_existing_roles))
         elif args.command == 'install':

@@ -46,7 +46,7 @@ class NativeInstallIntegrityTests(unittest.TestCase):
         record = install_native(self.codex, self.agents, fixture_mode=True)
         hook = Path(record['release']) / 'hook.py'
         hook.write_bytes(hook.read_bytes() + b'\n# tampered\n')
-        with self.assertRaisesRegex(ValueError, 'release bytes were modified'):
+        with self.assertRaisesRegex(ValueError, r'^Installed release file size changed: hook\.py$'):
             upgrade_native(self.codex, self.agents, fixture_mode=True)
         self.assertEqual((self.codex / 'config.toml').read_bytes(), self.original['config.toml'])
         self.assertEqual((self.codex / 'AGENTS.md').read_bytes().split(b'\n\n')[0] + b'\n', self.original['AGENTS.md'])

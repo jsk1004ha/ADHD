@@ -31,6 +31,75 @@ Minimal begin payload (replace the examples with the actual requirements):
 ```
 Modes: research, study, report, coding, game. Criterion kinds: artifact, test, visual, source, reasoning, behavior, provenance, browser, mcp. Text-only substantive work can use `answer.md`. Declare real output files, not temporary nonexistent promises. Zero/empty files cannot pass. The original user text remains authoritative even if the initial checklist omitted a demand. Requirements-quality review and implementation acceptance are different: see `ADHD_ROOT/third_party/spec-kit/checklist-template.md`.
 
+## Coding scope
+
+For a new coding run whose workspace or declared artifacts belong to a Git checkout,
+capture the source scope BEFORE edits and BEFORE `begin`, using a normal Codex tool:
+
+```text
+PYTHON ADHD_ROOT/adhd.py coding-scope capture --workspace WORKSPACE --repository . --allow src/ --allow tests/ --out .adhd/scope-base.json
+```
+
+`PYTHON` is the installed Python executable; PowerShell uses `&` with quoted paths.
+`--repository` is a checkout root relative to WORKSPACE. `--allow` takes an exact
+source path or directory prefix ending in `/`, with no globs, traversal or Git internals.
+Choose the paths from the actual requirement. Output files must be new relative paths;
+capture/audit refuse to overwrite existing files. Use another output name when rechecking.
+Declare the baseline path in the begin payload:
+
+```json
+{"coding_scope":".adhd/scope-base.json"}
+```
+
+The controller pins this baseline hash. The baseline records HEAD and each existing
+staged, unstaged or untracked file's content/index state. Those existing changes must
+remain intact, including when they fall within an allowed directory. Coordinate overlapping
+work in a separate preserved checkout; never reset, delete or overwrite user work to pass.
+One native scope covers one checkout. Non-Git and non-coding tasks use the existing gates;
+old runs are not silently given a new scope contract.
+
+After edits and relevant checks, audit through a normal tool:
+
+```text
+PYTHON ADHD_ROOT/adhd.py coding-scope audit --workspace WORKSPACE --baseline .adhd/scope-base.json --out .adhd/scope-report.json
+```
+
+This checks changes against the original commit, so a commit does not hide a scope
+escape. Renames check both paths. Out-of-scope files and altered pre-existing work
+fail. Unchanged pre-existing work is not attributed to the current task. A verified
+no-op is valid. The report binds Git-visible source hashes, the observed file inventory,
+HEAD/ref/index metadata and the audit engine's hashes.
+
+Run `adhd.py check` with the following argv in its check spec. Use the exact installed
+Python/entrypoint, absolute WORKSPACE, current run_id/revision, and baseline/report paths
+relative to WORKSPACE. `subject_paths` must include the baseline and report plus the
+relevant source/test inputs. The command verifies the report against a fresh Git audit:
+
+```json
+{"argv":["PYTHON","ADHD_ROOT/adhd.py","coding-scope","verify","--workspace","WORKSPACE","--baseline",".adhd/scope-base.json","--report",".adhd/scope-report.json"]}
+```
+
+Candidate payload adds the successful execution receipt and one row per changed file:
+
+```json
+{"coding_scope_evidence":{"report":".adhd/scope-report.json","receipt":".adhd/checks/CHECK_ID/receipt.json","change_coverage":[{"path":"src/changed.py","requirements":["R1"],"reason":"Implements the requested validation"}]}}
+```
+
+Coverage paths are relative to the scoped checkout. Requirement IDs must exist, and
+the reviewer checks the actual hunks and reasons against user intent. Hooks require
+the exact pinned verify command, hash-bound report/baseline and complete coverage;
+an unrelated zero-exit receipt is rejected. They add changed nonempty files and the
+proof files to the candidate snapshot, and recheck hashes, inventory and Git metadata
+before accepting a review. Empty/deleted files remain bound by the scope report.
+The independent reviewer repeats the read-only verify command through a normal tool.
+
+Hooks NEVER run Git or another command. The observed ignored files/directories and
+`.adhd/`, `.omx/`, `.git/` content are outside the source inventory; HEAD/ref/index
+metadata is checked separately. This is a bounded source-scope check, not a tool
+sandbox, semantic simplicity proof or a guard for arbitrary ignored/private files.
+New visible files or changed Git metadata after audit require a new report/receipt.
+The inventory is limited to 20000 files and control JSON to 2 MiB.
+
 ## Use agents only where they add value
 The parent owns integration and intent. Default task caps: 3 simultaneous children, 12 child spawns, 1 Astra consultation. One delegated writer at most; while it writes the parent does not edit that ownership area. Independent reading may run in parallel. Child agents never spawn grandchildren. Roles have explicit models; do not override a role with another model or hide an unavailable model by substitution.
 

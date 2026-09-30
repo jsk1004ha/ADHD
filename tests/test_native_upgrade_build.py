@@ -37,13 +37,13 @@ class NativeUpgradeBuildTests(unittest.TestCase):
         self.assertTrue(all(str(release/'hook.py') in command for command in commands))
         rollback_native(self.codex)
 
-    def test_old_adhd_install_upgrades_without_losing_native_state(self):
-        with patch('adhd.native_install.INSTALL_SUBDIR','adhd'):
+    def test_prior_install_upgrades_without_losing_native_state(self):
+        with patch('adhd.native_install.INSTALL_SUBDIR','prior-harness'):
             old=install_native(self.codex,self.agents,fixture_mode=True)
-        preserved=self.codex/'adhd'/'native'/'keep.json'
+        preserved=self.codex/'prior-harness'/'native'/'keep.json'
         preserved.parent.mkdir(parents=True,exist_ok=True)
         preserved.write_text('{"keep":true}\n',encoding='utf-8')
-        old_record=self.codex/'adhd'/'native-installation.json'
+        old_record=self.codex/'prior-harness'/'native-installation.json'
         self.assertTrue(old_record.is_file())
         result=upgrade_native(self.codex,self.agents,fixture_mode=True)
         self.assertEqual(result['upgraded_from'],old['version'])
@@ -54,19 +54,19 @@ class NativeUpgradeBuildTests(unittest.TestCase):
         self.assertEqual((self.codex/'config.toml').read_text(), 'model="gpt-6-sol"\n')
         rollback_native(self.codex)
 
-    def test_old_adhd_install_is_not_silently_installed_side_by_side(self):
-        with patch('adhd.native_install.INSTALL_SUBDIR','adhd'):
+    def test_prior_install_is_not_silently_installed_side_by_side(self):
+        with patch('adhd.native_install.INSTALL_SUBDIR','prior-harness'):
             install_native(self.codex,self.agents,fixture_mode=True)
         with self.assertRaisesRegex(ValueError,'upgrade'):
             install_native(self.codex,self.agents,fixture_mode=True)
-        self.assertTrue((self.codex/'adhd'/'native-installation.json').is_file())
+        self.assertTrue((self.codex/'prior-harness'/'native-installation.json').is_file())
         self.assertFalse((self.codex/'adhd'/'native-installation.json').exists())
         rollback_native(self.codex)
 
     def test_failed_path_migration_restores_old_installation(self):
-        with patch('adhd.native_install.INSTALL_SUBDIR','adhd'):
+        with patch('adhd.native_install.INSTALL_SUBDIR','prior-harness'):
             install_native(self.codex,self.agents,fixture_mode=True)
-        old_record=self.codex/'adhd'/'native-installation.json'
+        old_record=self.codex/'prior-harness'/'native-installation.json'
         before={path:path.read_bytes() for path in
                 (old_record,self.codex/'hooks.json',self.codex/'AGENTS.md')}
         with patch('adhd.native_install._install_native',side_effect=RuntimeError('injected')):

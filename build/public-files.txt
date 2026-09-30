@@ -10,6 +10,7 @@ adhd.py
 adhd/__init__.py
 adhd/change_journal.py
 adhd/cli.py
+adhd/coding_scope.py
 adhd/core.py
 adhd/dependencies.py
 adhd/documents.py
@@ -66,6 +67,7 @@ skills/adhd-documents/SKILL.md
 skills/adhd-extensions/SKILL.md
 skills/adhd-memory/SKILL.md
 skills/adhd-native/SKILL.md
+skills/adhd-native/references/coding-discipline.md
 skills/adhd-native/references/protocol.md
 skills/adhd-native/references/v12-gates.md
 skills/adhd/SKILL.md
@@ -78,6 +80,7 @@ tests/__init__.py
 tests/fake_codex.py
 tests/test_change_journal.py
 tests/test_cli_branding.py
+tests/test_coding_scope.py
 tests/test_document_evidence.py
 tests/test_editable_elements.py
 tests/test_extension_launch.py
