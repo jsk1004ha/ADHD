@@ -51,8 +51,12 @@ class NativeUpgradeBuildTests(unittest.TestCase):
         self.assertTrue((self.codex/'adhd'/'native-installation.json').is_file())
         self.assertFalse(old_record.exists())
         self.assertEqual(preserved.read_text(encoding='utf-8'),'{"keep":true}\n')
-        self.assertEqual((self.codex/'config.toml').read_text(), 'model="gpt-6-sol"\n')
+        import tomllib
+        config=tomllib.loads((self.codex/'config.toml').read_text())
+        self.assertEqual(config['model'],'gpt-6-sol')
+        self.assertIn('openai-docs',config['mcp_servers'])
         rollback_native(self.codex)
+        self.assertEqual((self.codex/'config.toml').read_text(), 'model="gpt-6-sol"\n')
 
     def test_prior_install_is_not_silently_installed_side_by_side(self):
         with patch('adhd.native_install.INSTALL_SUBDIR','prior-harness'):

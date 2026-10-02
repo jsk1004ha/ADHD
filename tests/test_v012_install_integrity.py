@@ -44,11 +44,12 @@ class NativeInstallIntegrityTests(unittest.TestCase):
 
     def test_upgrade_refuses_noop_when_installed_release_is_tampered(self):
         record = install_native(self.codex, self.agents, fixture_mode=True)
+        installed_config = (self.codex / 'config.toml').read_bytes()
         hook = Path(record['release']) / 'hook.py'
         hook.write_bytes(hook.read_bytes() + b'\n# tampered\n')
         with self.assertRaisesRegex(ValueError, r'^Installed release file size changed: hook\.py$'):
             upgrade_native(self.codex, self.agents, fixture_mode=True)
-        self.assertEqual((self.codex / 'config.toml').read_bytes(), self.original['config.toml'])
+        self.assertEqual((self.codex / 'config.toml').read_bytes(), installed_config)
         self.assertEqual((self.codex / 'AGENTS.md').read_bytes().split(b'\n\n')[0] + b'\n', self.original['AGENTS.md'])
 
     def test_destination_conflict_is_rejected_before_release_creation(self):

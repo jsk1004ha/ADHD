@@ -320,7 +320,7 @@ class NativeInstallTests(unittest.TestCase):
         self.assertEqual(route('adhd-planner')['effort'],'max')
         self.assertEqual(route('adhd-scout')['effort'],'max')
         self.assertEqual(route('adhd-architect')['effort'],'low')
-        cfg=tomllib.loads((self.c/'config.toml').read_text());self.assertEqual(cfg['model'],'gpt-5.6-sol');self.assertEqual((self.c/'config.toml').read_bytes(),self.original['config.toml']);self.assertEqual(cfg['model_providers']['router']['base_url'],'http://127.0.0.1:4202/v1')
+        cfg=tomllib.loads((self.c/'config.toml').read_text());original_cfg=tomllib.loads(self.original['config.toml'].decode());self.assertEqual(cfg['model'],'gpt-5.6-sol');self.assertIn('openai-docs',cfg['mcp_servers']);self.assertIn('# keep comment',(self.c/'config.toml').read_text());self.assertEqual({k:v for k,v in cfg.items() if k!='mcp_servers'},{k:v for k,v in original_cfg.items() if k!='mcp_servers'});self.assertEqual(cfg['mcp_servers']['context7'],original_cfg['mcp_servers']['context7'])
         self.assertEqual((self.c/'agents/researcher.toml').read_bytes(),self.original[str(Path('agents')/'researcher.toml')])
         hooks=read_json(self.c/'hooks.json');self.assertEqual(hooks['hooks']['SessionStart'][0]['hooks'][0]['trusted_hash'],'existing-do-not-change')
         self.assertNotIn('trusted_hash',hooks['hooks']['Stop'][-1]['hooks'][0]);self.assertLessEqual(hooks['hooks']['SessionEnd'][-1]['hooks'][0]['timeout'],3)

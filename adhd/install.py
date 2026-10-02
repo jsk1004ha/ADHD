@@ -24,6 +24,24 @@ Explicit user-selected skills and repository instructions take precedence.
 Reuse verified project-local procedures only after checking current applicability.
 <!-- ADHD:END -->'''
 
+# The old runner is still used by direct legacy callers. Copy its reviewed
+# runtime surface only; a checkout can contain live .adhd state, graph DB WAL
+# files and other changing/private trees that must never become a release.
+_LEGACY_COPY_ROOT = {
+    'adhd', 'skills', 'native', 'schemas', 'third_party', 'config', 'bundled',
+    'adhd.py', 'hook.py', 'LICENSE', 'LICENSE-RAIBIT-MIT',
+    'THIRD_PARTY_NOTICES.md', 'README.md', 'README.ko.md',
+    'ADHD_PROVENANCE.md', 'requirements-documents.txt',
+}
+
+
+def _legacy_copy_ignore(directory: str, names: list[str]) -> set[str]:
+    base = Path(directory)
+    if base.resolve() == ROOT.resolve():
+        return set(names) - _LEGACY_COPY_ROOT
+    return {name for name in names if (base / name).is_symlink() or name == '__pycache__'
+            or name.endswith(('.pyc', '.pyo', '.db-shm', '.db-wal'))}
+
 
 def tree_hashes(root: Path) -> dict[str, str]:
     return {str(p.relative_to(root)): file_hash(p) for p in root.rglob('*') if p.is_file() and not p.is_symlink()}
@@ -62,7 +80,7 @@ def install(target: Path, compact: bool = False) -> dict[str, Any]:
         if ROOT.resolve() != current.resolve():
             current.parent.mkdir(parents=True, exist_ok=True)
             shutil.copytree(ROOT, current, dirs_exist_ok=False,
-                            ignore=shutil.ignore_patterns('__pycache__', '*.pyc', '.git', 'test-results*'))
+                            ignore=_legacy_copy_ignore)
         shutil.copytree(ROOT / 'skills' / 'adhd', target / 'skills' / 'adhd')
         installed_skill = target / 'skills' / 'adhd' / 'SKILL.md'
         text = installed_skill.read_text(encoding='utf-8')

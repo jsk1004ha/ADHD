@@ -21,7 +21,7 @@ py -3 .\adhd.py doctor
 py -3 .\adhd.py upgrade
 ```
 
-On macOS/Linux, use `python3 adhd.py upgrade`. `install.ps1` and `install.sh` run the same upgrade command. The installer copies an immutable release into `$CODEX_HOME/adhd/releases`, adds nine hook groups to `hooks.json`, and installs `adhd-*` skills and roles. It does not rewrite `config.toml` or `auth.json`. Existing unmanaged hooks and instructions are retained. Upgrade locates the prior managed installation from its record, validates release hashes and backups, and then migrates it. Existing state and backups remain in their original locations.
+On macOS/Linux, use `python3 adhd.py upgrade`. `install.ps1` and `install.sh` run the same upgrade command. The installer copies an immutable release into `$CODEX_HOME/adhd/releases`, adds nine hook groups to `hooks.json`, installs `adhd-*` skills and roles, and includes the default bundle below. Upgrade validates prior release hashes and backups before migration.
 
 Codex may ask you to trust the new hook commands. Inspect them in `/hooks` and approve them there; ADHD does not create or bypass trust. Start a new App/CLI session after an upgrade so that the loaded hook and role profiles match the installed release.
 
@@ -32,12 +32,37 @@ py -3 .\adhd.py rollback-native
 
 `rollback-native` checks for later edits before restoring managed files. Use `--codex-home PATH` to target an isolated Codex home for evaluation.
 
+## Default skills and MCPs
+
+A normal `upgrade` installs **50 complete, licensed public skill trees** (30 from OpenAI and 20 from [K-Dense Scientific Agent Skills](https://github.com/K-Dense-AI/scientific-agent-skills)), including each `SKILL.md` and its required local references, scripts, and assets. The [skill manifest](config/builtin-skills.json) records the source, pinned commit, and file hashes; [third-party notices](THIRD_PARTY_NOTICES.md) describe the licenses. An existing skill folder with the same name is preserved, and the bundled copy remains in the managed release. Skill-specific Python/Node packages and external services are not installed automatically.
+
+The [MCP catalog](config/mcp-selection.json) adds 16 connection definitions by default. Existing connections with the same name or URL are preserved; only missing entries are added to `config.toml`. Existing model, provider, plugin, and authentication settings are preserved.
+
+| Initial readiness | MCP entries |
+| --- | --- |
+| Anonymous remote endpoints: enabled by default | `firecrawl`, `exa`, `openai-docs` |
+| Local launchers: enabled when the required CLI, runtime, and engine are available | `aside`, `chrome-devtools`, `arxiv`, `godot`, `drawio` |
+| Authentication required: disabled by default | `tavily`, `brave-search`, `jupyter`, `figma`, `sentry`, `notion` |
+| Separate engine integration required | `blender`, `unity` |
+
+Aside uses `aside mcp` from its separately installed [official CLI](https://docs.aside.com/help/developers). Version-pinned `npx` and `uvx` server packages are not bundled as executables; they may be downloaded when Codex starts those connections. Registration and launcher readiness alone do not prove authentication or a successful MCP connection.
+
+To add only the bundle to an existing ADHD installation while keeping its hooks and roles, use the commands below. Replace `KEY` with an MCP name from the table. `builtin enable` requires the managed entry's current prerequisites; `builtin rollback` undoes the standalone application. Open a new Codex App/CLI session to load the changed tools.
+
+```powershell
+py -3 .\adhd.py builtin apply
+py -3 .\adhd.py builtin status
+py -3 .\adhd.py builtin enable KEY
+py -3 .\adhd.py builtin rollback
+```
+
 ## What is included
 
 | Path | Purpose |
 | --- | --- |
 | `adhd.py`, `hook.py`, `adhd/` | CLI, hook entry point, controller, installers and local capability code |
 | `skills/adhd-*`, `native/agents/` | Harness instructions and helper role defaults |
+| `bundled/skills/`, `config/builtin-skills.json`, `config/mcp-selection.json` | Full 50-skill trees, license/source manifest and 16 MCP connection recipes |
 | `schemas/`, `config/`, `examples/` | Contracts, optional guidance and generic examples |
 | `tests/`, `scripts/` | Regressions and a read-only local installation audit |
 | `third_party/`, `research/REUSE_MANIFEST.json` | Vendored dependencies, license texts and source attributions |

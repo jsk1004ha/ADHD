@@ -231,6 +231,18 @@ def discover_skills(workspace: Path|None=None, *, host_catalog=None) -> list[dic
         pattern='*/SKILL.md' if origin!='plugin-cache' else '**/SKILL.md'
         candidates.extend((p,origin,scope) for p in root.glob(pattern))
     candidates.extend((p,'skills-config','configured') for p in explicit if p.is_file())
+    # A pre-existing user skill owns its folder. Keep the bundled copy in the
+    # immutable release visible as a separate fallback to local routing.
+    managed_root = home() / 'adhd'
+    for record_name, field in [('builtin-installation.json', 'skills'),
+                               ('native-installation.json', 'builtin_skills')]:
+        record = read_json(managed_root / record_name, {})
+        for row in record.get(field, []) if isinstance(record, dict) else []:
+            if row.get('status') != 'preserved_existing':
+                continue
+            fallback = Path(str(row.get('fallback', ''))).expanduser().resolve()
+            if fallback.is_relative_to(managed_root.resolve()) and fallback.is_file():
+                candidates.append((fallback, 'adhd-bundled-fallback', 'user'))
     result=[];seen:set[str]=set()
     for p,origin,scope in candidates[:20000]:
         try:

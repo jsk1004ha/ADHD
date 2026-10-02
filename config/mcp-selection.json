@@ -1,6 +1,6 @@
 {
-  "schema": "ADHD recommendations, NOT a Codex MCP config",
-  "auto_install": false,
+  "schema": "ADHD bundled MCP connection catalog v1",
+  "auto_install": true,
   "profiles": {
     "research": [
       "existing-search-or-ONE-of-Exa/Tavily/Brave",
@@ -36,22 +36,47 @@
       "risks": "임의 Blender Python 실행 가능. 프로젝트 복사본, 로컬 연결부터. 외부 자산·생성 서비스는 별도 인증/비용",
       "activation": "게임/3D 작업 때만",
       "note": "현재 확인된 저장소/패키지는 mcp-for-blender. 종전 blender-mcp URL은 이 조사에서 읽히지 않아 낡은 설치 명령을 기본값으로 넣지 않음",
-      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
-      "checked_date": "2026-09-26"
+      "installation_status": "Bundled connection definition; runtime readiness is checked locally",
+      "checked_date": "2026-09-26",
+      "builtin": {
+        "id": "M01",
+        "key": "blender",
+        "source": "https://github.com/ahujasid/mcp-for-blender",
+        "command": "uvx",
+        "args": [
+          "--from",
+          "mcp-for-blender==2.1.3",
+          "mcp-for-blender"
+        ],
+        "requires_program": "blender",
+        "engine_integration_required": true,
+        "license": "MIT"
+      }
     },
     {
       "id": "M02",
       "name": "Aside MCP",
-      "url": "https://docs.aside.com/changelog/native",
+      "url": "https://docs.aside.com/help/developers",
       "maintainer": "Aside 공식",
       "use": "로그인된 브라우저의 작업·검사·자동화",
-      "prerequisites": "Windows or macOS: verify installed Aside binary, official CLI help and real MCP handshake. Existing login and permissions required.",
+      "prerequisites": "Official Aside CLI installed and signed in as needed; MCP handshake and tool availability require a live probe.",
       "risks": "로그인 쿠키·계정의 작업 권한과 서비스 이용 요금 주의. 읽기/저장/제출 구분",
-      "activation": "macOS 선택; Windows 기본 제외",
-      "note": "공식 연결은 aside mcp. 비공식 동명 wrapper 대신 공식 CLI 경로 사용",
-      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
-      "checked_date": "2026-09-26",
-      "warning": "v1.1 macOS-only statement superseded. Do not run Unix installer scripts on Windows or treat registration as runtime success."
+      "activation": "Windows/macOS: official Aside CLI is present and the task needs its browser tools",
+      "note": "Official CLI uses aside mcp over stdio. The proprietary executable is not bundled.",
+      "installation_status": "Bundled connection definition; runtime readiness is checked locally",
+      "checked_date": "2026-10-02",
+      "builtin": {
+        "id": "M02",
+        "key": "aside",
+        "source": "https://docs.aside.com/help/developers",
+        "command": "aside",
+        "args": [
+          "mcp"
+        ],
+        "requires_program": "aside",
+        "license": "Proprietary; executable is an external prerequisite",
+        "checked_date": "2026-10-02"
+      }
     },
     {
       "id": "M03",
@@ -63,8 +88,55 @@
       "risks": "브라우저 데이터 노출. usage statistics 기본값 확인, 원치 않으면 --no-usage-statistics. CrUX는 --no-performance-crux",
       "activation": "기존 브라우저가 부족할 때",
       "note": "전용 테스트 프로필 권장; 기존 브라우저 MCP와 상시 중복 사용 안 함",
-      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
-      "checked_date": "2026-09-26"
+      "installation_status": "Bundled connection definition; runtime readiness is checked locally",
+      "checked_date": "2026-09-26",
+      "builtin": {
+        "id": "M03",
+        "key": "chrome-devtools",
+        "source": "https://github.com/ChromeDevTools/chrome-devtools-mcp",
+        "command": "npx",
+        "args": [
+          "-y",
+          "chrome-devtools-mcp@1.10.1",
+          "--no-usage-statistics"
+        ],
+        "requires_program": "chrome",
+        "license": "Apache-2.0",
+        "node_runtime": [
+          [
+            [
+              20,
+              19,
+              0
+            ],
+            [
+              21,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              22,
+              12,
+              0
+            ],
+            [
+              23,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              23,
+              0,
+              0
+            ],
+            null
+          ]
+        ]
+      }
     },
     {
       "id": "M04",
@@ -76,8 +148,16 @@
       "risks": "크레딧/호출 비용, 사이트 약관·접근 권한, 개인정보 반출",
       "activation": "대량 문서 수집 때",
       "note": "단순 검색이면 기존 검색 도구로 충분",
-      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
-      "checked_date": "2026-09-26"
+      "installation_status": "Bundled connection definition; runtime readiness is checked locally",
+      "checked_date": "2026-09-26",
+      "builtin": {
+        "id": "M04",
+        "key": "firecrawl",
+        "source": "https://docs.firecrawl.dev/mcp-server",
+        "url": "https://mcp.firecrawl.dev/v2/mcp",
+        "anonymous": true,
+        "license": "MIT upstream / hosted terms"
+      }
     },
     {
       "id": "M05",
@@ -89,8 +169,16 @@
       "risks": "API 요금·원격 전송. 결과를 실제로 읽기 전 인용 금지",
       "activation": "검색 공급자 후보 1",
       "note": "Exa/Tavily/Brave를 모두 켜지 말고 한 개부터",
-      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
-      "checked_date": "2026-09-26"
+      "installation_status": "Bundled connection definition; runtime readiness is checked locally",
+      "checked_date": "2026-09-26",
+      "builtin": {
+        "id": "M05",
+        "key": "exa",
+        "source": "https://github.com/exa-labs/exa-mcp-server",
+        "url": "https://mcp.exa.ai/mcp",
+        "anonymous": true,
+        "license": "MIT upstream / hosted terms"
+      }
     },
     {
       "id": "M06",
@@ -102,8 +190,17 @@
       "risks": "요금 및 외부 전송. 검색 요약을 논문의 직접 증거로 쓰지 않음",
       "activation": "검색 공급자 후보 2",
       "note": "기존 검색 도구와 품질/비용을 비교 후 선택",
-      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
-      "checked_date": "2026-09-26"
+      "installation_status": "Bundled connection definition; runtime readiness is checked locally",
+      "checked_date": "2026-09-26",
+      "builtin": {
+        "id": "M06",
+        "key": "tavily",
+        "source": "https://github.com/tavily-ai/tavily-mcp",
+        "url": "https://mcp.tavily.com/mcp",
+        "bearer_token_env_var": "TAVILY_API_KEY",
+        "auth_required": true,
+        "license": "MIT upstream / hosted terms"
+      }
     },
     {
       "id": "M07",
@@ -115,8 +212,27 @@
       "risks": "할당량·요금. 출처 신뢰도는 별도 판단",
       "activation": "검색 공급자 후보 3",
       "note": "공급자 하나로 시작해 실제 병목 때 교체",
-      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
-      "checked_date": "2026-09-26"
+      "installation_status": "Bundled connection definition; runtime readiness is checked locally",
+      "checked_date": "2026-09-26",
+      "builtin": {
+        "id": "M07",
+        "key": "brave-search",
+        "source": "https://github.com/brave/brave-search-mcp-server",
+        "command": "npx",
+        "args": [
+          "-y",
+          "@brave/brave-search-mcp-server@2.1.4",
+          "--transport",
+          "stdio"
+        ],
+        "env_vars": [
+          "BRAVE_API_KEY"
+        ],
+        "required_env": [
+          "BRAVE_API_KEY"
+        ],
+        "license": "MIT"
+      }
     },
     {
       "id": "M08",
@@ -128,8 +244,20 @@
       "risks": "arXiv preprint는 심사 완료 보증 아님. 초록/본문 확인 범위 기록",
       "activation": "연구",
       "note": "논문 번호·버전·원문 위치를 근거 장부에 보관",
-      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
-      "checked_date": "2026-09-26"
+      "installation_status": "Bundled connection definition; runtime readiness is checked locally",
+      "checked_date": "2026-09-26",
+      "builtin": {
+        "id": "M08",
+        "key": "arxiv",
+        "source": "https://github.com/blazickjp/arxiv-mcp-server",
+        "command": "uvx",
+        "args": [
+          "--from",
+          "arxiv-mcp-server==0.7.3",
+          "arxiv-mcp-server"
+        ],
+        "license": "Apache-2.0"
+      }
     },
     {
       "id": "M09",
@@ -141,8 +269,28 @@
       "risks": "임의 코드 실행, 커널/데이터 상태 변화. 분리 환경 사용",
       "activation": "연구·실험 분석",
       "note": "실행 셀/환경/원자료 해시를 저장하고 순서 의존 검증",
-      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
-      "checked_date": "2026-09-26"
+      "installation_status": "Bundled connection definition; runtime readiness is checked locally",
+      "checked_date": "2026-09-26",
+      "builtin": {
+        "id": "M09",
+        "key": "jupyter",
+        "source": "https://github.com/datalayer/jupyter-mcp-server",
+        "command": "uvx",
+        "args": [
+          "--from",
+          "jupyter-mcp-server==2.2.3",
+          "jupyter-mcp-server"
+        ],
+        "env_vars": [
+          "JUPYTER_URL",
+          "JUPYTER_TOKEN"
+        ],
+        "required_env": [
+          "JUPYTER_URL",
+          "JUPYTER_TOKEN"
+        ],
+        "license": "BSD-3-Clause"
+      }
     },
     {
       "id": "M10",
@@ -154,8 +302,33 @@
       "risks": "프로젝트 수정 가능. 브랜치/복사본에서 먼저",
       "activation": "Godot 게임 작업",
       "note": "Unity용 도구와 동시에 기본 활성화할 이유 없음",
-      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
-      "checked_date": "2026-09-26"
+      "installation_status": "Bundled connection definition; runtime readiness is checked locally",
+      "checked_date": "2026-09-26",
+      "builtin": {
+        "id": "M10",
+        "key": "godot",
+        "source": "https://github.com/Coding-Solo/godot-mcp",
+        "command": "npx",
+        "args": [
+          "-y",
+          "@coding-solo/godot-mcp@0.1.1"
+        ],
+        "env_vars": [
+          "GODOT_PATH"
+        ],
+        "requires_program": "godot",
+        "license": "MIT",
+        "node_runtime": [
+          [
+            [
+              18,
+              0,
+              0
+            ],
+            null
+          ]
+        ]
+      }
     },
     {
       "id": "M11",
@@ -167,8 +340,27 @@
       "risks": "씬/자산 변경, 스크립트 실행. Unity 계정/버전 조건 별도",
       "activation": "Unity 게임 작업",
       "note": "Blender와 역할 구분: 자산 제작 vs 게임 편집기 검증",
-      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
-      "checked_date": "2026-09-26"
+      "installation_status": "Bundled connection definition; runtime readiness is checked locally",
+      "checked_date": "2026-09-26",
+      "builtin": {
+        "id": "M11",
+        "key": "unity",
+        "source": "https://github.com/CoplayDev/unity-mcp",
+        "command": "uvx",
+        "args": [
+          "--from",
+          "mcpforunityserver==10.2.0",
+          "mcp-for-unity",
+          "--transport",
+          "stdio"
+        ],
+        "env_vars": [
+          "SystemRoot"
+        ],
+        "requires_program": "unity",
+        "engine_integration_required": true,
+        "license": "MIT"
+      }
     },
     {
       "id": "M12",
@@ -180,8 +372,29 @@
       "risks": "외부 전송 및 로컬 파일 덮어쓰기 범위 확인",
       "activation": "보고서·설계",
       "note": "이미지 생성만이 아니라 편집 가능한 원본도 남기기",
-      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
-      "checked_date": "2026-09-26"
+      "installation_status": "Bundled connection definition; runtime readiness is checked locally",
+      "checked_date": "2026-09-26",
+      "builtin": {
+        "id": "M12",
+        "key": "drawio",
+        "source": "https://github.com/jgraph/drawio-mcp",
+        "command": "npx",
+        "args": [
+          "-y",
+          "@drawio/mcp@1.6.3"
+        ],
+        "license": "Apache-2.0",
+        "node_runtime": [
+          [
+            [
+              18,
+              0,
+              0
+            ],
+            null
+          ]
+        ]
+      }
     },
     {
       "id": "M13",
@@ -193,8 +406,16 @@
       "risks": "비공개 디자인 접근, 서비스 플랜 제약",
       "activation": "UI/프런트엔드",
       "note": "디자인 정보 회수와 최종 브라우저 렌더 검사는 별개",
-      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
-      "checked_date": "2026-09-26"
+      "installation_status": "Bundled connection definition; runtime readiness is checked locally",
+      "checked_date": "2026-09-26",
+      "builtin": {
+        "id": "M13",
+        "key": "figma",
+        "source": "https://developers.figma.com/docs/figma-mcp-server/remote-server-installation/",
+        "url": "https://mcp.figma.com/mcp",
+        "oauth_required": true,
+        "license": "Hosted service"
+      }
     },
     {
       "id": "M14",
@@ -206,8 +427,16 @@
       "risks": "운영 로그의 개인정보/토큰 주의. 자동 운영 변경 금지",
       "activation": "운영 중인 앱 디버깅",
       "note": "연구/학습 과제에는 상시 불필요",
-      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
-      "checked_date": "2026-09-26"
+      "installation_status": "Bundled connection definition; runtime readiness is checked locally",
+      "checked_date": "2026-09-26",
+      "builtin": {
+        "id": "M14",
+        "key": "sentry",
+        "source": "https://github.com/getsentry/sentry-mcp",
+        "url": "https://mcp.sentry.dev/mcp",
+        "oauth_required": true,
+        "license": "Hosted service / FSL upstream"
+      }
     },
     {
       "id": "M15",
@@ -219,8 +448,17 @@
       "risks": "문서 조회 도구이며 사용자 대신 모델 API를 실행하는 서버가 아님",
       "activation": "Codex/API 작업",
       "note": "문서 최신성 확인용; 실제 계정 모델 권한 확인을 대체하지 않음",
-      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
-      "checked_date": "2026-09-26"
+      "installation_status": "Bundled connection definition; runtime readiness is checked locally",
+      "checked_date": "2026-09-26",
+      "builtin": {
+        "id": "M15",
+        "key": "openai-docs",
+        "source": "https://developers.openai.com/learn/docs-mcp",
+        "url": "https://developers.openai.com/mcp",
+        "anonymous": true,
+        "read_only": true,
+        "license": "Hosted documentation service"
+      }
     },
     {
       "id": "M16",
@@ -232,8 +470,17 @@
       "risks": "연결 계정 권한으로 쓰기 가능. 작업 범위 밖 페이지 변경 금지",
       "activation": "Notion을 실제 쓰는 작업",
       "note": "이미 연결된 Notion 도구가 있으면 중복 추가하지 않음",
-      "installation_status": "추천만; 자동 설치·인증·실환경 호출은 하지 않음",
-      "checked_date": "2026-09-26"
+      "installation_status": "Bundled connection definition; runtime readiness is checked locally",
+      "checked_date": "2026-09-26",
+      "builtin": {
+        "id": "M16",
+        "key": "notion",
+        "source": "https://developers.notion.com/guides/mcp/get-started-with-mcp",
+        "url": "https://mcp.notion.com/mcp",
+        "oauth_required": true,
+        "license": "Hosted service"
+      }
     }
-  ]
+  ],
+  "recipe_checked_date": "2026-10-02"
 }

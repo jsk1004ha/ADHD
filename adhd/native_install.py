@@ -20,12 +20,14 @@ from filelock import FileLock
 from .core import ROOT, atomic_json, atomic_text, file_hash, read_json, home
 from .models import MODELS, migrate_role
 from .install import audit as legacy_audit
+from .builtin import (skill_manifest, mcp_catalog, skill_changes, prepare_mcp_config,
+                      validate_mcp_entries, restore_mcp_entries, prune_empty_skill_dirs)
 
 START='<!-- ADHD-NATIVE:BEGIN -->'
 END='<!-- ADHD-NATIVE:END -->'
 NATIVE_SCHEMA_VERSION=3
 INSTALL_SUBDIR='adhd'
-RELEASE_DIRS=('adhd','skills','native','schemas','third_party','tests')
+RELEASE_DIRS=('adhd','skills','native','schemas','third_party','tests','config','bundled')
 RELEASE_FILES=('adhd.py','hook.py','LICENSE','LICENSE-RAIBIT-MIT','THIRD_PARTY_NOTICES.md','requirements-documents.txt','README.md','README.ko.md','ADHD_PROVENANCE.md')
 
 def _release_files(root:Path):
@@ -174,7 +176,9 @@ def _hook_group_present(hooks:dict,event:str,group:dict)->bool:
 
 def _validate_managed_row(row:dict)->None:
     p=Path(row['path']);kind=row.get('selector',{}).get('kind','file')
-    if kind=='json_hook_groups':
+    if kind=='toml_mcp_entries':
+        validate_mcp_entries(p,row['selector']['entries'])
+    elif kind=='json_hook_groups':
         hooks=json.loads((read_bytes(p) or b'{}').decode('utf-8-sig'))
         if any(not _hook_group_present(hooks,x['event'],x['group']) for x in row['selector']['groups']):
             raise ValueError('Later edits detected in ADHD hook group: '+str(p))
@@ -186,7 +190,11 @@ def _validate_managed_row(row:dict)->None:
 
 def _restore_managed_row(row:dict)->None:
     p=Path(row['path']);kind=row.get('selector',{}).get('kind','file')
-    if kind=='json_hook_groups':
+    if kind=='toml_mcp_entries':
+        restore_mcp_entries(p,row['selector']['entries'],
+                            Path(row['backup']) if row['existed'] else None,
+                            row.get('installed_sha256'))
+    elif kind=='json_hook_groups':
         hooks=json.loads((read_bytes(p) or b'{}').decode('utf-8-sig'))
         for item in reversed(row['selector']['groups']):
             groups=hooks['hooks'][item['event']];groups.remove(item['group'])
@@ -256,6 +264,8 @@ def _install_native(target: Path, agents_home: Path|None=None, compact: bool=Fal
         for p in (ROOT/'native'/'agents').glob('*.toml'):
             target_agent=target/'agents'/p.name
             if target_agent.exists():raise ValueError('Unmanaged native role already exists: '+str(target_agent))
+        skill_manifest(ROOT)
+        mcp_catalog(ROOT)
         source_identity=_compute_release_identity(ROOT)
         stamp=__version__+'-'+time.strftime('%Y%m%d-%H%M%S')+'-'+uuid.uuid4().hex[:8]
         release=parent/'releases'/stamp
@@ -294,6 +304,11 @@ def _install_native(target: Path, agents_home: Path|None=None, compact: bool=Fal
                 dest=agents_home/'skills'/capability/source.relative_to(base)
                 content=source.read_text(encoding='utf-8')
                 changes[dest]=content.encode()
+        bundled_skill_changes,bundled_skills=skill_changes(agents_home,release)
+        changes.update(bundled_skill_changes)
+        bundled_cfg,bundled_mcp_entries,bundled_mcp=prepare_mcp_config(original_cfg,release)
+        if bundled_mcp_entries:
+            changes[cfg_path]=bundled_cfg
         for p in (release/'native'/'agents').glob('*.toml'):
             target_agent=target/'agents'/p.name
             text=p.read_text(encoding='utf-8').replace('ADHD_ROOT',str(release))
@@ -340,6 +355,8 @@ def _install_native(target: Path, agents_home: Path|None=None, compact: bool=Fal
             row={'path':str(p),'existed':old is not None,'backup':str(bp),
                  'old_sha256':file_hash(bp) if old is not None else None}
             if p==hooks_path:row['selector']={'kind':'json_hook_groups','groups':hook_additions}
+            elif p==cfg_path and bundled_mcp_entries:
+                row['selector']={'kind':'toml_mcp_entries','entries':bundled_mcp_entries}
             elif p==agents_path and not compact:row['selector']={'kind':'marker','content':'\n\n'+block}
             else:row['selector']={'kind':'file'}
             rows.append(row)
@@ -356,6 +373,7 @@ def _install_native(target: Path, agents_home: Path|None=None, compact: bool=Fal
                 'source_identity':source_identity,
                 'target':str(target),'agents_home':str(agents_home),
                 'release':str(release),'backup':str(backup),'files':rows,'migrated_roles':migrated,
+                'builtin_skills':bundled_skills,'builtin_mcp':bundled_mcp,
                 'compact':compact,'native_hook_trust':'CHECK_IN_CODEX; no bypass used',
                  'models':'Existing model settings preserved; ADHD role pins require a live availability probe',
                 'existing_v1_record_preserved':(parent/'installation.json').exists()}
@@ -368,6 +386,7 @@ def _install_native(target: Path, agents_home: Path|None=None, compact: bool=Fal
                 if p.exists() and file_hash(p)==row['installed_sha256']:
                     if row['existed']: p.write_bytes(Path(row['backup']).read_bytes())
                     else: p.unlink()
+            prune_empty_skill_dirs(agents_home,bundled_skills)
             if release_created and release.exists():shutil.rmtree(release)
             raise
 
@@ -386,6 +405,7 @@ def _rollback_native(target: Path, *, record_root:Path|None=None,
         _validate_install_record(record,legacy_migration=legacy_migration,record_root=parent)
         for row in reversed(record['files']):
             _restore_managed_row(row)
+        prune_empty_skill_dirs(Path(record['agents_home']),record.get('builtin_skills',[]))
         p.rename(parent/('native-uninstalled-'+uuid.uuid4().hex[:8]+'.json'))
         return {'restored_files':len(record['files']),'memory_and_backups_preserved':str(parent)}
 

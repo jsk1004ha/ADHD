@@ -35,6 +35,11 @@ def parser() -> argparse.ArgumentParser:
             q.add_argument('--migrate-existing-roles', action='store_true',
                            help='Opt in to rewriting existing agent model pins; default preserves them.')
             q.add_argument('--compact', action='store_true', help='Replace eager global guidance by a compact router; original preserved. Opt-in, not default.')
+    q = sub.add_parser('builtin', help='Manage the default skill bundle and MCP registrations only')
+    q.add_argument('action', choices=['apply', 'status', 'enable', 'rollback'])
+    q.add_argument('key', nargs='?', help='MCP key for enable')
+    q.add_argument('--codex-home', type=Path, default=home())
+    q.add_argument('--agents-home', type=Path)
     q = sub.add_parser('run')
     q.add_argument('goal', nargs='?')
     q.add_argument('--goal-file', type=Path)
@@ -99,6 +104,19 @@ def main(argv=None) -> int:
                 stream.reconfigure(encoding='utf-8')
     args = parser().parse_args(argv)
     try:
+        if args.command == 'builtin':
+            from .builtin import apply_builtin, builtin_status, enable_builtin, rollback_builtin
+            if args.action == 'apply':
+                output(apply_builtin(args.codex_home, args.agents_home))
+            elif args.action == 'status':
+                output(builtin_status(args.codex_home, args.agents_home))
+            elif args.action == 'enable':
+                if not args.key:
+                    raise ValueError('builtin enable requires an MCP key')
+                output(enable_builtin(args.codex_home, args.key))
+            else:
+                output(rollback_builtin(args.codex_home))
+            return 0
         if args.command == 'extension' and args.action == 'launch':
             if args.codex_home:
                 os.environ['CODEX_HOME']=str(args.codex_home.expanduser().resolve())
