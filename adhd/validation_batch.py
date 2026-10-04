@@ -253,6 +253,7 @@ def run_batch(spec: dict, workspace: Path) -> dict:
 
 
 def load_report(workspace: Path, relative: str, *, require_current: bool = True) -> dict:
+    workspace = Path(workspace).resolve()
     path = _path(workspace, relative)
     if not re.fullmatch(r'\.adhd/batches/[0-9a-f]{32}/report\.json', path.relative_to(workspace).as_posix()):
         raise ValueError('Report must be in the batch evidence store')

@@ -23,7 +23,7 @@ class BuiltinReadinessTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()
         self.codex = self.root / 'codex'
         (self.codex / 'adhd').mkdir(parents=True)
         self.recipe = {'key': 'fixture', 'url': 'https://fixture.invalid/mcp',

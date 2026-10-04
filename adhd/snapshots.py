@@ -81,9 +81,25 @@ def _relative_file(workspace: Path, value: str) -> tuple[Path,str]:
     return path,path.relative_to(workspace).as_posix()
 
 
+def _reject_path_links(path: Path, message: str) -> None:
+    cursor = Path(path.anchor)
+    for part in path.parts[1:]:
+        if part in {'', '.'}:
+            continue
+        if part == '..':
+            cursor = cursor.parent
+            continue
+        cursor = cursor / part
+        if cursor.is_symlink() or (hasattr(cursor, 'is_junction') and cursor.is_junction()):
+            raise ValueError(message)
+
+
 def _manifest_leaf(workspace: Path, value: Any, label: str) -> tuple[Path,str]:
     if not isinstance(value,str) or not value or not Path(value).is_absolute():raise ValueError(label+' must use the absolute render-manifest path format')
-    try:relative=Path(value).relative_to(workspace)
+    path = Path(value)
+    if not path.is_file():raise ValueError(label+' leaves the workspace or is missing')
+    _reject_path_links(path, label+' cannot traverse links or junctions')
+    try:relative=path.resolve().relative_to(workspace)
     except ValueError:raise ValueError(label+' leaves the workspace or is missing')
     return _relative_file(workspace,relative.as_posix())
 
@@ -125,8 +141,13 @@ def _task_bundle(workspace: Path, relative: str, policy: SnapshotPolicy, start: 
     if digest({k: v for k, v in value.items() if k != 'snapshot_digest'}) != value.get('snapshot_digest'):
         raise ValueError('Task bundle has an invalid frozen digest')
     stage = Path(value.get('staging_workspace', ''))
-    if not stage.is_absolute() or not stage.resolve().is_relative_to(workspace):
+    if not stage.is_absolute() or not stage.is_dir():
         raise ValueError('Task bundle workspace escapes snapshot workspace')
+    _reject_path_links(stage, 'Task bundle workspace cannot traverse links or junctions')
+    stage = stage.resolve()
+    if not stage.is_relative_to(workspace):
+        raise ValueError('Task bundle workspace escapes snapshot workspace')
+    stage_relative = stage.relative_to(workspace)
     files = value.get('files')
     if not isinstance(files, dict) or not 1 <= len(files) <= policy.max_task_bundle_files:
         raise ValueError('Task bundle file count exceeds policy')
@@ -134,7 +155,7 @@ def _task_bundle(workspace: Path, relative: str, policy: SnapshotPolicy, start: 
     for name, sha in sorted(files.items()):
         if not isinstance(name, str) or Path(name).is_absolute() or '..' in Path(name.replace('\\', '/')).parts:
             raise ValueError('Task bundle leaf escapes staging workspace')
-        source, leaf_rel = _relative_file(workspace, (stage.relative_to(workspace) / name).as_posix())
+        source, leaf_rel = _relative_file(workspace, (stage_relative / name).as_posix())
         record = _stream_record(source, leaf_rel, policy, start, allow_empty=True, byte_limit=policy.max_task_file_bytes)
         task_bytes += record['size']
         if task_bytes > policy.max_task_bundle_bytes:

@@ -21,7 +21,7 @@ class GitFixture(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name) / 'workspace'
+        self.root = Path(self.temp.name).resolve() / 'workspace'
         self.root.mkdir()
         self.git('init', '-q')
         (self.root / '.gitignore').write_text('.adhd/\n__pycache__/\n', encoding='utf-8')
@@ -177,7 +177,7 @@ class CodingScopeTests(GitFixture):
 class NativeCodingScopeTests(GitFixture):
     def setUp(self):
         super().setUp()
-        env = patch.dict(os.environ, {'CODEX_HOME': str(Path(self.temp.name) / 'codex'),
+        env = patch.dict(os.environ, {'CODEX_HOME': str(Path(self.temp.name).resolve() / 'codex'),
                                      'ADHD_EXEC_OWNER': ''})
         env.start()
         self.addCleanup(env.stop)

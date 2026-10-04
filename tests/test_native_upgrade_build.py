@@ -12,7 +12,7 @@ from adhd import DISPLAY_NAME, __version__
 
 class NativeUpgradeBuildTests(unittest.TestCase):
     def setUp(self):
-        self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name);self.codex=self.root/'codex';self.agents=self.root/'agents'
+        self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name).resolve();self.codex=self.root/'codex';self.agents=self.root/'agents'
         self.codex.mkdir();(self.codex/'config.toml').write_text('model="gpt-6-sol"\n');(self.codex/'AGENTS.md').write_text('user guidance\n')
         (self.codex/'hooks.json').write_text(json.dumps({'hooks':{}}))
 

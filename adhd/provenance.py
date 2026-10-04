@@ -13,7 +13,7 @@ import re
 from typing import Any
 
 from .core import file_hash
-from .snapshots import _relative_file
+from .snapshots import _relative_file, _reject_path_links
 
 
 ROLES = {'raw', 'external', 'analysis', 'result', 'visual', 'report'}
@@ -81,6 +81,10 @@ def validate_provenance(workspace: Path, manifest_path: Path | str) -> dict:
     workspace = Path(workspace).resolve()
     manifest_file = Path(manifest_path)
     if manifest_file.is_absolute():
+        if not manifest_file.is_file():
+            raise ValueError('Provenance manifest leaves workspace')
+        _reject_path_links(manifest_file, 'Provenance manifest cannot traverse links or junctions')
+        manifest_file = manifest_file.resolve()
         try:
             relative = manifest_file.relative_to(workspace).as_posix()
         except ValueError as error:

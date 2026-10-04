@@ -20,7 +20,7 @@ from build import package_adhd
 class ReleaseSmokeTests(unittest.TestCase):
     def test_zip_cli_and_registered_hooks_in_fresh_environment(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             archive_path = root / 'release.zip'
             with patch.object(package_adhd, 'OUTPUT', archive_path):
                 package_adhd.main()

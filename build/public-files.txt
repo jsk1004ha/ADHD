@@ -702,6 +702,7 @@ tests/test_native_progress.py
 tests/test_native_termination.py
 tests/test_native_upgrade_build.py
 tests/test_native_v011.py
+tests/test_path_identity.py
 tests/test_personal_eval.py
 tests/test_public_package.py
 tests/test_release_smoke.py

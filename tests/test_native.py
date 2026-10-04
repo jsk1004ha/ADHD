@@ -12,7 +12,7 @@ ROOT=Path(__file__).resolve().parents[1]
 
 class NativeTests(unittest.TestCase):
     def setUp(self):
-        self.tmp=tempfile.TemporaryDirectory();self.base=Path(self.tmp.name)
+        self.tmp=tempfile.TemporaryDirectory();self.base=Path(self.tmp.name).resolve()
         self.ws=self.base/'project';self.ws.mkdir();self.ch=self.base/'codex';self.ch.mkdir()
         self.env=patch.dict(os.environ,{'CODEX_HOME':str(self.ch),'ADHD_EXEC_OWNER':''});self.env.start()
         self.sid='test-'+uuid.uuid4().hex;self.key=session_key(self.sid);self.counter=0
@@ -307,7 +307,7 @@ class NativeTests(unittest.TestCase):
 
 class NativeInstallTests(unittest.TestCase):
     def setUp(self):
-        self.t=tempfile.TemporaryDirectory();self.b=Path(self.t.name);self.c=self.b/'codex';self.c.mkdir();self.a=self.b/'agents'
+        self.t=tempfile.TemporaryDirectory();self.b=Path(self.t.name).resolve();self.c=self.b/'codex';self.c.mkdir();self.a=self.b/'agents'
         (self.c/'config.toml').write_text('# keep comment\nmodel = "gpt-5.6-sol"\n[model_providers.router]\nbase_url = "http://127.0.0.1:4202/v1"\n[mcp_servers.context7]\ncommand = "node"\n')
         (self.c/'AGENTS.md').write_text('Original user integrations\n')
         (self.c/'hooks.json').write_text(json.dumps({'hooks':{'SessionStart':[{'hooks':[{'type':'command','command':'old-hook','trusted_hash':'existing-do-not-change'}]}]}}))
