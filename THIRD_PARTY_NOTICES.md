@@ -1,4 +1,4 @@
-# Third-party components — ADHD v0.1.3
+# Third-party components — ADHD v0.1.4
 
 The native execution engine is the user's existing Codex installation, not redistributed here.
 The runtime directly reuses five components: tomlkit, filelock, an adapted smolagents function,

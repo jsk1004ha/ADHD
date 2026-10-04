@@ -14,6 +14,7 @@ import time
 
 from . import __version__
 from .core import ROOT, atomic_json
+from .models import execution_profile as profile_settings
 
 
 SCENARIOS = (
@@ -38,9 +39,19 @@ SCENARIOS = (
     ('wiki_stale_refresh', 'tests.test_skill_discovery.SkillDiscoveryTests.test_stale_router_requests_bounded_refresh_and_reports_failure'),
 )
 
+PROFILE_SCENARIOS = {
+    'simple': 'tests.test_execution_profiles.ExecutionProfileTests.test_simple_direct_or_one_child_and_independent_review',
+    'standard': 'tests.test_execution_profiles.ExecutionProfileTests.test_standard_accepts_brief_plan_and_requires_it_for_candidate',
+    'deep': 'tests.test_execution_profiles.ExecutionProfileTests.test_deep_needs_full_plan_current_target_check_and_evidence_review',
+}
+
 
 def run_evaluation(output: Path, *, root: Path = ROOT,
-                   scenarios: tuple[tuple[str, str], ...] = SCENARIOS) -> dict:
+                   scenarios: tuple[tuple[str, str], ...] = SCENARIOS,
+                   execution_profile: str = 'standard') -> dict:
+    profile = profile_settings(execution_profile)
+    if scenarios is SCENARIOS:
+        scenarios = (*scenarios, ('execution_profile', PROFILE_SCENARIOS[execution_profile]))
     root = Path(root).resolve()
     output = Path(output).resolve()
     if not output.is_relative_to(root):
@@ -69,6 +80,8 @@ def run_evaluation(output: Path, *, root: Path = ROOT,
     passed = sum(row['status'] == 'passed' for row in cases)
     scorecard = {
         'schema': 1, 'harness_version': __version__,
+        'execution_profile': profile,
+        'profile_evaluation': 'Shared regression fixtures; live profile quality, latency and cost are not measured.',
         'measured_at': datetime.now(timezone.utc).isoformat(),
         'assurance': 'local_fixture_subprocess',
         'overall': 'passed_fixture_suite' if passed == len(cases) else 'failed_fixture_suite',

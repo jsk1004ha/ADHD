@@ -1,0 +1,7 @@
+interface:
+  display_name: "ADHD · 결과와 피드백 반영"
+  short_description: "ADHD 결과의 실제 근거와 피드백을 다음 수정과 교훈으로 연결"
+  default_prompt: "$adhd-retro로 결과와 피드백을 검토하고 필요한 수정과 적용할 교훈을 정리해 줘."
+
+policy:
+  allow_implicit_invocation: true

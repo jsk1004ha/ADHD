@@ -1,7 +1,9 @@
 # ADHD — Autonomous Delegation Harness Director
 
-ADHD v0.1.3은 Codex 앱과 CLI에서 실행하는 로컬 하네스입니다. Codex 후크를 통해 계획, 실행 근거, 검토 단계를 연결합니다. 기존 인증, 선택 모델, 라우터, 플러그인, 스킬, 개인 설정을 설치기가 덮어쓰지 않도록 설계했습니다.
+ADHD v0.1.4은 Codex 앱과 CLI에서 실행하는 로컬 하네스입니다. Codex 후크를 통해 계획, 실행 근거, 검토 단계를 연결합니다. 기존 인증, 선택 모델, 라우터, 플러그인, 스킬, 개인 설정을 설치기가 덮어쓰지 않도록 설계했습니다.
 
+
+[0.1.4 변경 내역](docs/releases/0.1.4.md)에 대규모 실행·종료·프로필·MCP·작업 흐름 스킬의 통합 변경을 정리했습니다.
 이 공개 저장소에는 소스와 일반적인 기본 설정만 있습니다. 계정 인증 파일, 개인 `config.toml`, 실행 기록, 개인 위키 파일은 포함하지 않습니다. Python 패키지, 스킬, 역할, 후크와 설치 경로의 이름을 ADHD로 통일했으며 이전 명령 별칭은 제공하지 않습니다. 유효한 상태 기록이 하나로 식별되는 경우에만 기존 세션 상태를 원래 위치에서 계속 사용합니다.
 
 ## 준비와 설치
@@ -23,6 +25,32 @@ py -3 .\adhd.py rollback-native
 ```
 
 `rollback-native`는 설치 뒤 사용자가 관리 파일을 바꿨다면 자동 복원을 거부합니다. 별도 평가에는 `--codex-home PATH`를 사용하세요.
+
+## ADHD 작업을 돕는 스킬
+
+일곱 스킬은 기존 ADHD 실행의 필요한 지점에서 사용합니다. 모든 스킬을 순서대로 실행할 필요는 없습니다.
+
+| 호출 | 사용 시점과 결과 |
+| --- | --- |
+| [`$adhd-shape`](skills/adhd-shape/SKILL.md) | 막연한 아이디어를 대상·범위·완료 기준이 있는 실행 브리프로 구체화 |
+| [`$adhd-challenge`](skills/adhd-challenge/SKILL.md) | 계획의 중요한 가정·위험을 근거와 작은 검증으로 점검 |
+| [`$adhd-decide`](skills/adhd-decide/SKILL.md) | 실제 대안을 비교하고 선택 이유·영향·재검토 조건을 기록 |
+| [`$adhd-steer`](skills/adhd-steer/SKILL.md) | 새 피드백을 기존 요구사항에 반영하고 계획·진행 작업을 조정 |
+| [`$adhd-unblock`](skills/adhd-unblock/SKILL.md) | 실패 원인을 좁히고 검증 가능한 복구로 작업을 재개 |
+| [`$adhd-optimize`](skills/adhd-optimize/SKILL.md) | **코드 최적화**: 동작을 보존하며 성능·자원 사용·구조를 개선하고 검증 |
+| [`$adhd-retro`](skills/adhd-retro/SKILL.md) | 결과·피드백을 실제 수정과 근거 있는 교훈으로 연결 |
+
+예: `$adhd-shape 연구 기록을 정리하는 도구 아이디어를 구체화해 줘`.
+명확하고 작은 요청은 바로 처리하며, 구체화·비교·검토만 요청하면 파일을 바꾸지 않습니다.
+이미 구현을 요청했다면 필요한 보조 결과를 기존 실행에 넘겨 계속 진행합니다.
+[공통 인계 규칙](skills/adhd-native/references/skill-handoff.md)은 설명용 기록과 실제 native 명령을 구분합니다.
+`retro`의 교훈을 장기 메모리에 저장하려면 사용자의 명시적 요청이 필요합니다.
+
+일반 `upgrade`가 일곱 스킬과 호출 메타데이터·공통 참조를 설치합니다.
+이름이 같은 사용자 폴더는 전체 보존하고, 관리 릴리스의 사본은 ADHD 로컬 탐색의 대안 경로로 남깁니다.
+기존 위키 라우터와 Codex가 제공한 스킬 목록의 선택 권한은 유지합니다.
+업그레이드 뒤 새 Codex 세션에서 `$adhd-*` 호출 목록을 다시 불러오세요.
+`builtin apply`는 아래 공개 번들과 MCP만 적용합니다.
 
 ## 기본 내장 스킬과 MCP
 
@@ -48,7 +76,55 @@ py -3 .\adhd.py builtin enable KEY
 py -3 .\adhd.py builtin rollback
 ```
 
+`builtin status`는 `registered → dependencies_ready → auth_integration_verified →
+connected → read_verified` 단계를 각각 표시합니다. `usable`은 검토한 읽기 도구의
+실제 호출이 성공한 경우에만 참이 됩니다. OAuth와 엔진 통합도 기존 extension의
+읽기 검증을 재사용하는 probe를 통해 확인할 수 있습니다.
+
+```powershell
+py -3 .\adhd.py builtin probe KEY --consent --probe-file read-probe.json
+py -3 .\adhd.py builtin probe KEY --consent --probe-file read-probe.json --oauth-token-env MCP_ACCESS_TOKEN
+py -3 .\adhd.py builtin enable KEY
+```
+
+probe 파일은 `{"tool":"get_status","arguments":{},"read_only":true,
+"purpose":"최소 읽기 호출로 연결 확인"}` 형식입니다. 해당 서버가 제공하는 실제 읽기
+도구 이름을 사용하세요. handshake만 성공하면 사용 가능으로 처리하지 않습니다.
+기존 선택 의존성인 공식 Python MCP SDK가 있어야 하며, 자동 설치하지 않습니다.
+OAuth 옵션에는 이미 승인받은 access token이 있는 환경 변수의 이름만 전달합니다.
+ADHD는 OAuth 승인을 대신 진행하거나 토큰을 저장하지 않습니다. 활성화할 때는
+Codex가 같은 인증을 사용할 수 있도록 환경 변수의 이름만 설정합니다.
+검증은 한 시간 후 만료되며 연결 정의·런타임·인증이 바뀌거나 재검증이 실패하면
+이전 성공 근거를 사용할 수 없습니다. `--consent`는 서버 실행(실행기의 다운로드 포함)과
+지정한 읽기 호출에 대한 동의입니다. 서버의 읽기 전용 표시는 참고 정보입니다.
+
+## 실행 강도와 진전 판단
+
+`native begin --profile NAME` 또는 begin JSON의 `execution_profile`로 선택합니다.
+
+| 프로필 | 계획·위임 | 완료 검증 |
+| --- | --- | --- |
+| `simple` | 직접 처리 또는 제한된 자식 하나, 계획 선택 | 독립 검토 |
+| `standard`(기본) | 요구사항을 포함한 짧은 계획과 제한된 위임 | 자동 검사와 독립 검토 |
+| `deep` | 깊은 계획과 제한된 위임 | 모든 대상에 연결된 최신 실행 근거와 독립 검토 |
+
+작은 설명은 지속 실행을 시작하지 않고 직접 답할 수 있습니다. 프로필은 모델이나
+effort를 자동으로 바꾸지 않으며 명시적인 로컬 설정을 존중합니다.
+`adhd.py eval --out .adhd/evaluation.json --profile deep`은 선택한 강도와 fixture
+검사 결과를 기록합니다. 실제 작업의 품질·시간·비용상 우열은 별도 평가가 필요합니다.
+
+checkpoint의 `criterion_results`와 `completed_steps`에는 최신 실행 기록을 연결합니다.
+새 요구사항 검증 통과, 실패 테스트 감소, 알려진 계획 단계 완료, 후보 제출 전 실제
+대상 내용 변경을 진전으로 기록합니다. 시간값만 바뀐 출력과 오래된 증거는 정체를
+해소하지 않습니다. 같은 실패의 반복 횟수는 따로 기록하고 시간·라운드 상한을 유지합니다.
+중단·취소·예산 소진 때도 마지막 자식이 끝날 때까지 작업 소유권을 유지합니다.
+
 ## 구성과 확인 범위
+
+대규모 작업에는 [격리 병렬 작업·일괄 검사 실행 안내](docs/large-tasks.md)를
+사용합니다. `large` CLI가 실제 의존성 큐와 작업 공간·CLI 프로세스를 연결하고,
+`batch` CLI는 일반 작업에서도 제작 후 검사를 한 번에 모아 실행합니다.
+기존 App 단일 작성자 경로와 설정은 유지합니다.
 
 - `adhd.py`, `hook.py`, `adhd/`: CLI, 후크, 컨트롤러와 설치기
 - `skills/adhd-*`, `native/agents/`: 하네스 지침과 보조 역할 기본값
@@ -66,6 +142,11 @@ py -3 .\adhd.py --help
 ```
 
 테스트 통과만으로 계정의 모델 접근, 후크 신뢰, Office·한컴 화면 렌더링 또는 외부 MCP 연결이 증명되지는 않습니다. 설치 후 새 Codex 세션에서 작은 실제 작업을 실행해 확인하세요.
+
+CI는 Windows·Ubuntu와 Python 3.11·3.13에서 실행합니다. 배포 smoke 검사는 실제 ZIP의
+checksum을 검증한 뒤 새로운 오프라인 가상 환경에 풀고, CLI 설치와 `doctor`,
+설치된 `hooks.json`의 실제 명령을 실행합니다. 합성 후크 이벤트로 설치 파일을 검증하며,
+계정 접근이나 후크 신뢰 승인을 대신하지 않습니다.
 
 ## 코드 수정 규칙
 

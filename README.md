@@ -1,7 +1,14 @@
 # ADHD — Autonomous Delegation Harness Director
 
-ADHD v0.1.3 is a local harness for Codex App and CLI. It adds planning, execution evidence, and review gates through Codex hooks while preserving your existing authentication, model selection, router, plugins, skills, and personal configuration.
+Large tasks can use the [durable DAG and isolated CLI worker workflow](docs/large-tasks.md).
+The `large` command connects scheduling, workspaces, assembly and current batch evidence;
+`batch` also supports post-assembly checks for ordinary tasks. Existing App single-writer
+admission and user configuration are preserved.
 
+ADHD v0.1.4 is a local harness for Codex App and CLI. It adds planning, execution evidence, and review gates through Codex hooks while preserving your existing authentication, model selection, router, plugins, skills, and personal configuration.
+
+
+[0.1.4 release notes](docs/releases/0.1.4.md) describe the integrated large-task, lifecycle, profile, MCP and workflow-skill changes.
 This repository contains source code and generic defaults. It contains no account credentials, user configuration, run history, or personal wiki files. The Python package, skills, roles, hooks and install paths use the ADHD name; there is no legacy command alias. Previous native session state is reused in place only when its schema identifies one unambiguous state directory.
 
 [한국어 안내](README.ko.md) · [Getting started](시작하기.md) · [Source and licensing notes](ADHD_PROVENANCE.md)
@@ -32,6 +39,34 @@ py -3 .\adhd.py rollback-native
 
 `rollback-native` checks for later edits before restoring managed files. Use `--codex-home PATH` to target an isolated Codex home for evaluation.
 
+## Helpers for ADHD work
+
+Use these seven skills where they resolve a specific need in the current ADHD run.
+They do not impose a mandatory sequence or create another execution owner.
+
+| Invocation | Result |
+| --- | --- |
+| [`$adhd-shape`](skills/adhd-shape/SKILL.md) | Turn a vague idea into a problem, scope and completion criteria |
+| [`$adhd-challenge`](skills/adhd-challenge/SKILL.md) | Check consequential assumptions and risks against evidence |
+| [`$adhd-decide`](skills/adhd-decide/SKILL.md) | Compare real options and record a choice with revisit conditions |
+| [`$adhd-steer`](skills/adhd-steer/SKILL.md) | Apply new user feedback to retained requirements and active work |
+| [`$adhd-unblock`](skills/adhd-unblock/SKILL.md) | Diagnose a concrete blocker and verify a bounded recovery |
+| [`$adhd-optimize`](skills/adhd-optimize/SKILL.md) | **Optimize code**, preserving behavior and checking performance, resources or structure |
+| [`$adhd-retro`](skills/adhd-retro/SKILL.md) | Connect actual results and feedback to corrections and grounded lessons |
+
+For example: `$adhd-shape Make this research-record tool idea concrete`.
+Clear small requests take a direct path. Analysis-only requests stay read-only;
+already authorized implementation continues with the current owner.
+The [shared handoff reference](skills/adhd-native/references/skill-handoff.md)
+distinguishes descriptive notes from actual native bridge commands. Long-term
+memory writes require an explicit user request.
+
+Normal `upgrade` installs these skills, UI metadata and local references. Existing
+same-name user folders are preserved whole, with the immutable release providing
+a fallback for ADHD local discovery. Existing wiki-router selection and host
+skill catalogs remain authoritative. Load a fresh Codex session after upgrading.
+`builtin apply` handles only the public bundle and MCP entries below.
+
 ## Default skills and MCPs
 
 A normal `upgrade` installs **50 complete, licensed public skill trees** (30 from OpenAI and 20 from [K-Dense Scientific Agent Skills](https://github.com/K-Dense-AI/scientific-agent-skills)), including each `SKILL.md` and its required local references, scripts, and assets. The [skill manifest](config/builtin-skills.json) records the source, pinned commit, and file hashes; [third-party notices](THIRD_PARTY_NOTICES.md) describe the licenses. An existing skill folder with the same name is preserved, and the bundled copy remains in the managed release. Skill-specific Python/Node packages and external services are not installed automatically.
@@ -55,6 +90,55 @@ py -3 .\adhd.py builtin status
 py -3 .\adhd.py builtin enable KEY
 py -3 .\adhd.py builtin rollback
 ```
+
+`builtin status` reports separate stages: `registered`, `dependencies_ready`,
+`auth_integration_verified`, `connected`, and `read_verified`. `usable` becomes
+true only after a successful reviewed read; enabling a definition alone does not
+establish usability. OAuth and engine integrations can now advance through an
+explicit probe using the existing extension read-only validation:
+
+```powershell
+py -3 .\adhd.py builtin probe KEY --consent --probe-file read-probe.json
+py -3 .\adhd.py builtin probe KEY --consent --probe-file read-probe.json --oauth-token-env MCP_ACCESS_TOKEN
+py -3 .\adhd.py builtin enable KEY
+```
+
+The probe file contains `{"tool":"get_status","arguments":{},"read_only":true,
+"purpose":"Check the connection with a minimal read"}`; choose a real read tool
+exposed by that server. A handshake without a read remains unverified for use.
+The optional official Python MCP SDK must already be available. The OAuth option
+names an environment variable containing an already authorized access token;
+ADHD does not initiate OAuth or store the token. Enabling an OAuth connection
+persists only that variable's name so Codex can use the same authentication.
+Probe evidence expires after one hour and is invalidated by connection, recipe,
+runtime or credential changes. A failed probe revokes prior successful evidence.
+Consent covers starting the configured server (including any launcher downloads)
+and the specified read; tool annotations remain advisory.
+
+## Execution intensity and progress
+
+For a durable task, select an explicit profile in the begin payload's
+`execution_profile` field or with `native begin --profile NAME`:
+
+| Profile | Planning and delegation | Acceptance |
+| --- | --- | --- |
+| `simple` | Direct work or one limited work child; plan optional | Independent review |
+| `standard` (default) | Brief requirement-covered plan and bounded delegation | Automated checks and independent review |
+| `deep` | Deep plan and bounded delegation | Fresh successful execution evidence covering every target, then independent review |
+
+Small explanations can be answered directly without beginning a durable run.
+Profiles change execution intensity, preserve selected models and effort, and
+honor explicit local policy values. They never silently substitute a model.
+`adhd.py eval --out .adhd/evaluation.json --profile deep` records the selected
+intensity and fixture results; it does not measure live profile quality or cost.
+
+Checkpoints may report fresh `criterion_results` and `completed_steps` with
+execution receipt references. Progress counts newly verified requirements,
+fewer failing tests, completed known plan steps, and actual target content changes
+before candidate submission. Timestamp-only output, duplicate results and stale
+evidence do not reset stagnation. Identical failures have separate repetition
+counts; continuation and time limits remain enforced. Pause, cancellation and
+budget exhaustion retain workspace ownership until the final running child stops.
 
 ## What is included
 
@@ -90,6 +174,12 @@ py -3 .\adhd.py --help
 ```
 
 Tests include fixtures and process-level checks. They do not prove your account's model access, hook trust, Office/Hancom rendering, or external MCP access. Run a small real task after installation and confirm the hook status in a fresh Codex session.
+
+CI runs on Windows and Ubuntu with Python 3.11 and 3.13. The release smoke test
+builds a real ZIP, checks its checksums, extracts it into a fresh offline venv,
+executes the extracted CLI, installs it into an isolated Codex home, and runs the
+exact commands registered in `hooks.json`. These synthetic hook events test the
+installed files; they do not grant hook trust or establish live account access.
 
 ## Privacy and licenses
 

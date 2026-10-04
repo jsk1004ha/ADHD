@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import time
+import re
+from .core import digest
 
 
 ACTIONS = {
@@ -31,7 +33,8 @@ def classify_failure(message: str) -> str:
         ('syntax_error', ('syntaxerror', 'indentationerror', 'parse error')),
         ('source_mismatch', ('source mismatch', 'provenance', 'hash changed', '원자료')),
         ('visual_failure', ('clipping', 'overlap', 'visual review', 'layout')),
-        ('test_failure', ('assertionerror', 'test failure', 'tests failed')),
+        ('test_failure', ('assertionerror', 'test failure', 'tests failed',
+                          'failed (failures=', ' failed,', ' failed in ')),
         ('review_rejected', ('reviewer rejected', 'review rejected')),
     ):
         if any(word in text for word in words):
@@ -39,7 +42,18 @@ def classify_failure(message: str) -> str:
     return 'unknown'
 
 
-def record_failure(state: dict, category: str, detail: str, evidence_ref: str) -> dict:
+def verified_failure_signature(output: str) -> str:
+    """Keep error identity while removing common clock noise from verified logs."""
+    text = re.sub(r'\x1b\[[0-9;]*m', '', output)
+    text = re.sub(r'\b\d{4}-\d\d-\d\d[T ]\d\d:\d\d:\d\d(?:[.,]\d+)?(?:Z|[+-]\d\d:?\d\d)?\b', '<time>', text)
+    text = re.sub(r'\b\d\d:\d\d:\d\d(?:[.,]\d+)?\b', '<time>', text)
+    text = re.sub(r'(\bRan \d+ tests? in )\d+(?:\.\d+)?s\b', r'\1<duration>', text)
+    text = re.sub(r'(\bin )\d+(?:\.\d+)?s(?=\s*(?:=|$))', r'\1<duration>', text)
+    return digest(re.sub(r'\s+', ' ', text).strip()[-8192:])
+
+
+def record_failure(state: dict, category: str, detail: str, evidence_ref: str,
+                   *, verified_signature: str | None = None) -> dict:
     if category not in ACTIONS or not isinstance(detail, str) or not detail.strip():
         raise ValueError('Failure needs a known category and concrete detail')
     if not isinstance(evidence_ref, str) or not evidence_ref.strip() or len(evidence_ref) > 1000:
@@ -47,16 +61,27 @@ def record_failure(state: dict, category: str, detail: str, evidence_ref: str) -
     counts = state.setdefault('failure_counts', {})
     attempt = counts.get(category, 0) + 1
     counts[category] = attempt
+    verified_attempt = None
+    if verified_signature is not None:
+        if not re.fullmatch(r'[0-9a-f]{64}', verified_signature):
+            raise ValueError('Invalid verified failure signature')
+        exact = state.setdefault('verified_failure_counts', {})
+        key = category + ':' + verified_signature
+        verified_attempt = exact.get(key, 0) + 1
+        exact[key] = verified_attempt
+    retry_attempt = verified_attempt if verified_attempt is not None else attempt
     next_action = ACTIONS[category]
-    if category == 'test_failure' and attempt >= 2:
+    if category == 'test_failure' and retry_attempt >= 2:
         next_action = 'Revisit the assumption, design and input conditions before another test retry.'
     if category in {'auth_required', 'permission_denied', 'tool_unavailable', 'budget_exhausted'}:
         retry_allowed = False
     else:
-        retry_allowed = attempt < 3
+        retry_allowed = retry_attempt < 3
         if not retry_allowed:
             next_action = 'Preserve the failure evidence and change the hypothesis before a further attempt.'
-    row = {'category': category, 'attempt': attempt, 'detail': detail[:2000],
+    row = {'category': category, 'attempt': attempt,
+           'verified_attempt': verified_attempt, 'verified_signature': verified_signature,
+           'detail': detail[:2000],
            'evidence_ref': evidence_ref, 'next_action': next_action,
            'retry_allowed': retry_allowed, 'observed_at': time.time()}
     state['failure_history'] = (state.get('failure_history', []) + [row])[-30:]

@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-from .core import home, store, read_json, atomic_json, file_hash, discover_skills
+from .core import home, store, read_json, atomic_json, file_hash, discover_skills, preferred_skill_entries
 from .memory import tokens
 
 WIKI_ROUTE_TIMEOUT_SECONDS = 90
@@ -50,7 +50,7 @@ def route_skills(query:str,limit:int=4,*,workspace:Path|None=None) -> dict:
             warnings.append('Existing router unavailable: '+str(exc)[:800])
     q=tokens(query);explicit={w[1:] for w in query.split() if w.startswith('$')}
     ranked=[];seen=set()
-    for entry in discover_skills(workspace):
+    for entry in preferred_skill_entries(discover_skills(workspace)):
         identity=entry['name'].lower()
         path_identity=entry['path'].lower()
         if path_identity in seen:continue

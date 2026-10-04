@@ -1,0 +1,7 @@
+interface:
+  display_name: "ADHD · 가정과 위험 검토"
+  short_description: "ADHD 계획의 핵심 가정을 근거와 작은 검증으로 점검"
+  default_prompt: "$adhd-challenge로 이 계획의 중요한 가정과 검증할 위험을 찾아 줘."
+
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,7 @@
+interface:
+  display_name: "ADHD · 코드 최적화"
+  short_description: "코드 동작을 보존하며 성능과 자원 사용 및 구조를 검증해 개선"
+  default_prompt: "$adhd-optimize로 이 코드의 동작을 유지하면서 성능과 자원 사용 또는 구조를 개선해 줘."
+
+policy:
+  allow_implicit_invocation: true

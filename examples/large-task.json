@@ -1,0 +1,17 @@
+{
+  "run_id": "example-large",
+  "contract_revision": 1,
+  "contract_hash": "8b0a45b7ae126fd5523eb27ee0349b890f56dd5b61ab9e2cc4a263e7e97d56a4",
+  "original_turns": [{"id":"U1","text":"Create independently usable search and CSV export modules. Preserve Unicode and document both behaviors."}],
+  "requirements": [
+    {"id":"R1","text":"Search preserves Unicode query/result behavior","source_turn_id":"U1","source_excerpt":"search"},
+    {"id":"R2","text":"CSV export preserves Unicode and documents its behavior","source_turn_id":"U1","source_excerpt":"CSV export"}
+  ],
+  "collaboration_language":"en",
+  "user_output_language":"ko",
+  "execution_policy":{"max_workers":6,"max_worker_calls":24,"max_seconds":3600,"max_repair_waves":3},
+  "tasks": [
+    {"id":"search","package":"search","objective":"Implement complete Unicode-preserving search behavior and usage documentation","requirements":["R1"],"write_paths":["src/search.py","docs/search.md"],"read_paths":["src/**"],"shared_resources":[],"depends_on":[],"importance":2},
+    {"id":"export","package":"export","objective":"Implement CSV export preserving Unicode and usage documentation","requirements":["R2"],"write_paths":["src/export.py","docs/export.md"],"read_paths":["src/**"],"shared_resources":[],"depends_on":[],"importance":2}
+  ]
+}

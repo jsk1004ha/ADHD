@@ -2,11 +2,11 @@
 All commands are performed by the agent through normal Codex tools, not instructions the user must keep typing. Use the exact installed Python/root paths; PowerShell uses `& "ADHD_PYTHON" "ADHD_ROOT/adhd.py" ...`.
 
 ## Plan
-Submit `native plan --session SESSION --workspace WORKSPACE --payload-file PLAN.json` after begin. Alternatively put a `plan` object in begin. This is mandatory for nontrivial runs; not necessary for a short direct answer. Example, replace every field with actual evidence and decisions:
+Submit `native plan --session SESSION --workspace WORKSPACE --payload-file PLAN.json` after begin, or put a `plan` object in begin. `standard` needs a brief requirement-covered plan; `deep` additionally requires alternatives, risks and preflight. `simple` plans are optional; direct small answers need no durable run. Select with begin `execution_profile` or `--profile`; models and effort remain unchanged. Deep example, replace every field with actual evidence and decisions:
 ```json
 {"objective":"Actual requested result","approach":"Chosen path and concise reason","alternatives":["Existing tool versus new implementation; why chosen"],"risks":["Concrete uncertainty and mitigation"],"preflight":["Actual inputs, dependency availability and baseline checks"],"verification":"Actual acceptance commands / every-page render inspection","steps":[{"id":"S1","action":"Inspect source and establish baseline","depends_on":[],"requirements":["R1"]},{"id":"S2","action":"Implement and independently verify","depends_on":["S1"],"requirements":["R1","R2"]}]}
 ```
-Every criterion must appear in at least one step. Dependencies reference earlier steps. After user amendment/sync-intent, update the plan too. The gate checks structure/coverage, not whether the model genuinely reasoned well. Parent shell writes cannot all be classified as implementation, so the gate directly blocks delegated implementation and final candidates without plans, not every possible write.
+Every criterion must appear in at least one step. Dependencies reference earlier steps. After user amendment/sync-intent, update required plans too. The gate checks structure/coverage, not whether the model genuinely reasoned well. Parent shell writes cannot all be classified as implementation, so profiles that require a plan block delegated implementation and final candidates without one, not every possible write. All durable profiles still require independent acceptance; deep review also inspects current target-covering execution receipts.
 
 ## Protected originals and document constraints
 Begin may add:

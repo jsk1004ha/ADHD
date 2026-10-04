@@ -28,7 +28,12 @@ END='<!-- ADHD-NATIVE:END -->'
 NATIVE_SCHEMA_VERSION=3
 INSTALL_SUBDIR='adhd'
 RELEASE_DIRS=('adhd','skills','native','schemas','third_party','tests','config','bundled')
-RELEASE_FILES=('adhd.py','hook.py','LICENSE','LICENSE-RAIBIT-MIT','THIRD_PARTY_NOTICES.md','requirements-documents.txt','README.md','README.ko.md','ADHD_PROVENANCE.md')
+RELEASE_FILES=('adhd.py','hook.py','LICENSE','LICENSE-RAIBIT-MIT','THIRD_PARTY_NOTICES.md','requirements-documents.txt','README.md','README.ko.md','ADHD_PROVENANCE.md',
+               'docs/large-tasks.md','docs/releases/0.1.4.md',
+               'examples/large-task.json','examples/large-limits.json','examples/batch-checks.json')
+WORKFLOW_SKILLS=('adhd-shape','adhd-challenge','adhd-decide','adhd-steer',
+                 'adhd-unblock','adhd-retro','adhd-optimize')
+NATIVE_CAPABILITIES=('adhd-native','adhd-memory','adhd-documents','adhd-extensions')+WORKFLOW_SKILLS
 
 def _release_files(root:Path):
     for name in RELEASE_FILES:
@@ -63,7 +68,7 @@ def _copy_release(source:Path,dest:Path)->None:
 
 def _render_release(release:Path,final_release:Path,source_root:Path)->None:
     """Expand install-time placeholders before the release identity is recorded."""
-    for capability in ['adhd-native','adhd-memory','adhd-documents','adhd-extensions']:
+    for capability in NATIVE_CAPABILITIES:
         base=release/'skills'/capability
         if not base.is_dir():continue
         for source in sorted(base.rglob('*')):
@@ -225,7 +230,8 @@ def _validate_install_record(record:dict, *, legacy_migration:bool=False,
             raise ValueError('Backup missing or modified; nothing restored')
 
 def _install_native(target: Path, agents_home: Path|None=None, compact: bool=False,
-                   migrate_models: bool=True, fixture_mode: bool=False) -> dict:
+                   migrate_models: bool=True, fixture_mode: bool=False, *,
+                   managed_workflows: frozenset[str]=frozenset()) -> dict:
     target=target.expanduser().resolve()
     # This host discovers user skills from CODEX_HOME/skills. Keep an explicit
     # agents_home override for isolated tests and custom installations.
@@ -255,12 +261,21 @@ def _install_native(target: Path, agents_home: Path|None=None, compact: bool=Fal
             raise ValueError('Existing hooks.json is not an object with hooks map')
         installed_skill=agents_home/'skills'/'adhd-native'/'SKILL.md'
         if installed_skill.exists(): raise ValueError('Unmanaged adhd-native skill already exists')
-        for capability in ['adhd-native','adhd-memory','adhd-documents','adhd-extensions']:
+        for capability in NATIVE_CAPABILITIES:
+            if capability in WORKFLOW_SKILLS:
+                if capability not in managed_workflows:
+                    continue  # Preserve an unmanaged helper folder as a whole.
+                destination=agents_home/'skills'/capability
+                if (destination.is_symlink()
+                        or hasattr(destination,'is_junction') and destination.is_junction()
+                        or destination.exists() and not destination.is_dir()):
+                    raise ValueError('Managed workflow folder is unsafe: '+str(destination))
             base=ROOT/'skills'/capability
             for source in sorted(base.rglob('*')):
                 if not source.is_file() or (capability=='adhd-native' and source.name=='SKILL.md'):continue
                 dest=agents_home/'skills'/capability/source.relative_to(base)
-                if dest.exists():raise ValueError('Unmanaged capability already exists: '+str(dest))
+                if dest.exists() or capability in managed_workflows and dest.is_symlink():
+                    raise ValueError('Unmanaged capability already exists: '+str(dest))
         for p in (ROOT/'native'/'agents').glob('*.toml'):
             target_agent=target/'agents'/p.name
             if target_agent.exists():raise ValueError('Unmanaged native role already exists: '+str(target_agent))
@@ -297,8 +312,16 @@ def _install_native(target: Path, agents_home: Path|None=None, compact: bool=Fal
         changes: dict[Path,bytes]={hooks_path:(json.dumps(hooks,ensure_ascii=False,indent=2)+'\n').encode()}
         skill=(release/'skills'/'adhd-native'/'SKILL.md').read_text(encoding='utf-8')
         changes[installed_skill]=skill.encode()
-        for capability in ['adhd-native','adhd-memory','adhd-documents','adhd-extensions']:
+        workflow_skills=[]
+        for capability in NATIVE_CAPABILITIES:
             base=release/'skills'/capability
+            if capability in WORKFLOW_SKILLS and (base/'SKILL.md').is_file():
+                destination=agents_home/'skills'/capability
+                preserved=(destination.exists() or destination.is_symlink()) and capability not in managed_workflows
+                workflow_skills.append({'name':capability,
+                    'status':'preserved_existing' if preserved else 'added',
+                    'fallback':str(base/'SKILL.md')})
+                if preserved:continue
             for source in sorted(base.rglob('*')):
                 if not source.is_file() or (capability=='adhd-native' and source.name=='SKILL.md'): continue
                 dest=agents_home/'skills'/capability/source.relative_to(base)
@@ -373,7 +396,8 @@ def _install_native(target: Path, agents_home: Path|None=None, compact: bool=Fal
                 'source_identity':source_identity,
                 'target':str(target),'agents_home':str(agents_home),
                 'release':str(release),'backup':str(backup),'files':rows,'migrated_roles':migrated,
-                'builtin_skills':bundled_skills,'builtin_mcp':bundled_mcp,
+                'builtin_skills':bundled_skills,'workflow_skills':workflow_skills,
+                'builtin_mcp':bundled_mcp,
                 'compact':compact,'native_hook_trust':'CHECK_IN_CODEX; no bypass used',
                  'models':'Existing model settings preserved; ADHD role pins require a live availability probe',
                 'existing_v1_record_preserved':(parent/'installation.json').exists()}
@@ -386,7 +410,7 @@ def _install_native(target: Path, agents_home: Path|None=None, compact: bool=Fal
                 if p.exists() and file_hash(p)==row['installed_sha256']:
                     if row['existed']: p.write_bytes(Path(row['backup']).read_bytes())
                     else: p.unlink()
-            prune_empty_skill_dirs(agents_home,bundled_skills)
+            prune_empty_skill_dirs(agents_home,bundled_skills+workflow_skills)
             if release_created and release.exists():shutil.rmtree(release)
             raise
 
@@ -405,7 +429,8 @@ def _rollback_native(target: Path, *, record_root:Path|None=None,
         _validate_install_record(record,legacy_migration=legacy_migration,record_root=parent)
         for row in reversed(record['files']):
             _restore_managed_row(row)
-        prune_empty_skill_dirs(Path(record['agents_home']),record.get('builtin_skills',[]))
+        prune_empty_skill_dirs(Path(record['agents_home']),
+                               record.get('builtin_skills',[])+record.get('workflow_skills',[]))
         p.rename(parent/('native-uninstalled-'+uuid.uuid4().hex[:8]+'.json'))
         return {'restored_files':len(record['files']),'memory_and_backups_preserved':str(parent)}
 
@@ -485,10 +510,15 @@ def upgrade_native(target:Path,agents_home:Path|None=None,compact:bool=False,mig
             p=Path(row['path']);data=read_bytes(p);_validate_managed_row(row)
             current[str(p)]=data
         record_bytes=rp.read_bytes()
+        destination_agents=(agents_home or Path(old['agents_home'])).expanduser().resolve()
+        managed_workflows=frozenset(row['name'] for row in old.get('workflow_skills',[])
+            if row.get('status')=='added' and row.get('name') in WORKFLOW_SKILLS
+            and destination_agents==Path(old['agents_home']).expanduser().resolve())
         _rollback_native(target,record_root=record_root,legacy_migration=legacy_migration)
         rolled_back={str(Path(row['path'])):read_bytes(Path(row['path'])) for row in old['files']}
         try:
-            result=_install_native(target,agents_home or Path(old['agents_home']),compact,migrate_models,fixture_mode)
+            result=_install_native(target,destination_agents,compact,migrate_models,fixture_mode,
+                                   managed_workflows=managed_workflows)
             result['upgraded_from']=old['version'];return result
         except BaseException:
             # _install_native already rolls back its partial writes. Restore v1.1 only

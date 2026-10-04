@@ -3,12 +3,17 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
+import sys
 import zipfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT.parent / 'ADHD-v0.1.3.zip'
-ARCHIVE_ROOT = 'ADHD-v0.1.3'
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from adhd import __version__
+
+ARCHIVE_ROOT = f'ADHD-v{__version__}'
+OUTPUT = ROOT.parent / f'{ARCHIVE_ROOT}.zip'
 PUBLIC_FILE_LIST = ROOT / 'build' / 'public-files.txt'
 
 

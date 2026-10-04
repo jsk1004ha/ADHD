@@ -18,3 +18,13 @@ For local stdio MCP, inspect/download the exact server through Codex's existing 
 Never store actual secrets. The complete local file set beneath `runtime_root` must be listed in `runtime_files`; added, removed or modified files fail pin validation before apply/probe/launch. Script servers currently require the pinned ADHD Python executable and `.py` entrypoint, run with `-S`, and cannot load ordinary system/user site packages. Python interpreter control variables (any `PYTHON*` name, including `PYTHONPATH`) are rejected in `env_vars` and excluded from inherited process environment; module mode sets its own reviewed `PYTHONPATH`. For external packages, use a module execution manifest whose `package_root` and `installed_files` cover the entire reviewed dependency tree; that tree is rechecked on every launch. A pinned lock file records package selection when provided. Stage/apply records the server disabled. `extension probe --id ID` uses the official optional MCP Python SDK to initialize, list tools and call only the exact manifest-reviewed read-only probe tool. It also requires the live tool annotation `readOnlyHint=true`; a server's annotation is an additional check, not permission. Missing SDK/auth, absent/mutating tool annotation, error result or a missing probe call leaves the extension disabled with a precise status. Only the observed call is verified; reload host tool discovery and verify the requested user task separately.
 
 Remote/OAuth MCPs: use Codex's official existing add/login flow and actual current documentation instead of forcing the local stdio adapter. Aside Windows now exists; use its Windows installer/installed CLI, not Unix curl|bash. Do not infer the installed binary path or bypass browser login. `extension rollback --id ID` refuses to erase later edits. HTTP/OAuth services are not automatically probed by this local adapter. Do not edit unrelated model/provider/trust settings.
+
+For a managed built-in MCP, `builtin probe KEY --consent --probe-file CALL.json`
+uses the same reviewed read schema and live read-only/result checks over stdio or
+Streamable HTTP. `--oauth-token-env NAME` names an already authorized access-token
+environment variable; never obtain or paste secrets through chat. The probe does
+not initiate OAuth. Registration, dependencies, authentication/integration,
+connection and successful read are separate stages. Handshake-only, missing SDK,
+failed reads and stale identity-bound evidence cannot authorize OAuth/integration
+enablement. Probe evidence expires after one hour. Enabling stores only the token
+variable name; verify the real requested task after Codex reloads the connection.

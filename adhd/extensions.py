@@ -298,6 +298,34 @@ def launch(eid:str,*,probe_mode:bool=False)->int:
                             stdin=None,stdout=None,stderr=None,shell=False).wait()
 
 
+async def probe_session(session, call:dict|None=None)->dict:
+    """Observe one reviewed read; support the official SDK's v1/v2 attributes."""
+    call=validate_probe_call(call)
+    init=await session.initialize(); tools=await session.list_tools()
+    info=getattr(init,'server_info',getattr(init,'serverInfo',None))
+    if info is None:raise ValueError('Live MCP initialize returned no server identity')
+    result={'server':info.model_dump(),'tools':[t.name for t in tools.tools],
+            'connected':True,'tool_call':None}
+    if call is not None:
+        tool=next((t for t in tools.tools if t.name==call['tool']),None)
+        if tool is None:raise ValueError('Reviewed probe tool is absent from live server')
+        annotations=getattr(tool,'annotations',None)
+        hint=getattr(annotations,'read_only_hint',getattr(annotations,'readOnlyHint',None))
+        if hint is not True:raise ValueError('Live MCP tool does not declare readOnlyHint=true')
+        response=await session.call_tool(call['tool'],arguments=call['arguments'])
+        if getattr(response,'is_error',getattr(response,'isError',False)):
+            raise ValueError('Live MCP probe tool returned isError')
+        serialized=response.model_dump(mode='json')
+        if 'structured_content' in serialized and 'structuredContent' not in serialized:
+            serialized['structuredContent']=serialized.pop('structured_content')
+        if not serialized.get('content') and not serialized.get('structuredContent'):
+            raise ValueError('Live MCP probe returned no observable result')
+        result['tool_call']={'tool':call['tool'],'request_sha256':digest(call['arguments']),
+            'result_sha256':digest(serialized),'read_only_hint_observed':True,
+            'status':'succeeded','observed_at':time.time()}
+    return result
+
+
 async def _probe_stdio(r):
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
@@ -307,26 +335,7 @@ async def _probe_stdio(r):
         env=_runtime_env(r))
     async with stdio_client(params) as (reader,writer):
         async with ClientSession(reader,writer) as session:
-            init=await session.initialize(); tools=await session.list_tools()
-            result={'server':init.serverInfo.model_dump(),'tools':[t.name for t in tools.tools],
-                    'tool_call':None}
-            call=r.get('probe_call')
-            if call is not None:
-                tool=next((t for t in tools.tools if t.name==call['tool']),None)
-                if tool is None:raise ValueError('Reviewed probe tool is absent from live server')
-                annotations=getattr(tool,'annotations',None)
-                if getattr(annotations,'readOnlyHint',None) is not True:
-                    raise ValueError('Live MCP tool does not declare readOnlyHint=true')
-                response=await session.call_tool(call['tool'],arguments=call['arguments'])
-                if getattr(response,'isError',False):
-                    raise ValueError('Live MCP probe tool returned isError')
-                serialized=response.model_dump(mode='json')
-                if not serialized.get('content') and not serialized.get('structuredContent'):
-                    raise ValueError('Live MCP probe returned no observable result')
-                result['tool_call']={'tool':call['tool'],'request_sha256':digest(call['arguments']),
-                    'result_sha256':digest(serialized),'read_only_hint_observed':True,
-                    'status':'succeeded','observed_at':time.time()}
-            return result
+            return await probe_session(session,r.get('probe_call'))
 
 
 def probe(eid:str,*,timeout:int=25)->dict:

@@ -14,6 +14,24 @@ ROLES = {
     'adhd-implementer': ('sol', 'workspace-write', 'Implement the approved intent. The only delegated writer.'),
     'adhd-verifier': ('sol', 'read-only', 'Independent review of exact intent and fresh artifact snapshot.'),
 }
+
+EXECUTION_PROFILES = {
+    'simple': {'name': 'simple', 'plan_depth': 'optional',
+               'review_depth': 'independent', 'delegation': 'direct_or_one_child'},
+    'standard': {'name': 'standard', 'plan_depth': 'brief',
+                 'review_depth': 'independent', 'delegation': 'bounded'},
+    'deep': {'name': 'deep', 'plan_depth': 'deep',
+             'review_depth': 'strengthened', 'delegation': 'bounded'},
+}
+
+
+def execution_profile(name: str = 'standard') -> dict[str, str]:
+    """Execution intensity only; model and effort remain the selected role pins."""
+    if name not in EXECUTION_PROFILES:
+        raise ValueError('Unknown execution profile: ' + str(name))
+    return dict(EXECUTION_PROFILES[name])
+
+
 def route(role: str) -> dict[str, Any]:
     if role not in ROLES:
         raise ValueError('Unknown ADHD role: ' + role)

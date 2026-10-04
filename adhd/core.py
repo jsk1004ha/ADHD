@@ -224,7 +224,8 @@ def discover_skills(workspace: Path|None=None, *, host_catalog=None) -> list[dic
     disabled,explicit=_skill_config_paths()
     roots=_project_skill_roots(workspace)+[(home()/'skills','codex-home','user'),
         (Path.home()/'.agents'/'skills','user-agents','user'),
-        (home()/'plugins'/'cache','plugin-cache','plugin')]
+        (home()/'plugins'/'cache','plugin-cache','plugin'),
+        (ROOT/'skills','adhd-release','harness')]
     candidates:list[tuple[Path,str,str]]=[]
     for root,origin,scope in roots:
         if not root.exists(): continue
@@ -235,7 +236,8 @@ def discover_skills(workspace: Path|None=None, *, host_catalog=None) -> list[dic
     # immutable release visible as a separate fallback to local routing.
     managed_root = home() / 'adhd'
     for record_name, field in [('builtin-installation.json', 'skills'),
-                               ('native-installation.json', 'builtin_skills')]:
+                               ('native-installation.json', 'builtin_skills'),
+                               ('native-installation.json', 'workflow_skills')]:
         record = read_json(managed_root / record_name, {})
         for row in record.get(field, []) if isinstance(record, dict) else []:
             if row.get('status') != 'preserved_existing':
@@ -264,6 +266,16 @@ def discover_skills(workspace: Path|None=None, *, host_catalog=None) -> list[dic
     return sorted(result,key=lambda d:(d['name'],d['path']))
 
 
+def preferred_skill_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Exclude shipped same-name fallbacks from selection, preserving discovery."""
+    fallback_origins = {'adhd-release', 'adhd-bundled-fallback'}
+    overrides = {entry['name'].lower() for entry in entries
+                 if entry.get('origin') not in fallback_origins}
+    return [entry for entry in entries
+            if entry.get('origin') not in fallback_origins
+            or entry['name'].lower() not in overrides]
+
+
 def words(text: str) -> set[str]:
     out = set(re.findall(r'[\w-]+', text.lower()))
     # CJK substrings help search when Korean suffixes vary. No embeddings/API needed.
@@ -275,7 +287,7 @@ def words(text: str) -> set[str]:
 def skill_search(query: str, limit: int = 5, *, workspace: Path|None=None) -> list[dict[str, Any]]:
     q = words(query)
     ranked = []
-    for d in discover_skills(workspace):
+    for d in preferred_skill_entries(discover_skills(workspace)):
         score = len(q & words(d['name'])) * 4 + len(q & words(d['description']))
         if score:
             ranked.append(dict(d, score=score, description=d['description'][:260]))

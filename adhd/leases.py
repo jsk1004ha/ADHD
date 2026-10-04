@@ -24,7 +24,9 @@ def _terminal_owner(row: dict) -> bool:
         if len(parts) != 3:
             return False
         state = read_json(store() / 'native' / parts[1] / 'state.json', {})
-        return state.get('run_id') == parts[2] and state.get('status') in TERMINAL
+        return (state.get('run_id') == parts[2] and state.get('status') in TERMINAL
+                and not any(child.get('status') == 'running'
+                            for child in state.get('children', {}).values()))
     if owner == 'legacy':
         state = read_json(store() / 'runs' / run_id / 'state.json', {})
         return state.get('id') == run_id and state.get('status') in TERMINAL

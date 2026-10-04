@@ -1,0 +1,17 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "title":"ADHD large-task contract",
+  "description":"Runtime validates DAG, original excerpt provenance, ownership and versions in addition to this structural schema.",
+  "type":"object",
+  "required":["run_id","contract_revision","contract_hash","original_turns","requirements","tasks"],
+  "properties":{
+    "run_id":{"type":"string","minLength":1},
+    "contract_revision":{"type":"integer","minimum":1},
+    "contract_hash":{"type":"string","pattern":"^[0-9a-f]{64}$"},
+    "collaboration_language":{"type":"string","default":"en"},
+    "user_output_language":{"type":"string","default":"ko"},
+    "original_turns":{"type":"array","minItems":1,"items":{"type":"object","required":["id","text"]}},
+    "requirements":{"type":"array","minItems":1,"items":{"type":"object","required":["id","text","source_turn_id","source_excerpt"]}},
+    "tasks":{"type":"array","minItems":1,"items":{"type":"object","required":["id","package","objective","requirements","write_paths"],"properties":{"write_paths":{"type":"array","minItems":1,"items":{"type":"string"}},"depends_on":{"type":"array","items":{"type":"object","required":["task_id","needs"],"properties":{"needs":{"enum":["contract_ready","artifact_ready"]}}}}}}}
+  }
+}

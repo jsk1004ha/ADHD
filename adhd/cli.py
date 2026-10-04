@@ -36,10 +36,14 @@ def parser() -> argparse.ArgumentParser:
                            help='Opt in to rewriting existing agent model pins; default preserves them.')
             q.add_argument('--compact', action='store_true', help='Replace eager global guidance by a compact router; original preserved. Opt-in, not default.')
     q = sub.add_parser('builtin', help='Manage the default skill bundle and MCP registrations only')
-    q.add_argument('action', choices=['apply', 'status', 'enable', 'rollback'])
+    q.add_argument('action', choices=['apply', 'status', 'probe', 'enable', 'rollback'])
     q.add_argument('key', nargs='?', help='MCP key for enable')
     q.add_argument('--codex-home', type=Path, default=home())
     q.add_argument('--agents-home', type=Path)
+    q.add_argument('--probe-file', type=Path, help='Reviewed read-only extension probe-call JSON')
+    q.add_argument('--consent', action='store_true', help='Explicitly authorize this connection and the specified read probe')
+    q.add_argument('--oauth-token-env', help='Name of an environment variable holding an already authorized OAuth access token')
+    q.add_argument('--probe-timeout', type=int, default=25)
     q = sub.add_parser('run')
     q.add_argument('goal', nargs='?')
     q.add_argument('--goal-file', type=Path)
@@ -77,10 +81,11 @@ def parser() -> argparse.ArgumentParser:
     q.add_argument('--workspace', type=Path, default=Path.cwd())
     q.add_argument('--mode', choices=MODES, default='coding')
     q = sub.add_parser('native', help='Sandbox-side requests to the native App/CLI controller')
-    q.add_argument('operation', choices=['begin','plan','checkpoint','candidate','sync-intent','pause','blocked','status'])
+    q.add_argument('operation', choices=['begin','plan','checkpoint','candidate','sync-intent','attach-large','pause','blocked','status'])
     q.add_argument('--session', required=True)
     q.add_argument('--workspace', type=Path, default=Path.cwd())
     q.add_argument('--payload-file', type=Path)
+    q.add_argument('--profile', choices=['simple', 'standard', 'deep'], help='Explicit execution intensity for begin; preserves selected models and effort')
     q = sub.add_parser('check', help='Run an explicit argv check and emit a structured execution receipt')
     q.add_argument('--spec-file', required=True, type=Path)
     q.add_argument('--workspace', type=Path, default=Path.cwd())
@@ -94,6 +99,8 @@ def parser() -> argparse.ArgumentParser:
     q.add_argument('--out')
     from .extra_cli import add_parsers
     add_parsers(sub)
+    from .large_cli import add_parsers as add_large_parsers
+    add_large_parsers(sub)
     return p
 
 
@@ -105,11 +112,17 @@ def main(argv=None) -> int:
     args = parser().parse_args(argv)
     try:
         if args.command == 'builtin':
-            from .builtin import apply_builtin, builtin_status, enable_builtin, rollback_builtin
+            from .builtin import apply_builtin, builtin_status, probe_builtin, enable_builtin, rollback_builtin
             if args.action == 'apply':
                 output(apply_builtin(args.codex_home, args.agents_home))
             elif args.action == 'status':
                 output(builtin_status(args.codex_home, args.agents_home))
+            elif args.action == 'probe':
+                if not args.key:
+                    raise ValueError('builtin probe requires an MCP key')
+                call = bounded_json(args.probe_file) if args.probe_file else None
+                output(probe_builtin(args.codex_home, args.key, probe_call=call, consent=args.consent,
+                                     oauth_token_env=args.oauth_token_env, timeout=args.probe_timeout))
             elif args.action == 'enable':
                 if not args.key:
                     raise ValueError('builtin enable requires an MCP key')
@@ -122,7 +135,12 @@ def main(argv=None) -> int:
                 os.environ['CODEX_HOME']=str(args.codex_home.expanduser().resolve())
             from .extra_cli import execute
             return int(execute(args))
-        if args.command in {'memory','wiki','route','doc','extension','provenance','eval'}:
+        if args.command in {'large', 'batch'}:
+            from .large_cli import execute
+            result = execute(args)
+            output(result)
+            return 2 if isinstance(result, dict) and result.get('status') in {'needs_repair', 'stale', 'blocked', 'failed'} else 0
+        elif args.command in {'memory','wiki','route','doc','extension','provenance','eval'}:
             from .extra_cli import execute
             output(execute(args))
         elif args.command == 'check':
@@ -161,6 +179,12 @@ def main(argv=None) -> int:
             output(rollback_native(args.codex_home))
         elif args.command == 'native':
             payload=bounded_json(args.payload_file) if args.payload_file else {}
+            if args.profile:
+                if args.operation != 'begin':
+                    raise ValueError('--profile applies only to native begin')
+                if payload.get('execution_profile', args.profile) != args.profile:
+                    raise ValueError('CLI and payload execution profiles differ')
+                payload['execution_profile'] = args.profile
             output(submit_request(args.session,args.workspace,args.operation,payload))
         elif args.command == 'uninstall':
             native_record = _find_managed_installation(args.codex_home) is not None

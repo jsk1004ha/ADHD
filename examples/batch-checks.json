@@ -1,0 +1,7 @@
+{
+  "process_slots":2,
+  "mandatory_checks":["regression"],
+  "checks":[
+    {"id":"regression","argv":["python","-m","unittest","discover","-s","tests","-q"],"subject_paths":["src/search.py","src/export.py"],"requirements":["R1","R2"],"critical":true,"owner":"integration","timeout":300}
+  ]
+}

@@ -25,6 +25,7 @@ def add_parsers(sub):
     q=sub.add_parser('provenance');q.add_argument('action',choices=['verify'])
     q.add_argument('manifest',type=Path);q.add_argument('--workspace',type=Path,default=Path.cwd())
     q=sub.add_parser('eval');q.add_argument('--out',type=Path,required=True)
+    q.add_argument('--profile',choices=['simple','standard','deep'],default='standard')
 
 
 def payload(args):
@@ -74,5 +75,5 @@ def execute(args):
         return validate_provenance(args.workspace,args.manifest)
     if args.command=='eval':
         from .evaluation import run_evaluation
-        return run_evaluation(args.out)
+        return run_evaluation(args.out,execution_profile=args.profile)
     raise ValueError('Unknown capability')

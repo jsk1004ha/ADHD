@@ -7,6 +7,7 @@ The shell/MCP/GUI still runs only through Codex's own permission boundary.
 """
 from __future__ import annotations
 from contextlib import contextmanager
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -21,16 +22,17 @@ from . import dependencies as _dependencies
 from filelock import FileLock
 from .core import (ROOT, MODES, atomic_json, digest, file_hash, home, read_json, safe_path,
                    store, recipes, save_recipe, quarantine, select_mode)
-from .models import ROLES, route
+from .models import ROLES, route, execution_profile
 from .gates import (validate_plan, validate_document_contract, document_candidate,
                     review_documents, validate_learning_check)
 from .host_capabilities import normalize_event, observe_event, completion_capability
 from .intent import apply_intent_patch
-from .evidence import validate_execution, observe_host_tool, validate_tool_observations
+from .evidence import (validate_execution, observe_host_tool, validate_tool_observations,
+                       receipt_test_failures)
 from .snapshots import build_snapshot, validate_snapshot
 from .coding_scope import validate_baseline, scope_repositories, native_evidence
 from .provenance import validate_provenance
-from .recovery import classify_failure, record_failure
+from .recovery import classify_failure, record_failure, verified_failure_signature
 from .memory import validate_procedure_bundle
 from . import leases
 from .vendor.smolagents_context import truncate_content
@@ -43,6 +45,159 @@ DEFAULTS = {'max_rounds': 8, 'max_seconds': 3600, 'max_children': 3,
             'max_astra_calls': 1, 'max_total_children': 12, 'max_stagnation': 3,
             'max_review_children': 3, 'max_epochs': 3,
             'max_lifetime_children': 36, 'max_lifetime_rounds': 24}
+MAX_PROGRESS_AGE = 3600
+
+
+def target_manifest(state: dict) -> dict[str, str | None]:
+    """Hash declared output bytes, including outputs that do not exist yet."""
+    ws = Path(state['workspace'])
+    result = {}
+    for rel in state['contract']['artifacts']:
+        path = checked_path(ws, rel)
+        result[rel] = file_hash(path) if path.is_file() and path.stat().st_size <= MAX_FILE else None
+    return result
+
+
+def current_receipt(state: dict, ref: str, *, expect_failure: bool = False) -> dict | None:
+    try:
+        ws = Path(state['workspace'])
+        receipt = validate_execution(ws, ref, run_id=state['run_id'],
+                                     revision=state['intent_version'],
+                                     expect_failure=expect_failure)
+        started = datetime.fromisoformat(receipt['result']['started_at']).timestamp()
+        now = time.time()
+        if started < state['started'] - 2 or started > now + 2 or now - started > MAX_PROGRESS_AGE:
+            return None
+        return receipt
+    except (ValueError, OSError, KeyError, TypeError):
+        return None
+
+
+def mark_verified_progress(state: dict, kind: str, identity: str,
+                           ref: str | None = None, *, expect_failure: bool = False,
+                           observation_id: str | None = None) -> None:
+    row = {'marker': kind + ':' + str(state['intent_version']) + ':' + identity,
+           'kind': kind, 'run_id': state['run_id'], 'intent_version': state['intent_version'],
+           'contract_hash': state['contract_hash'], 'observed_at': time.time()}
+    if ref is not None:
+        row['evidence_id'] = ref
+        row['expect_failure'] = expect_failure
+        row['receipt_sha256'] = file_hash(checked_path(Path(state['workspace']), ref, existing=True))
+    if observation_id is not None:
+        row['observation_id'] = observation_id
+    if kind == 'plan_step':
+        row['plan_sha256'] = state['plan']['sha256']
+        row['marker'] = kind + ':' + str(state['intent_version']) + ':' + row['plan_sha256'] + ':' + identity
+    events = state.setdefault('verified_progress', [])
+    if not any(old['marker'] == row['marker'] for old in events):
+        state['verified_progress'] = (events + [row])[-100:]
+
+
+def observed_test_outcome(state: dict, ref: str, receipt: dict) -> None:
+    if current_receipt(state, ref, expect_failure=receipt['result']['exit_code'] != 0) is None:
+        return
+    count = receipt_test_failures(Path(state['workspace']), ref, receipt)
+    if count is None:
+        return
+    invocation = receipt['invocation']
+    suite = digest([invocation['argv'], invocation['cwd'], sorted(receipt['subject_files'])])
+    best = state.setdefault('test_outcomes', {})
+    prior = best.get(suite)
+    if prior is None or count < prior:
+        if prior is not None:
+            mark_verified_progress(state, 'failing_tests_reduced', suite + ':' + str(count), ref,
+                                   expect_failure=receipt['result']['exit_code'] != 0)
+        best[suite] = count
+
+
+def progress_markers(state: dict) -> set[str]:
+    markers = set()
+    plan = state.get('plan')
+    if (plan and plan.get('intent_version') == state['intent_version']
+            and plan.get('sha256') == digest(plan.get('content'))):
+        markers.add('plan:' + str(state['intent_version']))
+    for row in state.get('verified_progress', []):
+        if row.get('kind') == 'plan_step' and (
+                not plan or row.get('plan_sha256') != plan.get('sha256')):
+            continue
+        if (row.get('run_id') != state['run_id'] or
+                row.get('intent_version') != state['intent_version'] or
+                row.get('contract_hash') != state['contract_hash'] or
+                row.get('observed_at', 0) < state['started'] - 2 or
+                time.time() - row.get('observed_at', 0) > MAX_PROGRESS_AGE):
+            continue
+        ref = row.get('evidence_id')
+        if ref is not None:
+            receipt = current_receipt(state, ref,
+                                      expect_failure=row.get('expect_failure', False))
+            if receipt is None:
+                continue
+            try:
+                if file_hash(checked_path(Path(state['workspace']), ref, existing=True)) != row['receipt_sha256']:
+                    continue
+            except (OSError, ValueError, KeyError):
+                continue
+        observation_id = row.get('observation_id')
+        if observation_id is not None:
+            observation = next((item for item in state.get('tool_observations', [])
+                                if item.get('id') == observation_id), None)
+            if not observation or observation.get('run_id') != state['run_id'] or observation.get('contract_revision') != state['intent_version']:
+                continue
+            try:
+                observed_at = datetime.fromisoformat(observation['observed_at']).timestamp()
+                if observed_at < state['started'] - 2 or time.time() - observed_at > MAX_PROGRESS_AGE:
+                    continue
+            except (ValueError, TypeError, KeyError):
+                continue
+        markers.add(row['marker'])
+    candidate = state.get('candidate')
+    if (candidate and is_fresh(state) and
+            candidate.get('recorded_at', 0) >= state['started'] - 2 and
+            time.time() - candidate.get('recorded_at', 0) <= MAX_PROGRESS_AGE):
+        for result in candidate.get('criterion_results', []):
+            refs = result.get('evidence_ids', [])
+            if refs and not all(current_receipt(state, ref) is not None for ref in refs):
+                continue
+            observations = result.get('observation_ids', [])
+            if observations:
+                current = {row.get('id'): row for row in state.get('tool_observations', [])}
+                try:
+                    if any(current[ref]['run_id'] != state['run_id'] or
+                           current[ref]['contract_revision'] != state['intent_version'] or
+                           datetime.fromisoformat(current[ref]['observed_at']).timestamp() < state['started'] - 2 or
+                           time.time() - datetime.fromisoformat(current[ref]['observed_at']).timestamp() > MAX_PROGRESS_AGE
+                           for ref in observations):
+                        continue
+                except (KeyError, ValueError, TypeError):
+                    continue
+            markers.add('requirement_pass:' + str(state['intent_version']) + ':' + result['id'])
+    return markers
+
+
+def update_stagnation(state: dict) -> None:
+    markers = progress_markers(state)
+    seen = set(state.setdefault('seen_progress', []))
+    try:
+        current = target_manifest(state)
+    except (OSError, ValueError):
+        current = {}
+    prior_targets = state.setdefault('seen_target_digests', {})
+    for rel, sha in current.items():
+        history = prior_targets.setdefault(rel, [])
+        if sha not in history:
+            markers.add('target_change:' + rel + ':' + str(sha))
+            history.append(sha)
+            prior_targets[rel] = history[-30:]
+    gained = markers - seen
+    if gained:
+        state['stagnation'] = 0
+    elif state.get('progress_initialized'):
+        state['stagnation'] = state.get('stagnation', 0) + 1
+    else:
+        state['stagnation'] = 0
+    state['progress_initialized'] = True
+    state['seen_progress'] = sorted(seen | markers)[-200:]
+    state['last_progress'] = digest(sorted(markers))
 
 def session_key(session: str) -> str:
     if not isinstance(session, str) or not session or len(session) > 1024:
@@ -100,11 +255,14 @@ def deny(reason: str) -> dict:
     return {'hookSpecificOutput': {'hookEventName': 'PreToolUse',
                                   'permissionDecision': 'deny', 'permissionDecisionReason': reason}}
 
-def load_policy() -> dict:
+def load_policy(profile_name: str = 'standard') -> dict:
     overrides = read_json(store() / 'native-policy.json', {})
     if not isinstance(overrides, dict):
         raise ValueError('native-policy.json must be an object')
     result = dict(DEFAULTS)
+    if profile_name == 'simple':
+        result['max_children'] = 1
+        result['max_total_children'] = result['max_review_children'] + 1
     ranges = {'max_rounds':(1,50), 'max_seconds':(60,86400), 'max_children':(1,6),
               'max_astra_calls':(0,5), 'max_total_children':(1,100), 'max_stagnation':(2,10),
               'max_review_children':(1,20), 'max_epochs':(1,20),
@@ -113,7 +271,41 @@ def load_policy() -> dict:
         if k not in ranges or type(value) is not int or not ranges[k][0] <= value <= ranges[k][1]:
             raise ValueError('Invalid local policy field: ' + k)
         result[k] = value
+    if profile_name == 'simple' and 'max_total_children' not in overrides:
+        result['max_total_children'] = result['max_review_children'] + 1
     return result
+
+
+def validate_profile_plan(plan: dict, criteria: list[dict], profile_name: str) -> dict:
+    if profile_name == 'deep':
+        return validate_plan(plan, criteria)
+    if not isinstance(plan, dict):
+        raise ValueError('Brief plan must be an object')
+    if all(field in plan for field in ('preflight', 'risks', 'alternatives')):
+        return validate_plan(plan, criteria)
+    for field in ('objective', 'approach', 'verification'):
+        if not isinstance(plan.get(field), str) or not plan[field].strip() or len(plan[field]) > 6000:
+            raise ValueError('Brief plan needs bounded ' + field)
+    steps = plan.get('steps')
+    if not isinstance(steps, list) or not 1 <= len(steps) <= 20:
+        raise ValueError('Brief plan needs 1..20 steps')
+    expected = {row['id'] for row in criteria}
+    ids = set()
+    covered = set()
+    for step in steps:
+        if (not isinstance(step, dict) or not isinstance(step.get('id'), str)
+                or not step['id'] or step['id'] in ids
+                or not isinstance(step.get('action'), str) or not step['action'].strip()):
+            raise ValueError('Brief plan step needs a unique id and action')
+        deps, reqs = step.get('depends_on', []), step.get('requirements', [])
+        if (not isinstance(deps, list) or not set(deps) <= ids
+                or not isinstance(reqs, list) or not reqs or not set(reqs) <= expected):
+            raise ValueError('Brief plan dependencies and requirements must be known')
+        ids.add(step['id'])
+        covered.update(reqs)
+    if covered != expected:
+        raise ValueError('Brief plan must cover every requirement')
+    return plan
 
 def lease_path(ws: Path) -> Path:
     return leases.lease_path(ws)
@@ -123,9 +315,26 @@ def claim_writer(state: dict) -> None:
     state['lease_generation'] = leases.acquire(Path(state['workspace']), expected, owner='native')
 
 def release_writer(state: dict) -> None:
+    if any(child.get('status') == 'running' for child in state.get('children', {}).values()):
+        raise ValueError('Cannot release writer while a child is running')
     leases.release(Path(state['workspace']),
                    'native:' + state['key'] + ':' + state.get('run_id', ''),
                    state.get('lease_generation'))
+
+
+def end_after_children(state: dict, terminal: str, feedback: str | None = None) -> None:
+    """Commit a terminal transition only after the last observed child stops."""
+    if terminal not in leases.TERMINAL:
+        raise ValueError('Invalid terminal state')
+    if feedback is not None:
+        state['feedback'] = feedback
+    if any(child.get('status') == 'running' for child in state.get('children', {}).values()):
+        state['status'] = 'interrupt_pending'
+        state['pending_terminal'] = terminal
+    else:
+        state['status'] = terminal
+        state.pop('pending_terminal', None)
+        release_writer(state)
 
 def export_view(state: dict) -> None:
     b = bridge(Path(state['workspace']), state['key']); b.mkdir(parents=True, exist_ok=True)
@@ -167,6 +376,11 @@ def migrate_state(state: dict, d: Path) -> None:
         state['version']=__version__
         state.setdefault('failure_history',[])
         state.setdefault('failure_counts',{})
+        state.setdefault('verified_failure_counts',{})
+        state.setdefault('verified_progress',[])
+        state.setdefault('seen_progress',[])
+        state.setdefault('test_outcomes',{})
+        state.setdefault('execution_profile', execution_profile())
         state.setdefault('needs_replan',False)
         state.setdefault('model_calls',[])
         state.setdefault('tool_observations',[])
@@ -295,6 +509,9 @@ def is_fresh(state: dict) -> bool:
             proof, _ = native_evidence(state, c.get('coding_scope_evidence'), checked_path)
             if proof != c.get('coding_scope_proof'):
                 return False
+        if state.get('large_task'):
+            from .large_native import validate_admission
+            validate_admission(state)
         return True
     except (ValueError,OSError):
         return False
@@ -361,6 +578,7 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             if not isinstance(values,list) or len(values)>50 or any(not isinstance(v,str) or len(v)>4000 for v in values):
                 raise ValueError(field+' must be a bounded list of strings')
         criteria=criteria_valid(payload.get('criteria'))
+        profile=execution_profile(payload.get('execution_profile', 'standard'))
         mode=payload.get('mode',select_mode(state['prompts'][-1]['text']))
         if mode not in MODES:
             raise ValueError('Invalid task mode')
@@ -392,36 +610,40 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         state.update(run_id=uuid.uuid4().hex, status='working', started=time.time(),
             mode=mode, rounds=0, astra_calls=0,total_children=0,children={},reservations={},
             seen_stops=[],halt_emitted=False,last_stop_decision={},feedback='',candidate=None,stagnation=0,last_progress=None,checkpoints=[],
-            policy=load_policy(), plan=None, plan_required=True,
+            progress_initialized=False,seen_progress=[],verified_progress=[],test_outcomes={},
+            policy=load_policy(profile['name']), plan=None,
+            plan_required=profile['plan_depth']!='optional', execution_profile=profile,
             pending_turn_ids=[],epoch=1,review_children=0,lifetime_children=0,lifetime_rounds=0)
-        state['failure_history']=[];state['failure_counts']={};state['needs_replan']=False
+        state['failure_history']=[];state['failure_counts']={};state['verified_failure_counts']={};state['needs_replan']=False
         state['contract']={'criteria':criteria,'artifacts':artifacts,
             'assumptions':payload.get('assumptions',[]), 'non_goals':payload.get('non_goals',[]),
             'intent_version':state['intent_version'], 'documents':documents, 'protected_inputs':protected_hashes}
         if scope:
             state['contract']['coding_scope'] = scope
         if 'plan' in payload:
-            state['plan']={'content':validate_plan(payload['plan'],criteria),'intent_version':state['intent_version']}
+            state['plan']={'content':validate_profile_plan(payload['plan'],criteria,profile['name']),
+                           'intent_version':state['intent_version']}
             state['plan']['sha256']=digest(state['plan']['content'])
         state['contract_hash']=digest(state['contract'])
+        state['seen_target_digests']={rel:[sha] for rel,sha in target_manifest(state).items()}
         state['recipes']=recipes(ws,mode,state['prompts'][-1]['text'],limit=2)
         claim_writer(state)
         atomic_json(d/('contract-'+state['run_id']+'-v'+str(state['intent_version'])+'.json'),state['contract'])
+        if profile['plan_depth']=='optional':
+            return 'Simple run armed. Execute directly or use one bounded child; verify before independent review.'
         return 'Run armed. Read relevant memory/skills, then submit a requirement-covered plan before implementation. Do not wait for user approval of reversible decisions.'
     if op=='status': return 'Status exported to view.json.'
     if op=='pause':
-        if any(c['status']=='running' for c in state.get('children',{}).values()):
-            state['status']='interrupt_pending';state['pending_terminal']='paused'
-            return 'Pause pending while running children finish; writer lease retained.'
-        state['status']='paused'; release_writer(state)
-        return 'Paused without discarding work. Only a real user message can authorize resumption.'
+        end_after_children(state, 'paused')
+        return ('Pause pending while running children finish; writer lease retained.'
+                if state['status']=='interrupt_pending' else
+                'Paused without discarding work. Only a real user message can authorize resumption.')
     if op=='blocked':
         state['feedback']=str(payload.get('reason','A required capability is unavailable.'))[:4000]
-        if any(c['status']=='running' for c in state.get('children',{}).values()):
-            state['status']='interrupt_pending';state['pending_terminal']='blocked'
-            return 'Blocked state pending while running children finish; writer lease retained.'
-        state['status']='blocked'
-        release_writer(state); return 'Blocked, not complete. Report the actual blocker.'
+        end_after_children(state, 'blocked')
+        return ('Blocked state pending while running children finish; writer lease retained.'
+                if state['status']=='interrupt_pending' else
+                'Blocked, not complete. Report the actual blocker.')
     if op=='sync-intent':
         if not state.get('pending_turn_ids'):
             raise ValueError('No pending user turn to reconcile')
@@ -459,10 +681,15 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         state['contract']=updated
         state['intent_version']=updated['intent_version']
         state['contract_hash']=digest(updated)
+        if state.get('large_task'):
+            from .large_native import invalidate_intent
+            invalidate_intent(state)
         state['reusable_evidence']={r['id']:r for r in state.get('candidate',{}).get('criterion_results',[])
             if not any(t=='criteria/'+r['id'] or t.startswith('documents/') for t in changed)} if state.get('candidate') else {}
         state['candidate']=None
         state['status']='working'
+        state['completed_steps']=[]
+        state['test_outcomes']={}
         state['feedback']='User contract updated. Recheck affected evidence and plan coverage.'
         if state.get('lease_generation') is None:
             claim_writer(state)
@@ -472,11 +699,21 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         raise ValueError('No active native run')
     if digest(state['contract']) != state['contract_hash']:
         raise ValueError('Authoritative contract changed unexpectedly')
+    if op == 'attach-large':
+        if not state.get('plan') or state['plan']['intent_version'] != state['intent_version']:
+            raise ValueError('Current deep plan is required before attaching large execution')
+        from .large_native import attach
+        state['large_task'] = attach(state, payload)
+        state['candidate'] = None
+        return 'Large graph attached. Use isolated CLI workers; App multi-writer correlation remains unavailable.'
     if op=='plan':
-        content=validate_plan(payload,state['contract']['criteria'])
+        content=validate_profile_plan(payload,state['contract']['criteria'],
+                                      state.get('execution_profile', execution_profile())['name'])
         new_sha=digest(content)
         if state.get('needs_replan') and new_sha==state.get('plan',{}).get('sha256'):
             raise ValueError('Repeated failure needs a changed plan and hypothesis')
+        if new_sha != (state.get('plan') or {}).get('sha256'):
+            state['completed_steps']=[]
         state['plan']={'content':content,'intent_version':state['intent_version'],'sha256':new_sha}
         state['needs_replan']=False
         atomic_json(d/('plan-'+state['run_id']+'.json'),state['plan'])
@@ -497,6 +734,7 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             verified.append({'id':ref,'subject_digest':receipt['subject_digest'],
                              'stdout_sha256':receipt['result']['stdout_sha256'],
                              'receipt_sha256':file_hash(checked_path(ws,ref,existing=True))})
+            observed_test_outcome(state,ref,receipt)
         if verified:
             existing=state.get('checkpoint_evidence',[])
             known={(row['subject_digest'],row.get('stdout_sha256')) for row in existing}
@@ -510,7 +748,8 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
                 raise ValueError('Checkpoint failure must have category, detail and evidence_id')
             ref=failure.get('evidence_id')
             if not isinstance(ref,str):raise ValueError('Failure needs a check receipt')
-            validate_execution(ws,ref,run_id=state['run_id'],revision=state['intent_version'],expect_failure=True)
+            failed_receipt=validate_execution(ws,ref,run_id=state['run_id'],revision=state['intent_version'],expect_failure=True)
+            observed_test_outcome(state,ref,failed_receipt)
             stderr=checked_path(ws,str((Path(ref).parent/'check.stderr.log').as_posix()),existing=True)
             stdout=checked_path(ws,str((Path(ref).parent/'check.stdout.jsonl').as_posix()),existing=True)
             with stderr.open('rb') as stream:
@@ -523,21 +762,57 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             detail=failure.get('detail')
             if not isinstance(detail,str):
                 raise ValueError('Failure needs a concrete detail')
-            row=record_failure(state,category,detail,ref)
+            row=record_failure(state,category,detail,ref,
+                               verified_signature=verified_failure_signature(failure_output))
             if not row['retry_allowed']:
                 if category in {'auth_required','permission_denied','tool_unavailable','budget_exhausted'}:
-                    state['feedback']=row['next_action']
-                    if any(c['status']=='running' for c in state.get('children',{}).values()):
-                        state['status']='interrupt_pending';state['pending_terminal']='blocked'
-                    else:
-                        state['status']='blocked';release_writer(state)
+                    end_after_children(state, 'blocked', row['next_action'])
                 else:
                     state['needs_replan']=True
+        partial=payload.get('criterion_results',[])
+        if not isinstance(partial,list) or len(partial)>50:
+            raise ValueError('Checkpoint criterion_results must be a bounded list')
+        criterion_by_id={row['id']:row for row in state['contract']['criteria']}
+        seen_criteria=set()
+        for result in partial:
+            if not isinstance(result,dict) or result.get('id') not in criterion_by_id or result['id'] in seen_criteria:
+                raise ValueError('Checkpoint has duplicate/unknown requirement result')
+            seen_criteria.add(result['id'])
+            single={**state,'contract':{**state['contract'],'criteria':[criterion_by_id[result['id']]]}}
+            result_valid(single,[result],require_execution=True)
+            refs=result.get('evidence_ids',[])
+            observations=result.get('observation_ids',[])
+            if refs:
+                if not all(current_receipt(state,ref) is not None for ref in refs):
+                    raise ValueError('Checkpoint requirement evidence is old or stale')
+                mark_verified_progress(state,'requirement_pass',result['id'],refs[0])
+            elif observations:
+                mark_verified_progress(state,'requirement_pass',result['id'],
+                                       observation_id=observations[0])
+            else:
+                raise ValueError('Checkpoint requirement pass needs current observed evidence')
+        steps=payload.get('completed_steps',[])
+        if not isinstance(steps,list) or len(steps)>20:
+            raise ValueError('Checkpoint completed_steps must be a bounded list')
+        planned={step['id']:step for step in (state.get('plan') or {}).get('content',{}).get('steps',[])}
+        completed=set(state.get('completed_steps',[]))
+        for item in steps:
+            if not isinstance(item,dict) or set(item)!={'id','evidence_ids'} or item.get('id') not in planned:
+                raise ValueError('Completed step needs a known id and evidence_ids')
+            refs=item['evidence_ids']
+            if (not isinstance(refs,list) or not 1<=len(refs)<=12 or
+                    any(not isinstance(ref,str) or current_receipt(state,ref) is None for ref in refs)):
+                raise ValueError('Completed step needs fresh successful execution evidence')
+            if not set(planned[item['id']].get('depends_on',[])) <= completed:
+                raise ValueError('Complete plan prerequisites before dependent steps')
+            completed.add(item['id'])
+            mark_verified_progress(state,'plan_step',item['id'],refs[0])
+        state['completed_steps']=sorted(completed)
         state['checkpoints']=(state.get('checkpoints',[])+[entry])[-6:]
         return 'Checkpoint saved.'
     if op=='candidate':
         if state.get('plan_required') and (not state.get('plan') or state['plan']['intent_version']!=state['intent_version']):
-            raise ValueError('Create/update the deep plan before implementing or submitting this nontrivial task')
+            raise ValueError('Create/update the required plan before submitting this task')
         for rel,sha in state['contract'].get('protected_inputs',{}).items():
             if file_hash(checked_path(ws,rel,existing=True))!=sha:raise ValueError('Protected original input changed: '+rel)
         if state['contract']['intent_version'] != state['intent_version']:
@@ -547,6 +822,10 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         if state.get('needs_replan'):
             raise ValueError('Change the plan after repeated failed checks before submitting a candidate')
         result_valid(state,payload.get('criterion_results'),require_execution=True)
+        large_proof, large_files = None, []
+        if state.get('large_task'):
+            from .large_native import candidate_evidence
+            large_proof, large_files = candidate_evidence(state, payload)
         scope_proof = None; scope_files = []
         if state['contract'].get('coding_scope'):
             scope_proof, scope_files = native_evidence(state, payload.get('coding_scope_evidence'), checked_path)
@@ -605,18 +884,38 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         render_manifests=[r['render_manifest'] for r in document_evidence]
         bundle_leaves=set(render_files)
         learning_files=[learning_check['explanation_file']] if learning_check and 'explanation_file' in learning_check else []
-        ordinary=list(dict.fromkeys(files+source_files+provenance_files+learning_files+scope_files+
+        ordinary=list(dict.fromkeys(files+source_files+provenance_files+learning_files+scope_files+large_files+
                                  list(state['contract'].get('protected_inputs',{}))))
         ordinary=[rel for rel in ordinary if rel not in bundle_leaves]
+        task_bundle = None
+        if large_proof:
+            task_bundle = large_proof['snapshot_manifest']
+            frozen = bounded_json(checked_path(ws, task_bundle, existing=True), 8 * 1024 * 1024)
+            prefix = Path(frozen['staging_workspace']).relative_to(ws)
+            task_leaves = {(prefix / name).as_posix() for name in frozen['files']}
+            ordinary = [rel for rel in ordinary if rel not in task_leaves and rel != task_bundle]
         large=payload.get('large_artifacts',[])
         if not isinstance(large,list) or len(large)>30 or len(set(large))!=len(large) or not set(large)<=set(ordinary):
             raise ValueError('large_artifacts must name unique candidate files')
         descriptors=[{'kind':'large_artifact','path':rel} if rel in large else rel for rel in ordinary]
         descriptors += [{'kind':'render_bundle','manifest':rel} for rel in render_manifests]
+        if task_bundle:
+            descriptors.append({'kind':'task_bundle','manifest':task_bundle})
         snap=build_snapshot(ws,descriptors)
         execution_refs={ref:file_hash(checked_path(ws,ref,existing=True))
                         for row in payload['criterion_results']
                         for ref in row.get('evidence_ids',[])}
+        deep_evidence=None
+        if state.get('execution_profile', execution_profile())['review_depth']=='strengthened':
+            required_targets=set(state['contract']['artifacts'])
+            covering=[]
+            for ref in execution_refs:
+                receipt=current_receipt(state,ref)
+                if receipt is not None and required_targets <= set(receipt['subject_files']):
+                    covering.append(ref)
+            if not covering:
+                raise ValueError('Deep profile needs a fresh successful execution receipt covering every target artifact')
+            deep_evidence={'target_covering_receipts':sorted(covering)}
         used_observations=list(dict.fromkeys(ref for row in payload['criterion_results']
                           for ref in row.get('observation_ids',[])))
         observation_by_id={row['id']:row for row in state.get('tool_observations',[])}
@@ -627,13 +926,16 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         if procedure_bundle is not None and not procedure:
             raise ValueError('A procedure bundle needs ordinary procedure steps')
         c={'files':snap,'snapshot_schema':1,'intent_version':state['intent_version'],
+            'large_task_evidence':large_proof,'recorded_at':time.time(),
             'contract_hash':state['contract_hash'],'criterion_results':payload['criterion_results'],
             'sources':sources,'procedure':procedure,'procedure_bundle':procedure_bundle,
             'document_evidence':document_evidence,
             'provenance_evidence':provenance_evidence,'learning_check':learning_check,
             'tool_observations':[observation_by_id[ref] for ref in used_observations],
-            'plan_sha256':state.get('plan',{}).get('sha256'),
+            'plan_sha256':(state.get('plan') or {}).get('sha256'),
             'execution_receipts':execution_refs,'evidence_schema':1}
+        if deep_evidence is not None:
+            c['deep_evidence']=deep_evidence
         if scope_proof:
             c['coding_scope_proof'] = scope_proof
             c['coding_scope_evidence'] = payload['coding_scope_evidence']
@@ -684,7 +986,7 @@ def spawn_guard(state: dict, ev: dict) -> dict:
     role=args.get('agent_type',args.get('subagent_type',''))
     if not isinstance(role,str) or role not in ROLES: return deny('Use a ADHD role during this run, or pause the native owner before using another harness.')
     if role=='adhd-implementer' and state.get('plan_required') and (not state.get('plan') or state['plan']['intent_version']!=state['intent_version']):
-        return deny('Deep plan and prerequisite inspection required before implementation. Use scout/planner or the Sol director first.')
+        return deny('Profile plan and prerequisite inspection required before implementation. Use scout/planner or the Sol director first.')
     choice=route(role)
     requested=args.get('model')
     if requested and requested != choice['model']:
@@ -807,7 +1109,7 @@ def start_child(state: dict, ev: dict) -> dict:
 
 def stop_child(state: dict, ev: dict, d: Path) -> dict:
     child=state.get('children',{}).get(str(ev.get('agent_id','')))
-    if not child: return {}
+    if not child or child.get('status') != 'running': return {}
     child['status']='finished'
     usage=ev.get('usage')
     measured=usage if isinstance(usage,dict) and usage and all(
@@ -826,7 +1128,7 @@ def stop_child(state: dict, ev: dict, d: Path) -> dict:
         archive_for_new_task(state,d,state['handoff_turn_id'])
         return message('SubagentStop','Previous run archived; a new begin contract may be submitted.')
     if state['status']=='interrupt_pending' and not any(c['status']=='running' for c in state['children'].values()):
-        state['status']=state.pop('pending_terminal','paused');release_writer(state)
+        end_after_children(state, state.get('pending_terminal','paused'))
         return message('SubagentStop','Run stopped after all running children finished; writer lease released.')
     if child['role'] != 'adhd-verifier' or state['status'] not in ACTIVE: return {}
     try:
@@ -839,6 +1141,8 @@ def stop_child(state: dict, ev: dict, d: Path) -> dict:
             raise ValueError('Verifier profile was missing or changed during review')
         if state.get('pending_turn_ids'):
             raise ValueError('Pending user turn must be reconciled before review')
+        if any(other.get('status') == 'running' for other in state['children'].values()):
+            raise ValueError('Other children are still running; wait for them before independent completion')
         if child.get('model') != route('adhd-verifier')['model']:
             raise ValueError('Verifier model was missing or mismatched; cannot attest the configured independent review')
         if (child.get('observed_effort') not in {None,route('adhd-verifier')['effort']} or
@@ -868,6 +1172,14 @@ def stop_child(state: dict, ev: dict, d: Path) -> dict:
                 raise ValueError('Reviewer changed the candidate execution evidence references')
             if row.get('observation_ids',[]) != candidate_results[row['id']].get('observation_ids',[]):
                 raise ValueError('Reviewer changed the observed host tool references')
+        if state['candidate'].get('deep_evidence'):
+            review=verdict.get('evidence_review')
+            if (not isinstance(review,dict) or
+                    review.get('target_covering_receipts') != state['candidate']['deep_evidence']['target_covering_receipts'] or
+                    not isinstance(review.get('findings'),list) or
+                    not review['findings'] or
+                    any(not isinstance(item,str) or not item.strip() or len(item)>2000 for item in review['findings'])):
+                raise ValueError('Deep review needs concrete findings about the current target-covering executions')
         review_documents(state,verdict)
         state['host_capabilities']['verifier_correlated']=True
         state['review_receipt']={'agent_id':str(ev['agent_id']),'model':child.get('model'),
@@ -876,7 +1188,10 @@ def stop_child(state: dict, ev: dict, d: Path) -> dict:
                                  'observed_effort':child.get('observed_effort'),
                                  'effort_source':child.get('effort_source'),
                                  'time':time.time(),'digest':child['digest'],'verdict':verdict}
-        state['status']='complete'; state['feedback']='Verified candidate completed.'
+        if state.get('large_task'):
+            from .large_native import accept_verified
+            accept_verified(state)
+        state['feedback']='Verified candidate completed.'
         call['outcome']='independent_approval'
         atomic_json(d/('completion-'+state['run_id']+'.json'),state['review_receipt'])
         state['recipe_saved']=None
@@ -886,7 +1201,7 @@ def stop_child(state: dict, ev: dict, d: Path) -> dict:
                   bundle=state['candidate'].get('procedure_bundle'))
         except (ValueError,OSError) as error:
             state['memory_warning']=str(error)[:500]
-        release_writer(state)
+        end_after_children(state, 'complete')
         return message('SubagentStop','ADHD independent gate passed. Report actual deliverables, evidence, and remaining limitations; do not add unverified edits.')
     except (ValueError,TypeError,OSError) as e:
         call['outcome']='review_rejected'
@@ -941,10 +1256,7 @@ def handle_event(ev: dict) -> dict:
                 normalized=prompt.strip().lower().rstrip('.!。')
                 if normalized in {'stop','cancel','그만','중단','멈춰','그만해','작업 중단'}:
                     state['halt_emitted']=False;state['feedback']='Stopped by explicit user message.'
-                    if any(c['status']=='running' for c in state.get('children',{}).values()):
-                        state['status']='interrupt_pending';state['pending_terminal']='cancelled'
-                    else:
-                        state['status']='cancelled';release_writer(state)
+                    end_after_children(state, 'cancelled')
                 elif normalized in {'resume','재개','이어서 계속','계속 진행'} and state.get('contract') and state['status'] in {'paused','blocked','budget_exhausted','cancelled'}:
                     if (state.get('epoch',1)>=state['policy']['max_epochs'] or
                             state.get('lifetime_children',0)>=state['policy']['max_lifetime_children'] or
@@ -981,18 +1293,11 @@ def handle_event(ev: dict) -> dict:
         elif name=='SubagentStop': out=stop_child(state,ev,d)
         elif name=='SessionEnd':
             if state['status'] in ACTIVE:
-                if any(c['status']=='running' for c in state['children'].values()):
-                    state['status']='interrupt_pending';state['pending_terminal']='paused'
-                else:
-                    state['status']='paused';release_writer(state)
+                end_after_children(state, 'paused')
         elif name=='Interrupt':
             if state['status'] in ACTIVE:
-                if any(c['status']=='running' for c in state['children'].values()):
-                    state['status']='interrupt_pending'
-                    state['pending_terminal']='paused'
-                    state['feedback']='Waiting for running children to stop before releasing ownership.'
-                else:
-                    state['status']='paused';release_writer(state)
+                end_after_children(state, 'paused',
+                                   'Waiting for running children to stop before releasing ownership.')
         elif name=='Stop':
             reports=process_inbox(state,d)
             if state['status']=='complete' and not state.get('pending_turn_ids') and not is_fresh(state):
@@ -1004,17 +1309,7 @@ def handle_event(ev: dict) -> dict:
                 else:
                     state['seen_stops']=(state['seen_stops']+[turn])[-100:]
                     state['rounds']+=1;state['lifetime_rounds']=state.get('lifetime_rounds',0)+1
-                    candidate=state.get('candidate')
-                    fresh_candidate=bool(candidate and is_fresh(state))
-                    fresh_data=candidate if fresh_candidate and isinstance(candidate,dict) else {}
-                    candidate_files=fresh_data.get('files')
-                    progress=digest([
-                        candidate_files.get('digest') if fresh_data.get('snapshot_schema')==1 and isinstance(candidate_files,dict)
-                        else candidate_files,
-                        sorted({(row.get('subject_digest'),row.get('stdout_sha256'))
-                                for row in state.get('checkpoint_evidence',[])})])
-                    state['stagnation']=state.get('stagnation',0)+1 if state.get('last_progress')==progress else 0
-                    state['last_progress']=progress
+                    update_stagnation(state)
                     exceeded=(state['rounds']>state['policy']['max_rounds'] or
                               state['lifetime_rounds']>state['policy']['max_lifetime_rounds'] or
                               time.time()-state['started']>=state['policy']['max_seconds']
@@ -1022,7 +1317,7 @@ def handle_event(ev: dict) -> dict:
                     if exceeded:
                         failure=record_failure(state,'budget_exhausted',
                             'Continuation/time/no-progress limit reached','hook:Stop/'+turn)
-                        state['status']='budget_exhausted';state['feedback']=failure['next_action'];release_writer(state)
+                        end_after_children(state, 'budget_exhausted', failure['next_action'])
                         out={'continue':False,'stopReason':state['feedback']}
                     else:
                         action='Resolve feedback, perform the work, then submit a fresh candidate and independently review it.'

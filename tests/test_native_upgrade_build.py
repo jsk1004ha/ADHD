@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from adhd.native_install import install_native,release_identity,rollback_native,upgrade_native
+from adhd import DISPLAY_NAME, __version__
 
 
 class NativeUpgradeBuildTests(unittest.TestCase):
@@ -26,7 +27,7 @@ class NativeUpgradeBuildTests(unittest.TestCase):
     def test_new_install_uses_adhd_executable_path(self):
         installed=install_native(self.codex,self.agents,fixture_mode=True)
         release=Path(installed['release'])
-        self.assertEqual(installed['display_version'],'ADHD — Autonomous Delegation Harness Director v0.1.3')
+        self.assertEqual(installed['display_version'],f'{DISPLAY_NAME} v{__version__}')
         self.assertTrue(release.is_relative_to(self.codex/'adhd'/'releases'))
         self.assertTrue((release/'adhd.py').is_file())
         self.assertTrue((release/'adhd.py').is_file())

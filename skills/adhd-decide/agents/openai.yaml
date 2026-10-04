@@ -1,0 +1,7 @@
+interface:
+  display_name: "ADHD · 선택과 결정"
+  short_description: "실제 대안의 제약과 근거를 비교해 ADHD의 다음 결정을 정리"
+  default_prompt: "$adhd-decide로 이 대안들을 비교하고 선택 근거와 재검토 조건을 정리해 줘."
+
+policy:
+  allow_implicit_invocation: true

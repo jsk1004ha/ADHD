@@ -1,5 +1,13 @@
 {
-  "note": "Legacy batch examples only, not automatically loaded. Native v0.1 model policy is in adhd/models.py.",
+  "note": "Examples only, not automatically loaded. Native execution profiles are selected by begin execution_profile or --profile; model pins are preserved in adhd/models.py.",
+  "native": {
+    "default": "standard",
+    "simple": "Direct work or one limited work child, optional plan, independent acceptance",
+    "standard": "Brief requirement-covered plan, automatic checks and independent review",
+    "deep": "Deep plan, fresh target-covering execution evidence and independent evidence review",
+    "model_policy": "Preserve selected model and effort; no automatic fallback",
+    "evaluation": "Fixture coverage only; live quality, latency and cost require separate measurement"
+  },
   "inherit": {
     "effort": "inherit",
     "iterations": 8,

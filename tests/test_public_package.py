@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from build import package_adhd
+from adhd import __version__
 
 
 class PublicPackageTests(unittest.TestCase):
@@ -25,8 +26,9 @@ class PublicPackageTests(unittest.TestCase):
                 package_adhd.main()
             with zipfile.ZipFile(output) as archive:
                 names = archive.namelist()
-            self.assertIn('ADHD-v0.1.3/README.md', names)
-            self.assertNotIn('ADHD-v0.1.3/auth.json', names)
+            self.assertEqual(package_adhd.ARCHIVE_ROOT, f'ADHD-v{__version__}')
+            self.assertIn(f'{package_adhd.ARCHIVE_ROOT}/README.md', names)
+            self.assertNotIn(f'{package_adhd.ARCHIVE_ROOT}/auth.json', names)
 
     def test_path_traversal_in_manifest_is_rejected(self):
         with tempfile.TemporaryDirectory() as temp:

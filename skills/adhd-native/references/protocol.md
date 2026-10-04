@@ -2,7 +2,7 @@
 name: adhd-native
 description: App/interactive-CLI coordinator for substantive research, learning, reports, coding and games when ADHD owns the task. Preserve intent, delegate selectively and verify deliverables.
 ---
-# ADHD native request protocol v0.1.3
+# ADHD native request protocol v0.1.4
 
 ## Start automatically, without making the user operate a harness
 Follow the installed native hook's SESSION and view.json path. No `$adhd`, slash command, separate terminal loop or new chat per step is required. For a trivial question answer directly; delegate to adhd-light only when its savings justify another call. Preserve the active parent model; a prompt does not change it to Luna.
@@ -118,10 +118,18 @@ A dependent task is not ready for delegation until its prerequisites exist. Revi
 ## Work, checkpoint, then independent acceptance
 Run relevant tests, commands, browser interactions and document renders through normal Codex tools and permissions. Write full command/output/exit evidence to files; return short pointers. Mock tests validate mocks, not Windows/App/model integration. Use the vendored verification skill at `ADHD_ROOT/third_party/superpowers/verification-before-completion/SKILL.md` before claiming success.
 
-Checkpoint payload (only current execution receipts add verified progress):
+Checkpoint payload (only current execution receipts add verified outcome progress):
 ```json
 {"summary":"What changed and what was actually checked, with file pointers","next_action":"The next unresolved action","evidence_ids":[".adhd/checks/CHECK_ID/receipt.json"]}
 ```
+Optional `criterion_results` record passing requirement IDs with fresh
+`evidence_ids` (or matching observed tool IDs). Optional
+`completed_steps: [{"id":"S1","evidence_ids":[".adhd/checks/CHECK_ID/receipt.json"]}]`
+records known plan steps after their dependencies. Repeated passes/completions,
+timestamp-only logs and stale run/revision/subject/age evidence do not reset
+stagnation. Recognized unittest/pytest summaries can show fewer failing tests;
+unknown output cannot. Declared target content changes count before a candidate.
+Identical verified failures have separate repetition counts from category totals.
 Keep the original goal and factual sources intact; checkpoint summaries may be compact. If a real user changes a condition, inspect `pending_turn_ids` in view.json and submit `sync-intent` with its `source_turn_id`, current `base_revision`, classification (`no_change`, `amend`, or `new_task`), and explicit `add`, `replace`, or `retract` operations on allowlisted criteria, artifacts, documents, or protected inputs. A status question uses `no_change` and preserves the candidate. Keep the old contract revision and explain what was superseded. A distinct new task uses `new_task`; running children finish before the previous run is archived.
 
 Test criteria require a receipt from a local check executed through a normal Codex tool call: `ADHD_PYTHON ADHD_ROOT/adhd.py check --workspace WORKSPACE --spec-file CHECK.json`. The spec contains `run_id`, `contract_revision`, `argv` (array), and `subject_paths` (relevant code, tests, configuration, and inputs). The command runs without shell interpretation. Only a zero exit code with unchanged subjects can be referenced in `evidence_ids`. This is locally observed evidence, not external attestation. A short command that does not cover the claim remains insufficient even when it exits successfully.
@@ -149,6 +157,21 @@ For failure use `"verdict":"reject"`, the same digest and concrete findings. A r
 If rejected, fix the actual issue, rerun affected checks, submit a new candidate and new review. If a verifier tool or model is unavailable, submit `blocked` with a truthful reason, report remaining work, and stop instead of self-signing. If accepted, don't edit files after review; editing invalidates acceptance. Read completion status before reporting.
 
 ## Loop, resources and stopping
+Begin accepts `execution_profile` (`simple`, `standard`, `deep`; default
+`standard`), also exposed by `native begin --profile NAME`. Simple work can be
+direct or use one work child by default and has an optional plan. Standard needs
+objective, approach, verification and requirement-covered dependency steps.
+Deep additionally requires alternatives, risks and preflight; a candidate must
+include a fresh successful receipt covering every target. Its verifier additionally
+returns `evidence_review: {"target_covering_receipts":["RECEIPT"],"findings":["Concrete evidence inspection"]}`.
+Every durable candidate needs independent acceptance. Explicit local policy
+overrides remain authoritative; profiles never rewrite model or effort pins.
+
+Pause, cancellation, blockers, session interruption/end and budget exhaustion use
+the same child-draining termination path. While any child runs, status remains
+`interrupt_pending` with `pending_terminal`, and another run cannot take the writer
+lease. The last child finalizes termination and releases ownership. Recovery also
+refuses to reclaim a terminal owner whose persisted children still run.
 Native Stop hooks continue work until accepted or bounded termination. A generated `[ADHD_CONTINUE:...]` prompt is control feedback, not new user intent. Defaults: 8 continuation rounds, 3600 seconds, stagnation threshold 3, 3 parallel children, 12 child calls including 3 reserved reviews, 1 Astra call, and 3 user-authorized epochs. Limits apply at observed hook events, not a mid-inference kill switch. Prose-only checkpoint edits do not reset stagnation. Native token consumption is unknown, not zero and not hard-capped. Provider caps and actual usage UI remain relevant. No background work is provided after closing the App.
 
 When stuck, change the hypothesis once using concrete failure evidence instead of repeating the same call. At a budget/authorization/essential-data blocker, provide useful completed artifacts and state what remains. Do not repeatedly ask for permission to continue. `그만`/`중단` stops; a real user `재개`/`이어서 계속` resumes the preserved contract, not an agent-generated resume. The UI stop button cancels current activity according to the host; do not assume a nonexistent Interrupt hook.

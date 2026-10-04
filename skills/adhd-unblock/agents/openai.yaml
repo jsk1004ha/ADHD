@@ -1,0 +1,7 @@
+interface:
+  display_name: "ADHD · 막힌 작업 해결"
+  short_description: "ADHD 작업의 실패 근거를 좁혀 원인을 확인하고 실행을 재개"
+  default_prompt: "$adhd-unblock으로 이 실패의 원인을 확인하고 진행 중인 작업을 재개해 줘."
+
+policy:
+  allow_implicit_invocation: true

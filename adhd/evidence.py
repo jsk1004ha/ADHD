@@ -17,7 +17,40 @@ import uuid
 from typing import Any
 
 from .core import atomic_json, digest, file_hash, safe_path
-from .runner import execute_native_check
+from .runner import Halt, execute_native_check
+
+
+def recognized_test_failures(stdout: str, stderr: str, exit_code: int) -> int | None:
+    """Count failures only from unittest or pytest summaries, never arbitrary prose."""
+    output = (stderr + '\n' + stdout)[-128_000:]
+    if re.search(r'(?m)^Ran \d+ tests? in [\d.]+s\s*$', output):
+        summaries = re.findall(r'(?m)^FAILED \(([^\n]+)\)\s*$', output)
+        if summaries:
+            fields = dict((name, int(count)) for name, count in
+                          re.findall(r'(failures|errors)=(\d+)', summaries[-1]))
+            return sum(fields.values()) if fields else None
+        if exit_code == 0 and re.search(r'(?m)^OK(?: \(skipped=\d+\))?\s*$', output):
+            return 0
+    summaries = re.findall(r'(?m)^=+\s*(.+?)\s*=+\s*$', output)
+    for summary in reversed(summaries):
+        counts = re.findall(r'(\d+)\s+(failed|error|errors|passed|skipped|xfailed|xpassed)\b', summary)
+        if counts:
+            failed = sum(int(n) for n, kind in counts if kind in {'failed', 'error', 'errors'})
+            if failed or exit_code == 0 and any(kind == 'passed' for _, kind in counts):
+                return failed
+    return None
+
+
+def receipt_test_failures(workspace: Path, receipt_rel: str, receipt: dict) -> int | None:
+    parent = _path(workspace, receipt_rel).parent
+    def tail(path: Path) -> str:
+        with path.open('rb') as stream:
+            stream.seek(0, os.SEEK_END)
+            stream.seek(max(0, stream.tell() - 128_000))
+            return stream.read(128_000).decode('utf-8', errors='replace')
+    stdout = tail(parent / 'check.stdout.jsonl')
+    stderr = tail(parent / 'check.stderr.log')
+    return recognized_test_failures(stdout, stderr, receipt['result']['exit_code'])
 
 
 def _path(workspace: Path, relative: str, *, existing: bool = True) -> Path:
@@ -87,7 +120,12 @@ def run_check(spec: dict, workspace: Path) -> dict:
     atomic_json(subject_path, {'schema_version': 2, 'files': before,
                                'digest': digest(before)})
     started = datetime.now(timezone.utc).isoformat()
-    exit_code = execute_native_check(argv, cwd, prefix, timeout=timeout)
+    execution_status = 'exited'
+    try:
+        exit_code = execute_native_check(argv, cwd, prefix, timeout=timeout)
+    except Halt as error:
+        execution_status = 'timeout' if error.status == 'budget_exhausted' else 'cancelled'
+        exit_code = 124 if execution_status == 'timeout' else 130
     finished = datetime.now(timezone.utc).isoformat()
     after = subject_manifest(workspace, paths)
     receipt = {
@@ -102,7 +140,7 @@ def run_check(spec: dict, workspace: Path) -> dict:
                        'entrypoint_sha256': None,
                        'environment_fingerprint': digest([sys.version, os.name])},
         'result': {'started_at': started, 'finished_at': finished,
-                   'status': 'exited',
+                   'status': execution_status,
                    'exit_code': exit_code, 'inputs_unchanged': before == after,
                    'stdout_sha256': file_hash(prefix.with_suffix('.stdout.jsonl')),
                    'stderr_sha256': file_hash(prefix.with_suffix('.stderr.log'))},
@@ -110,7 +148,7 @@ def run_check(spec: dict, workspace: Path) -> dict:
     atomic_json(out, receipt)
     return {'receipt': str(out.relative_to(workspace)).replace('\\', '/'),
             'evidence_id': check_id, 'exit_code': exit_code,
-            'inputs_unchanged': before == after}
+            'inputs_unchanged': before == after, 'status': execution_status}
 
 
 def validate_execution(workspace: Path, receipt_rel: str, *, run_id: str,

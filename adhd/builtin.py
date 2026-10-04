@@ -6,11 +6,18 @@ external engines, accounts, and a successful server handshake are separate.
 from __future__ import annotations
 
 import hashlib
+import asyncio
+from contextlib import AsyncExitStack
+import importlib
+import importlib.util
+import inspect
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
+import time
 import uuid
 from typing import Any
 
@@ -18,7 +25,7 @@ from . import dependencies as _dependencies
 import tomlkit
 from filelock import FileLock
 
-from .core import ROOT, atomic_json, file_hash, read_json
+from .core import ROOT, atomic_json, digest, file_hash, read_json
 
 
 def _digest(value: Any) -> str:
@@ -127,11 +134,21 @@ def _supported_node(recipe: dict, environment: dict[str, str]) -> bool:
         return False
 
 
-def readiness(recipe: dict, environment: dict[str, str] | None = None) -> dict:
+PROBE_MAX_AGE = 3600
+
+
+def readiness(recipe: dict, environment: dict[str, str] | None = None,
+              verification: dict | None = None) -> dict:
     environment = dict(os.environ if environment is None else environment)
+    verified = verification or {}
+    stages = {'registered': False, 'dependencies_ready': False,
+              'auth_integration_verified': False, 'connected': False, 'read_verified': False}
+    def result(status, ready, missing, **extra):
+        stage = next((name for name in reversed(stages) if stages[name]), 'unregistered')
+        return {'status': status, 'ready': ready, 'missing': missing, 'stage': stage,
+                'stages': stages, 'usable': stages['read_verified'], **extra}
     if recipe.get('status') == 'unsupported':
-        return {'status': 'unsupported', 'ready': False, 'missing': [],
-                'reason': recipe.get('reason', 'No verified connection contract')}
+        return result('unsupported', False, [], reason=recipe.get('reason', 'No verified connection contract'))
     missing = []
     command = recipe.get('command')
     if command and not _program_available(command, environment):
@@ -141,21 +158,190 @@ def readiness(recipe: dict, environment: dict[str, str] | None = None) -> dict:
     engine = recipe.get('requires_program')
     if engine and not _program_available(engine, environment):
         missing.append(engine)
-    if recipe.get('engine_integration_required'):
-        missing.append(f'{engine} MCP integration/connection')
     if missing:
-        return {'status': 'dependency_required', 'ready': False, 'missing': missing}
+        return result('dependency_required', False, missing)
+    stages['dependencies_ready'] = True
     required_env = [name for name in recipe.get('required_env', []) if not environment.get(name)]
     bearer = recipe.get('bearer_token_env_var')
     if bearer and not environment.get(bearer):
         required_env.append(bearer)
     if required_env:
-        return {'status': 'auth_required', 'ready': False, 'missing': required_env}
-    if recipe.get('oauth_required'):
-        return {'status': 'auth_required', 'ready': False, 'missing': ['OAuth authorization']}
+        return result('auth_required', False, required_env)
+    if recipe.get('oauth_required') and not verified.get('auth_verified'):
+        return result('auth_required', False, ['OAuth authorization'])
+    stages['connected'] = verified.get('connected') is True
+    stages['read_verified'] = stages['connected'] and verified.get('read_verified') is True
+    if recipe.get('engine_integration_required') and not verified.get('integration_verified'):
+        return result('integration_required', False, [f'{engine} MCP integration/connection'])
+    requires_proof = bool(recipe.get('oauth_required') or recipe.get('engine_integration_required'))
+    stages['auth_integration_verified'] = (verified.get('auth_verified') is True if
+        recipe.get('auth_required') or bearer or recipe.get('required_env') else True)
+    if requires_proof and not stages['read_verified']:
+        return result('read_required', False, ['Successful reviewed read-only tool call'])
+    if stages['read_verified']:
+        return result('read_verified', True, [])
     if recipe.get('auth_required') or bearer or recipe.get('required_env'):
-        return {'status': 'auth_available', 'ready': True, 'missing': []}
-    return {'status': 'ready', 'ready': True, 'missing': []}
+        return result('auth_available', True, [])
+    return result('ready', True, [])
+
+
+def _probe_path(target: Path, key: str) -> Path:
+    # Catalog keys are reviewed names; never turn caller text into a path.
+    return target / 'adhd' / 'builtin-probes' / (_digest(key) + '.json')
+
+
+def _probe_binding(recipe: dict, entry: dict, environment: dict, token_env: str | None) -> str:
+    value = _plain(entry)
+    value.pop('enabled', None)
+    names = set(recipe.get('required_env', [])) | set(recipe.get('env_vars', []))
+    names.update(name for name in (recipe.get('bearer_token_env_var'), token_env) if name)
+    programs = {}
+    for name in (entry.get('command'), recipe.get('requires_program')):
+        path = shutil.which(name, path=environment.get('PATH')) if name else None
+        if not path and name and Path(name).is_file():
+            path = name
+        if path:
+            programs[str(Path(path).resolve())] = file_hash(Path(path))
+    # Credentials affect freshness but neither their contents nor remote results are retained.
+    return _digest([recipe, value, programs, {name: environment.get(name, '') for name in sorted(names)}])
+
+
+def _probe_verification(target: Path, key: str, recipe: dict, entry: dict | None) -> dict:
+    record = read_json(_probe_path(target, key), {})
+    if not isinstance(record, dict) or not isinstance(entry, dict):
+        return {}
+    observed = record.get('observed_at')
+    if (type(observed) not in {int, float} or not 0 <= time.time() - observed <= PROBE_MAX_AGE
+            or record.get('schema') != 1 or record.get('key') != key
+            or record.get('binding') != _probe_binding(recipe, entry, os.environ, record.get('oauth_token_env'))):
+        return {}
+    return record
+
+
+def _sdk_available() -> bool:
+    return importlib.util.find_spec('mcp') is not None
+
+
+async def _probe_builtin(recipe: dict, entry: dict, call: dict | None,
+                         environment: dict, token_env: str | None) -> dict:
+    from mcp import ClientSession, StdioServerParameters
+    from .extensions import probe_session
+    async with AsyncExitStack() as stack:
+        if entry.get('url'):
+            transport = importlib.import_module('mcp.client.streamable_http')
+            factory = getattr(transport, 'streamable_http_client', None)
+            if factory is None:
+                factory = transport.streamablehttp_client
+            bearer = token_env or recipe.get('bearer_token_env_var')
+            headers = {'Authorization': 'Bearer ' + environment[bearer]} if bearer else {}
+            # v1 accepts headers; v2 receives the configured official HTTP client.
+            if 'headers' in inspect.signature(factory).parameters:
+                streams = await stack.enter_async_context(factory(entry['url'], headers=headers))
+            else:
+                http_module = importlib.import_module('httpx2' if importlib.util.find_spec('httpx2') else 'httpx')
+                client = await stack.enter_async_context(http_module.AsyncClient(headers=headers))
+                streams = await stack.enter_async_context(factory(entry['url'], http_client=client))
+        else:
+            from mcp.client.stdio import stdio_client
+            names = {'PATH', 'HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA',
+                     'TEMP', 'TMP', 'SYSTEMROOT', 'SystemRoot'} | set(recipe.get('env_vars', []))
+            env = {name: environment[name] for name in names if name in environment
+                   and not name.upper().startswith('PYTHON')}
+            params = StdioServerParameters(command=entry['command'], args=entry.get('args', []), env=env)
+            streams = await stack.enter_async_context(stdio_client(params))
+        session = await stack.enter_async_context(ClientSession(streams[0], streams[1]))
+        return await probe_session(session, call)
+
+
+def _managed_builtin(target: Path, key: str) -> tuple:
+    record_path = target / 'adhd' / 'builtin-installation.json'
+    record = read_json(record_path)
+    if not record:
+        from .native_install import _find_managed_installation
+        managed = _find_managed_installation(target)
+        if not managed:
+            raise ValueError('No managed built-in installation')
+        record_path, record = managed[1], managed[2]
+    recipe = next((row['builtin'] for row in mcp_catalog() if row['builtin']['key'] == key), None)
+    if recipe is None:
+        raise ValueError('Unknown built-in MCP key: ' + key)
+    cfg_path = target / 'config.toml'
+    row = next((item for item in record['files'] if item['path'] == str(cfg_path)
+        and item.get('selector', {}).get('kind') == 'toml_mcp_entries'), None)
+    if row is None or key not in {item['key'] for item in row['selector']['entries']}:
+        raise ValueError('MCP entry is not managed by ADHD: ' + key)
+    document = _managed_mcp_document(cfg_path, row['selector']['entries'])
+    return record_path, record, recipe, row, document
+
+
+def probe_builtin(target: Path, key: str, *, probe_call: dict | None = None,
+                  consent: bool = False, oauth_token_env: str | None = None, timeout: int = 25) -> dict:
+    """Connect only after explicit consent; retain identity-bound read evidence."""
+    from .extensions import validate_probe_call
+    if consent is not True:
+        raise ValueError('Built-in MCP probe requires explicit user consent')
+    call = validate_probe_call(probe_call)
+    if type(timeout) is not int or not 1 <= timeout <= 120:
+        raise ValueError('Probe timeout must be 1..120 seconds')
+    if oauth_token_env is not None and (not isinstance(oauth_token_env, str) or
+            not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]{0,99}', oauth_token_env)):
+        raise ValueError('OAuth token must be a named environment variable')
+    target = target.expanduser().resolve()
+    parent = target / 'adhd'
+    parent.mkdir(parents=True, exist_ok=True)
+    with FileLock(str(parent / 'builtin-operation.lock'), timeout=10):
+        _, _, recipe, _, document = _managed_builtin(target, key)
+        entry = _plain(document['mcp_servers'][key])
+        environment = dict(os.environ)
+        verification = {'schema': 1, 'key': key, 'observed_at': time.time(),
+            'oauth_token_env': oauth_token_env, 'binding': _probe_binding(recipe, entry, environment, oauth_token_env),
+            'auth_verified': False, 'integration_verified': False, 'connected': False, 'read_verified': False}
+        state = readiness(recipe, environment)
+        if state['status'] == 'dependency_required' or state['status'] == 'unsupported':
+            verification['status'] = state['status']
+        elif recipe.get('oauth_required') and (not oauth_token_env or not environment.get(oauth_token_env)):
+            verification['status'] = 'auth_required'
+        elif state['status'] == 'auth_required' and not recipe.get('oauth_required'):
+            verification['status'] = 'auth_required'
+        elif not _sdk_available():
+            verification['status'] = 'sdk_missing'
+        else:
+            try:
+                result = asyncio.run(asyncio.wait_for(_probe_builtin(
+                    recipe, entry, call, environment, oauth_token_env), timeout=timeout))
+                if result.get('connected') is not True:
+                    raise ValueError('No observed MCP connection')
+                observed_call = result.get('tool_call')
+                if observed_call is not None:
+                    if (not call or observed_call.get('tool') != call['tool'] or
+                            observed_call.get('request_sha256') != digest(call['arguments']) or
+                            observed_call.get('status') != 'succeeded' or
+                            observed_call.get('read_only_hint_observed') is not True or
+                            not re.fullmatch(r'[0-9a-f]{64}', str(observed_call.get('result_sha256', '')))):
+                        raise ValueError('MCP read receipt differs from the reviewed probe')
+                verification.update(connected=True, auth_verified=True,
+                    integration_verified=bool(observed_call), read_verified=bool(observed_call),
+                    status='read_verified' if observed_call else 'read_required', tool_call=observed_call)
+            except ValueError:
+                # Invalid evidence never replaces a valid old receipt with success.
+                verification['status'] = 'probe_failed'
+                atomic_json(_probe_path(target, key), verification)
+                raise
+            except Exception as error:
+                verification.update(status='probe_failed', error_type=type(error).__name__)
+        # Reject concurrent user/runtime/credential changes before accepting evidence.
+        current = tomlkit.parse((target / 'config.toml').read_text(encoding='utf-8-sig'))
+        if _probe_binding(recipe, _plain(current['mcp_servers'][key]), os.environ, oauth_token_env) != verification['binding']:
+            verification.update(status='probe_failed', auth_verified=False, integration_verified=False,
+                                connected=False, read_verified=False)
+        verification['observed_at'] = time.time()
+        atomic_json(_probe_path(target, key), verification)
+        state = readiness(recipe, os.environ, verification)
+        state['stages']['registered'] = True
+        if state['stage'] == 'unregistered':
+            state['stage'] = 'registered'
+        return {'key': key, **state, 'status': verification['status'],
+                'limitation': 'Only the explicitly reviewed read is verified. Reload Codex after enabling.'}
 
 
 def _mcp_value(recipe: dict, enabled: bool, environment: dict[str, str]) -> dict:
@@ -422,10 +608,17 @@ def builtin_status(target: Path, agents_home: Path | None = None) -> dict:
     mcp = []
     for row in mcp_catalog():
         recipe = row['builtin']
-        state = readiness(recipe)
         existing_key = recipe['key'] if recipe['key'] in servers else existing_urls.get(
             recipe.get('url', '').rstrip('/')) if recipe.get('url') else None
         installed = servers.get(existing_key) if existing_key else None
+        verification = _probe_verification(target, recipe['key'], recipe, installed)
+        state = readiness(recipe, verification=verification)
+        state['stages']['registered'] = installed is not None
+        if installed is None:
+            state['stage'] = 'unregistered'
+            state['usable'] = False
+        elif state['stage'] == 'unregistered':
+            state['stage'] = 'registered'
         mcp.append({'id': row['id'], 'key': recipe['key'], **state,
                     'existing_key': existing_key,
                     'registered': installed is not None,
@@ -441,34 +634,22 @@ def enable_builtin(target: Path, key: str) -> dict:
     """Enable a managed disabled entry only after its current prerequisites pass."""
     target = target.expanduser().resolve()
     parent = target / 'adhd'
+    parent.mkdir(parents=True, exist_ok=True)
     with FileLock(str(parent / 'builtin-operation.lock'), timeout=10):
-        record_path = parent / 'builtin-installation.json'
-        record = read_json(record_path)
-        if not record:
-            from .native_install import _find_managed_installation
-            managed = _find_managed_installation(target)
-            if not managed:
-                raise ValueError('No managed built-in installation')
-            record_path, record = managed[1], managed[2]
-        recipe = next((row['builtin'] for row in mcp_catalog()
-                       if row['builtin']['key'] == key), None)
-        if recipe is None:
-            raise ValueError('Unknown built-in MCP key: ' + key)
-        state = readiness(recipe)
+        record_path, record, recipe, row, document = _managed_builtin(target, key)
+        current = document['mcp_servers'][key]
+        verification = _probe_verification(target, key, recipe, current)
+        state = readiness(recipe, verification=verification)
         if not state['ready']:
             raise ValueError(f'{key} is {state["status"]}: {state["missing"]}')
         cfg_path = target / 'config.toml'
-        row = next((item for item in record['files'] if item['path'] == str(cfg_path)
-                    and item.get('selector', {}).get('kind') == 'toml_mcp_entries'), None)
-        if row is None or key not in {item['key'] for item in row['selector']['entries']}:
-            raise ValueError('MCP entry is not managed by ADHD: ' + key)
         _validate_record(record) if 'catalog_count' in record else None
-        document = _managed_mcp_document(cfg_path, row['selector']['entries'])
-        current = document['mcp_servers'][key]
         if current.get('enabled', True):
             return {'key': key, 'status': 'already_enabled'}
         before = cfg_path.read_bytes()
         current['enabled'] = True
+        if recipe.get('oauth_required') and verification.get('oauth_token_env'):
+            current['bearer_token_env_var'] = verification['oauth_token_env']
         temp = cfg_path.with_name(cfg_path.name + '.adhd-builtin.tmp')
         try:
             temp.write_text(tomlkit.dumps(document), encoding='utf-8')
@@ -480,6 +661,10 @@ def enable_builtin(target: Path, key: str) -> dict:
                     entry['digest'] = _digest(_plain(current))
             row['installed_sha256'] = file_hash(cfg_path)
             atomic_json(record_path, record)
+            if verification:
+                verification['binding'] = _probe_binding(recipe, current, os.environ,
+                                                        verification.get('oauth_token_env'))
+                atomic_json(_probe_path(target, key), verification)
             return {'key': key, 'status': 'enabled', 'readiness': state}
         except BaseException:
             if cfg_path.is_file() and cfg_path.read_bytes() != before:

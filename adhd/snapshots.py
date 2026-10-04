@@ -15,6 +15,10 @@ from .core import digest
 class SnapshotPolicy:
     max_artifacts: int = 150
     max_bundle_files: int = 220
+    max_task_bundle_files: int = 20000
+    max_task_bundle_bytes: int = 128 * 1024 * 1024 * 1024
+    max_task_file_bytes: int = 64 * 1024 * 1024 * 1024
+    max_task_manifest_bytes: int = 8 * 1024 * 1024
     max_total_bytes: int = 1024 * 1024 * 1024
     max_file_bytes: int = 512 * 1024 * 1024
     max_large_file_bytes: int = 64 * 1024 * 1024 * 1024
@@ -43,10 +47,10 @@ def _deadline(start: float, policy: SnapshotPolicy) -> None:
     if time.monotonic()-start>policy.max_validation_seconds:raise TimeoutError('Snapshot validation time limit exceeded; result is unverified')
 
 
-def _stream_record(path: Path, relative: str, policy: SnapshotPolicy, start: float, *, control_json: bool=False, byte_limit: int|None=None) -> dict:
+def _stream_record(path: Path, relative: str, policy: SnapshotPolicy, start: float, *, control_json: bool=False, byte_limit: int|None=None, allow_empty: bool=False) -> dict:
     before=path.stat()
     limit=byte_limit if byte_limit is not None else (policy.max_control_json_bytes if control_json else policy.max_file_bytes)
-    if before.st_size==0:raise ValueError('Snapshot file is empty: '+relative)
+    if before.st_size==0 and not allow_empty:raise ValueError('Snapshot file is empty: '+relative)
     if before.st_size>limit:raise ValueError('Snapshot file exceeds its configured size limit: '+relative)
     h=hashlib.sha256();data=bytearray() if control_json else None
     with path.open('rb') as handle:
@@ -114,6 +118,34 @@ def _render_bundle(workspace: Path, relative_manifest: str, policy: SnapshotPoli
             'bundle_digest':digest({'manifest':manifest_record,'leaves':leaves})}
 
 
+def _task_bundle(workspace: Path, relative: str, policy: SnapshotPolicy, start: float) -> dict:
+    path, rel = _relative_file(workspace, relative)
+    manifest_record = _stream_record(path, rel, policy, start, control_json=True, byte_limit=policy.max_task_manifest_bytes)
+    value = json.loads(path.read_text(encoding='utf-8'))
+    if digest({k: v for k, v in value.items() if k != 'snapshot_digest'}) != value.get('snapshot_digest'):
+        raise ValueError('Task bundle has an invalid frozen digest')
+    stage = Path(value.get('staging_workspace', ''))
+    if not stage.is_absolute() or not stage.resolve().is_relative_to(workspace):
+        raise ValueError('Task bundle workspace escapes snapshot workspace')
+    files = value.get('files')
+    if not isinstance(files, dict) or not 1 <= len(files) <= policy.max_task_bundle_files:
+        raise ValueError('Task bundle file count exceeds policy')
+    leaves, task_bytes = [], 0
+    for name, sha in sorted(files.items()):
+        if not isinstance(name, str) or Path(name).is_absolute() or '..' in Path(name.replace('\\', '/')).parts:
+            raise ValueError('Task bundle leaf escapes staging workspace')
+        source, leaf_rel = _relative_file(workspace, (stage.relative_to(workspace) / name).as_posix())
+        record = _stream_record(source, leaf_rel, policy, start, allow_empty=True, byte_limit=policy.max_task_file_bytes)
+        task_bytes += record['size']
+        if task_bytes > policy.max_task_bundle_bytes:
+            raise ValueError('Task bundle exceeds its byte budget')
+        if record['sha256'] != sha:
+            raise ValueError('Task bundle file changed')
+        leaves.append(record)
+    return {'kind': 'task_bundle', 'manifest': manifest_record, 'leaves': leaves,
+            'snapshot_digest': value['snapshot_digest'], 'task_bytes': task_bytes}
+
+
 def build_snapshot(workspace: Path, artifacts: list[Any], *, policy: SnapshotPolicy | dict[str,Any] | None=None) -> dict:
     workspace=Path(workspace).resolve();rules=_policy(policy);start=time.monotonic()
     if not isinstance(artifacts,list) or not artifacts or len(artifacts)>rules.max_artifacts:raise ValueError('Snapshot needs 1..max_artifacts descriptors')
@@ -130,6 +162,11 @@ def build_snapshot(workspace: Path, artifacts: list[Any], *, policy: SnapshotPol
             bundle_paths={row['manifest']['path'],*(leaf['path'] for leaf in row['leaves'])}
             if claimed&bundle_paths:raise ValueError('Duplicate file across snapshot descriptors')
             claimed.update(bundle_paths)
+        elif isinstance(artifact,dict) and set(artifact)=={'kind','manifest'} and artifact.get('kind')=='task_bundle':
+            row = _task_bundle(workspace, artifact['manifest'], rules, start)
+            bundle_paths = {row['manifest']['path'], *(leaf['path'] for leaf in row['leaves'])}
+            if claimed & bundle_paths:raise ValueError('Duplicate file across task bundle descriptors')
+            claimed.update(bundle_paths)
         elif isinstance(artifact,dict) and set(artifact)=={'kind','path'} and artifact.get('kind')=='large_artifact':
             path,relative=_relative_file(workspace,artifact['path'])
             if relative in claimed:raise ValueError('Duplicate snapshot artifact: '+relative)
@@ -138,7 +175,11 @@ def build_snapshot(workspace: Path, artifacts: list[Any], *, policy: SnapshotPol
             large_total+=row['size']
             if large_total>rules.max_large_total_bytes:raise ValueError('Large artifacts exceed their byte budget')
         else:raise ValueError('Snapshot artifact must be a relative path or render_bundle descriptor')
-        if row['kind']!='large_artifact':
+        if row['kind']=='task_bundle':
+            large_total += row['task_bytes']
+            if large_total>rules.max_large_total_bytes:raise ValueError('Task bundles exceed the large byte budget')
+            total += row['manifest']['size']
+        elif row['kind']!='large_artifact':
             total+=row.get('size',0)+sum(leaf['size'] for leaf in row.get('leaves',[]))+row.get('manifest',{}).get('size',0)
         if total>rules.max_total_bytes:raise ValueError('Snapshot exceeds total byte budget')
         rows.append(row)
@@ -155,7 +196,7 @@ def validate_snapshot(workspace: Path, manifest: dict, *, policy: SnapshotPolicy
     descriptors=[]
     for row in manifest['artifacts']:
         if row.get('kind')=='file':descriptors.append(row.get('path'))
-        elif row.get('kind')=='render_bundle':descriptors.append({'kind':'render_bundle','manifest':row.get('manifest',{}).get('path')})
+        elif row.get('kind') in {'render_bundle', 'task_bundle'}:descriptors.append({'kind':row['kind'],'manifest':row.get('manifest',{}).get('path')})
         elif row.get('kind')=='large_artifact':descriptors.append({'kind':'large_artifact','path':row.get('path')})
         else:raise ValueError('Unknown snapshot artifact kind')
     current=build_snapshot(workspace,descriptors,policy=policy or manifest.get('policy'))
@@ -172,7 +213,8 @@ def preflight_snapshot(artifacts: list[dict[str,int]], *, policy: SnapshotPolicy
     for row in artifacts:
         if not isinstance(row,dict) or type(row.get('files')) is not int or type(row.get('bytes')) is not int or row['files']<1 or row['bytes']<0:
             raise ValueError('Preflight rows need nonnegative bytes and positive file counts')
-        if row['files']>rules.max_bundle_files:raise ValueError('Planned bundle file count exceeds policy')
+        file_limit = rules.max_task_bundle_files if row.get('kind') == 'task_bundle' else rules.max_bundle_files
+        if row['files']>file_limit:raise ValueError('Planned bundle file count exceeds policy')
         if row.get('kind')=='large_artifact':
             if row['files']!=1 or row['bytes']>rules.max_large_file_bytes:
                 raise ValueError('Planned large artifact exceeds per-file budget')

@@ -43,3 +43,36 @@ commit `2c606141936f1eeef17fa3043a72095b4765b9c2`, source blob
 `6e22cc54cb02a5e98ae42d06d9d7292db0c1b43894831b32879beb0166b2aea7`.
 That community skill attributes its ideas to Andrej Karpathy's observations and
 declares MIT. The upstream skill file is not bundled or executed by ADHD.
+
+## Large-task and batch policy
+
+Original user intent, required behavior and repository contracts outrank every
+style preference. Read assigned requirements and actual code before editing.
+Reuse sound existing functions and installed libraries. Fix the cause at its
+owning boundary; preserve validation, authorization, error handling and public
+interfaces. Prefer a smaller maintainable change, never line-count golf.
+
+Ponytail-inspired implementation guidance is scoped to coders only. Reviewed
+source: https://github.com/dietrichgebert/ponytail/tree/c982cd411abb53323c4baa1baa3c2f020b8d0b08
+This is an adaptation, not an installation of upstream hooks or a claim of
+measured savings. Its simplicity preferences cannot remove requested features,
+mandatory tests, security checks or independent acceptance.
+
+You are not alone in the codebase. Write only assigned paths/resources; never
+revert other workers' edits. Use one owner for shared schemas, public types,
+lockfiles, ports, databases and binary document assembly. Worktrees separate
+files; they do not provide a security boundary for arbitrary tools or external
+services. Report scope conflicts before changing a shared resource.
+
+Prepare sufficient checks while implementing. Reuse existing tests when they
+prove the requested behavior; add tests for important uncovered outcomes and
+failure paths. Defer full test suites and routine review to the central batch
+after assembly. Narrow early diagnostics are appropriate only for shared
+interface errors, blocked build/tool prerequisites or irreversible-risk gates.
+Never disable a failing test or weaken an assertion to produce success.
+
+Submission is provisional. Report task ID, lease generation, contract/interface
+versions, actual files/commit, known limitations and test status (NOT_RUN until
+observed). Do not declare the whole task complete. The director integrates,
+runs the batch, groups repairs and obtains independent acceptance of the exact
+current snapshot. Stop after sufficient evidence; avoid speculative cleanup.

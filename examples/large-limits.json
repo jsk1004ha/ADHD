@@ -1,0 +1,10 @@
+{
+  "limits": {
+    "host_slots":6,
+    "policy_slots":6,
+    "resource_slots":4,
+    "budget_slots":4,
+    "other_roles":0,
+    "integration_backlog_limit":4
+  }
+}
