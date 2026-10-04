@@ -57,8 +57,9 @@ class SnapshotBundleTests(unittest.TestCase):
 
     def test_validation_timeout_is_unverified(self):
         path=self.ws/'a.bin';path.write_bytes(b'x')
-        with self.assertRaisesRegex(TimeoutError,'unverified'):
-            build_snapshot(self.ws,['a.bin'],policy={'max_validation_seconds':1e-12})
+        with patch('adhd.snapshots.time.monotonic',side_effect=[100.0,100.0,102.0]):
+            with self.assertRaisesRegex(TimeoutError,'unverified'):
+                build_snapshot(self.ws,['a.bin'],policy={'max_validation_seconds':1.0})
 
 
 if __name__=='__main__':unittest.main()
