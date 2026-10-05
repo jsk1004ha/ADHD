@@ -2,7 +2,7 @@
 name: adhd-native
 description: App/interactive-CLI coordinator for substantive research, learning, reports, coding and games when ADHD owns the task. Preserve intent, delegate selectively and verify deliverables.
 ---
-# ADHD native request protocol v0.1.4
+# ADHD native request protocol v0.1.5
 
 ## Start automatically, without making the user operate a harness
 Follow the installed native hook's SESSION and view.json path. No `$adhd`, slash command, separate terminal loop or new chat per step is required. For a trivial question answer directly; delegate to adhd-light only when its savings justify another call. Preserve the active parent model; a prompt does not change it to Luna.

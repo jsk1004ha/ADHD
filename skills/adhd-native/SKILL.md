@@ -2,7 +2,7 @@
 name: adhd-native
 description: ADHD Codex App/CLI workflow for substantive research, study, document editing, coding and games when this harness is the selected owner. Task-sized plans, bounded delegation and artifact verification.
 ---
-# ADHD — Autonomous Delegation Harness Director v0.1.4 — map, not a giant prompt
+# ADHD — Autonomous Delegation Harness Director v0.1.5 — map, not a giant prompt
 Small questions: answer directly. Use Luna only when a separate call is worthwhile. Substantive work: use the native hook's SESSION/view path and read `ADHD_ROOT/skills/adhd-native/references/protocol.md` and `ADHD_ROOT/skills/adhd-native/references/v12-gates.md`. Missing hooks, role tools or acknowledgements are real capability failures; never simulate success.
 
 ## First: understand and plan, then actually finish

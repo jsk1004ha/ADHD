@@ -29,7 +29,7 @@ NATIVE_SCHEMA_VERSION=3
 INSTALL_SUBDIR='adhd'
 RELEASE_DIRS=('adhd','skills','native','schemas','third_party','tests','config','bundled')
 RELEASE_FILES=('adhd.py','hook.py','LICENSE','LICENSE-RAIBIT-MIT','THIRD_PARTY_NOTICES.md','requirements-documents.txt','README.md','README.ko.md','ADHD_PROVENANCE.md',
-               'docs/large-tasks.md','docs/releases/0.1.4.md',
+               'docs/large-tasks.md','docs/releases/0.1.4.md','docs/releases/0.1.5.md',
                'examples/large-task.json','examples/large-limits.json','examples/batch-checks.json')
 WORKFLOW_SKILLS=('adhd-shape','adhd-challenge','adhd-decide','adhd-steer',
                  'adhd-unblock','adhd-retro','adhd-optimize')

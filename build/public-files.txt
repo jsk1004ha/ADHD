@@ -39,6 +39,7 @@ adhd/recovery.py
 adhd/runner.py
 adhd/skill_router.py
 adhd/snapshots.py
+adhd/storage.py
 adhd/validation_batch.py
 adhd/vendor/__init__.py
 adhd/vendor/smolagents_context.py
@@ -625,6 +626,7 @@ config/native-policy.example.json
 config/profiles.example.json
 docs/large-tasks.md
 docs/releases/0.1.4.md
+docs/releases/0.1.5.md
 examples/agent-task-card.md
 examples/astra-brief.md
 examples/batch-checks.json
@@ -649,6 +651,7 @@ schemas/plan.json
 schemas/review.json
 schemas/work.json
 scripts/audit_local_install.py
+scripts/benchmark_scope_inventory.py
 scripts/test_audit_local_install.py
 skills/adhd-challenge/SKILL.md
 skills/adhd-challenge/agents/openai.yaml
@@ -687,6 +690,7 @@ tests/test_builtin_readiness.py
 tests/test_change_journal.py
 tests/test_cli_branding.py
 tests/test_coding_scope.py
+tests/test_coding_scope_inventory.py
 tests/test_document_evidence.py
 tests/test_editable_elements.py
 tests/test_execution_profiles.py
@@ -708,6 +712,7 @@ tests/test_public_package.py
 tests/test_release_smoke.py
 tests/test_skill_discovery.py
 tests/test_snapshot_bundles.py
+tests/test_storage.py
 tests/test_v012.py
 tests/test_v012_install_integrity.py
 tests/test_v12.py
