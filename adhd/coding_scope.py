@@ -23,7 +23,7 @@ def _relative(value: str, *, repository: bool = False) -> str:
     return value
 
 
-def _path(root: Path, relative: str) -> Path:
+def _path(root: Path, relative: str, *, resolved_root: Path | None = None) -> Path:
     if relative == '.':
         return root.resolve()
     path = root
@@ -31,7 +31,12 @@ def _path(root: Path, relative: str) -> Path:
         path = path / part
         if path.is_symlink() or (hasattr(path, 'is_junction') and path.is_junction()):
             raise ValueError('Scope cannot cross a link or junction: ' + relative)
-    return safe_path(root, relative)
+    if resolved_root is None or '\\' in relative or re.match(r'^[A-Za-z]:', relative):
+        return safe_path(root, relative)
+    resolved = path.resolve()
+    if resolved == resolved_root or not resolved.is_relative_to(resolved_root):
+        raise ValueError('Path leaves workspace: ' + relative)
+    return resolved
 
 
 def _sha(root: Path, relative: str) -> str | None:
@@ -123,13 +128,16 @@ def _tree(root: Path, excluded: list[str]) -> list[str]:
     def ignored(path: str) -> bool:
         return any(path == p.rstrip('/') or p.endswith('/') and path.startswith(p) for p in excluded)
     names = []
+    # Reuse only the root resolution within this walk. Every entry still gets
+    # fresh ancestor link checks and its own resolved-path containment check.
+    resolved_root = root.resolve()
     for directory, dirs, files in os.walk(root, followlinks=False):
         prefix = Path(directory).relative_to(root).as_posix()
         prefix = '' if prefix == '.' else prefix + '/'
         dirs[:] = [d for d in dirs if not ignored(prefix + d + '/')]
         for name in [*dirs, *files]:
             if not ignored(prefix + name):
-                _path(root, prefix + name)
+                _path(root, prefix + name, resolved_root=resolved_root)
         names.extend(prefix + f for f in files if not ignored(prefix + f))
         if len(names) > 20_000:
             raise ValueError('Scope inventory exceeds 20000 files')
