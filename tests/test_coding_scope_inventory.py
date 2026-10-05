@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import chdir
 import os
 from pathlib import Path
 import subprocess
@@ -48,8 +49,9 @@ class ScopeInventoryTests(unittest.TestCase):
 
     def test_relative_root_is_supported(self):
         self.write('src/file.py')
-        relative = Path(os.path.relpath(self.root, Path.cwd()))
-        self.assertEqual(_tree(relative, []), ['src/file.py'])
+        with chdir(self.root.parent):
+            relative = Path(self.root.name)
+            self.assertEqual(_tree(relative, []), ['src/file.py'])
 
     def test_inventory_is_fresh_after_added_and_removed_files(self):
         old = self.write('old.py')
