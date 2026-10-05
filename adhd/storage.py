@@ -122,8 +122,9 @@ def _checked_tree(path: Path, base: Path, record: dict) -> dict:
                     raise ValueError('Unrecorded release directory: ' + str(relative))
                 continue
             name = relative.as_posix()
-            source = (relative.parent.parent / (relative.name.split('.')[0] + '.py')).as_posix()
-            bytecode = relative.parent.name == '__pycache__' and relative.suffix in {'.pyc', '.pyo'} and source in expected
+            cache = re.fullmatch(r'(.+)\.cpython-[0-9]{2,3}(?:\.opt-[12])?\.pyc', relative.name)
+            source = (relative.parent.parent / (cache[1] + '.py')).as_posix() if cache else None
+            bytecode = relative.parent.name == '__pycache__' and source in expected
             if name not in expected and not bytecode:
                 raise ValueError('Unrecorded release file: ' + name)
             rows.append((name, entry.stat().st_size, file_hash(entry)))
@@ -228,7 +229,8 @@ def main(argv=None) -> int:
         output(storage(args.codex_home, apply=args.apply, keep_releases=args.keep_releases))
         return 0
     except (ValueError, OSError, RuntimeError) as error:
-        output({'error': str(error), 'reclaimed_bytes': 0})
+        # A later failure may follow a successful removal; the total is unknown here.
+        output({'error': str(error), 'reclaimed_bytes': None})
         return 2
 
 

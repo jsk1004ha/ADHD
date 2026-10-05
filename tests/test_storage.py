@@ -117,6 +117,31 @@ class StorageTests(unittest.TestCase):
         before = cleanup.storage(self.codex)['reclaimable_bytes']
         self.assertEqual(cleanup.storage(self.codex, apply=True)['reclaimed_bytes'], before)
 
+    def test_disguised_bytecode_extras_are_preserved(self):
+        cache = self.releases[0] / 'adhd/__pycache__'
+        cache.mkdir()
+        unknown = cache / 'example.secret.pyc'
+        unknown.write_bytes(b'user data')
+        report = cleanup.storage(self.codex, apply=True)
+        self.assertNotIn(self.releases[0].name, report['removed'])
+        self.assertEqual(unknown.read_bytes(), b'user data')
+
+    def test_legacy_pyo_extra_is_preserved(self):
+        cache = self.releases[0] / 'adhd/__pycache__'
+        cache.mkdir()
+        unknown = cache / 'example.pyo'
+        unknown.write_bytes(b'user data')
+        self.assertNotIn(self.releases[0].name, cleanup.storage(self.codex, apply=True)['removed'])
+        self.assertEqual(unknown.read_bytes(), b'user data')
+
+    def test_canonical_optimized_bytecode_is_counted(self):
+        cache = self.releases[0] / 'adhd/__pycache__'
+        cache.mkdir()
+        for suffix in ('.opt-1.pyc', '.opt-2.pyc'):
+            (cache / ('example.cpython-313' + suffix)).write_bytes(b'optimized bytecode')
+        before = cleanup.storage(self.codex)['reclaimable_bytes']
+        self.assertEqual(cleanup.storage(self.codex, apply=True)['reclaimed_bytes'], before)
+
     def test_corrupt_reference_scan_fails_before_deletion(self):
         state = self.parent / 'native/session/state.json'
         state.parent.mkdir(parents=True)
@@ -188,6 +213,22 @@ class StorageTests(unittest.TestCase):
             with self.assertRaises(OSError):
                 cleanup.storage(self.codex, apply=True)
         self.assertTrue(all(path.exists() for path in self.releases))
+
+    def test_cli_later_delete_failure_does_not_report_false_zero(self):
+        original = cleanup.shutil.rmtree
+        calls = 0
+        def remove(path):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise OSError('second deletion failed')
+            original(path)
+        with patch.object(cleanup.shutil, 'rmtree', side_effect=remove), patch('adhd.cli.output') as output:
+            self.assertEqual(cleanup.main(['prune', '--apply', '--codex-home', str(self.codex)]), 2)
+        self.assertFalse(self.releases[0].exists())
+        self.assertTrue(all(path.exists() for path in self.releases[1:]))
+        self.assertIn('second deletion failed', output.call_args.args[0]['error'])
+        self.assertIsNone(output.call_args.args[0]['reclaimed_bytes'])
 
     def test_collection_junction_does_not_touch_outside(self):
         if os.name != 'nt':
