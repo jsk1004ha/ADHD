@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "prompt": "Implement result.txt, preserve existing behavior and verify the result.",
+  "begin": {
+    "mode": "coding", "execution_profile": "standard",
+    "criteria": [{"id":"R1","text":"Result works and is independently verified","kind":"test"}],
+    "artifacts": ["result.txt"],
+    "plan": {"objective":"Deliver the requested result", "approach":"Inspect, implement and verify",
+      "verification":"Run the regression check", "steps":[{"id":"S1","action":"Implement and test","depends_on":[],"requirements":["R1"]}]}
+  },
+  "scenarios": [
+    {"name":"idle_prompt","initial":"idle","event":{"hook_event_name":"UserPromptSubmit","prompt":"Explain this result."}},
+    {"name":"idle_cli_begin","initial":"idle","queue_begin":true,"event":{"hook_event_name":"PostToolUse","tool_name":"exec_command","tool_input":{"cmd":"python adhd.py native begin --payload-file begin.json"}}},
+    {"name":"idle_post_tool","initial":"idle","event":{"hook_event_name":"PostToolUse","tool_name":"exec_command"}},
+    {"name":"active_prompt","initial":"active","event":{"hook_event_name":"UserPromptSubmit","prompt":"Also preserve the original output format."}},
+    {"name":"active_stop","initial":"active","event":{"hook_event_name":"Stop","last_assistant_message":"The result still needs verification."}},
+    {"name":"active_compact_start","initial":"active","event":{"hook_event_name":"SessionStart","source":"compact"}},
+    {"name":"active_resume_start","initial":"active","event":{"hook_event_name":"SessionStart","source":"resume"}},
+    {"name":"active_post_compact","initial":"active","event":{"hook_event_name":"PostCompact","trigger":"auto"}}
+  ]
+}

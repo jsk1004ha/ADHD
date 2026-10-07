@@ -14,6 +14,7 @@ from pathlib import Path
 import re
 import sys
 import time
+from time import perf_counter_ns
 import tomllib
 import uuid
 from typing import Any
@@ -42,6 +43,55 @@ ACTIVE = {'working', 'reviewing', 'revising'}
 PREFIX = '[ADHD_CONTINUE:'
 MAX_MESSAGE = 160_000
 MAX_FILE = 128 * 1024 * 1024
+def hook_output_sizes(out: dict) -> dict:
+    """Count decoded strings sent to model-facing context/block/error fields.
+
+    The JSON envelope, escaped text, event names and decision enums are excluded.
+    Codex can further truncate/ignore these strings; this measures hook emission.
+    """
+    fields = {}
+    for name in ('reason', 'systemMessage', 'stopReason'):
+        if isinstance(out.get(name), str):
+            fields[name] = out[name]
+    specific = out.get('hookSpecificOutput', {})
+    if isinstance(specific, dict):
+        for name in ('additionalContext', 'permissionDecisionReason'):
+            if isinstance(specific.get(name), str):
+                fields['hookSpecificOutput.' + name] = specific[name]
+    return {'emitted_context_chars': sum(len(value) for value in fields.values()),
+            'emitted_context_bytes': sum(len(value.encode('utf-8')) for value in fields.values()),
+            'emitted_fields': list(fields)}
+
+
+class HookDiagnostics:
+    def __init__(self, *, enabled=None, started_ns=None):
+        self.enabled = os.environ.get('ADHD_HOOK_DIAGNOSTICS') == '1' if enabled is None else enabled
+        self.started_ns = perf_counter_ns() if started_ns is None else started_ns
+        self.phases_ns = {}
+        self.key = None
+        self.event_name = None
+        self.host_usage = None
+
+    @contextmanager
+    def phase(self, name):
+        if not self.enabled:
+            yield
+            return
+        started = perf_counter_ns()
+        try:
+            yield
+        finally:
+            self.phases_ns[name] = self.phases_ns.get(name, 0) + perf_counter_ns() - started
+
+    def record(self, out, serialized):
+        return {'schema_version': 1, 'event_name': self.event_name,
+                'internal_elapsed_ns': perf_counter_ns() - self.started_ns,
+                'phases_ns': dict(self.phases_ns), **hook_output_sizes(out),
+                'stdout_json_bytes': len((serialized + os.linesep).encode('utf-8')),
+                'host_usage_observed': self.host_usage is not None,
+                'host_usage': self.host_usage}
+
+
 DEFAULTS = {'max_rounds': 8, 'max_seconds': 3600, 'max_children': 3,
             'max_astra_calls': 1, 'max_total_children': 12, 'max_stagnation': 3,
             'max_review_children': 3, 'max_epochs': 3,
@@ -302,11 +352,32 @@ def folder(key: str) -> Path:
     return store() / 'native' / key
 
 @contextmanager
-def locked(key: str):
+def locked(key: str, diagnostics=None):
     d = folder(key); d.mkdir(parents=True, exist_ok=True)
     # Reuse filelock's OS-specific locks instead of writing a lock primitive.
+    started = time.perf_counter_ns() if diagnostics and diagnostics.enabled else None
     with FileLock(str(d / 'state.lock'), timeout=4):
+        if started is not None:
+            diagnostics.phases_ns['lock_wait'] = time.perf_counter_ns() - started
         yield d
+
+
+def write_hook_diagnostics(diagnostics, out: dict, serialized: str) -> None:
+    """Append using the existing ledger/lock; only new diagnostics are best effort.
+
+    Called after stdout emission, including the hook's normal error output. It
+    never encloses request validation or state saving in its exception boundary.
+    """
+    if not diagnostics.enabled or diagnostics.key is None:
+        return
+    try:
+        started = time.perf_counter_ns()
+        with locked(diagnostics.key) as d:
+            diagnostics.phases_ns['ledger_lock_wait'] = time.perf_counter_ns() - started
+            append_event(d, 'hook_diagnostics', diagnostics.record(out, serialized))
+    except Exception:
+        # A lost observation cannot change an already determined hook result.
+        pass
 
 def checked_path(root: Path, relative: str, *, existing: bool = False) -> Path:
     """Reject traversal AND symlinks/junctions (also inside the workspace)."""
@@ -1358,7 +1429,7 @@ def context(state: dict) -> str:
       ('; feedback='+truncate_content(state.get('feedback',''),500) if state.get('feedback') else ''))
 
 
-def handle_event(ev: dict) -> dict:
+def handle_event(ev: dict, *, diagnostics=None) -> dict:
     if os.environ.get('ADHD_EXEC_OWNER') in {'legacy','native-check'}: return {}
     if not isinstance(ev,dict): raise ValueError('Hook input must be an object')
     name=ev.get('hook_event_name','')
@@ -1366,13 +1437,20 @@ def handle_event(ev: dict) -> dict:
     if not normalized['supported']: return {}
     key=session_key(ev.get('session_id','')); ws=Path(ev.get('cwd','')).expanduser().resolve()
     if not ws.is_dir() or not ev.get('cwd'): raise ValueError('Missing workspace')
-    with locked(key) as d:
-        state=read_json(d/'state.json') or initial(key,ws)
+    diagnostics = diagnostics or HookDiagnostics(enabled=False)
+    diagnostics.key = key
+    diagnostics.event_name = name
+    with locked(key, diagnostics) as d:
+        with diagnostics.phase('state_read'):
+            state=read_json(d/'state.json') or initial(key,ws)
         if state['workspace']!=str(ws): raise ValueError('Session workspace changed; start a new session')
-        migrate_state(state,d)
-        observe_event(state['host_capabilities'],normalized)
-        if name in {'SessionStart', 'UserPromptSubmit', 'PostToolUse', 'Stop'}:
-            observe_thread_goal(state, ev, d)
+        with diagnostics.phase('state_prepare'):
+            migrate_state(state,d)
+            observe_event(state['host_capabilities'],normalized)
+        with diagnostics.phase('goal_check'):
+            if name in {'SessionStart', 'UserPromptSubmit', 'PostToolUse', 'Stop'}:
+                observe_thread_goal(state, ev, d)
+        dispatch_started = time.perf_counter_ns() if diagnostics.enabled else None
         out={}
         if name=='UserPromptSubmit':
             prompt=ev.get('prompt',''); turn=str(ev.get('turn_id',''))
@@ -1408,11 +1486,17 @@ def handle_event(ev: dict) -> dict:
             out=message(name,context(state))
         elif name=='PostToolUse':
             observe_host_tool(state,ev)
-            reports=process_inbox(state,d)
+            with diagnostics.phase('inbox'):
+                reports=process_inbox(state,d)
             if reports: out=message(name,'\n'.join(reports)+'\nRead bridge/view.json for authoritative exported status.')
         elif name=='PreToolUse': out=spawn_guard(state,ev)
         elif name=='SubagentStart': out=start_child(state,ev)
-        elif name=='SubagentStop': out=stop_child(state,ev,d)
+        elif name=='SubagentStop':
+            child=state.get('children',{}).get(str(ev.get('agent_id','')))
+            was_running=child and child.get('status')=='running'
+            out=stop_child(state,ev,d)
+            if diagnostics.enabled and was_running and state.get('model_calls'):
+                diagnostics.host_usage=state['model_calls'][-1].get('usage')
         elif name=='SessionEnd':
             state.pop('host_resume_pending', None)
             if state['status'] in ACTIVE:
@@ -1423,7 +1507,8 @@ def handle_event(ev: dict) -> dict:
                 end_after_children(state, 'paused',
                                    'Waiting for running children to stop before releasing ownership.')
         elif name=='Stop':
-            reports=process_inbox(state,d)
+            with diagnostics.phase('inbox'):
+                reports=process_inbox(state,d)
             if state['status']=='complete' and not state.get('pending_turn_ids') and not is_fresh(state):
                 state['status']='revising';state['feedback']='Files changed after review. Recreate candidate and review.';claim_writer(state)
             if state['status'] in ACTIVE:
@@ -1457,7 +1542,10 @@ def handle_event(ev: dict) -> dict:
                 out={'continue':False,'stopReason':state.get('feedback') or state['status']}
             if out.get('continue') is False: state['halt_emitted']=True
             state['last_stop_decision']=out
-        persist(d,state)
+        if dispatch_started is not None:
+            diagnostics.phases_ns['event_dispatch'] = time.perf_counter_ns() - dispatch_started
+        with diagnostics.phase('persist'):
+            persist(d,state)
         return out
 
 
