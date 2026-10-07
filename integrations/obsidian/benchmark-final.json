@@ -1,0 +1,6621 @@
+{
+  "schema_version": 1,
+  "scope": "hand-authored diagnostic fixtures, not human UX or population claims",
+  "split": "all",
+  "queries": 36,
+  "repetitions": 3,
+  "source_engine_sha256": "2c42a65095dac19aa927b579553a5e314132cfbc49c75b6988c89d59a23c1fc3",
+  "fixture_sha256": "03fa1ae4574bb169e64e17f2f791d3f19d5ef2ff7dd468d9e14295ed1f2b6d03",
+  "variants": {
+    "A": "existing wiki context/project engine",
+    "B": "adapter with cold index",
+    "C": "adapter warm index"
+  },
+  "cache_scope": "process/engine and OS cache uncontrolled; B resets only fixture SQLite index",
+  "summary": {
+    "A": {
+      "checks": 108,
+      "passed": 66,
+      "p50_ms": 9.993099999519472,
+      "p95_ms": 109.90420000052836,
+      "median_bytes": 1373.0,
+      "mean_source_coverage": 1.0
+    },
+    "B": {
+      "checks": 108,
+      "passed": 108,
+      "p50_ms": 608.0004500008727,
+      "p95_ms": 1670.1807999997982,
+      "median_bytes": 1233.0,
+      "mean_source_coverage": 1.0
+    },
+    "C": {
+      "checks": 108,
+      "passed": 108,
+      "p50_ms": 428.66830000002665,
+      "p95_ms": 1393.1748000013613,
+      "median_bytes": 1233.0,
+      "mean_source_coverage": 1.0
+    }
+  },
+  "rows": [
+    {
+      "case_id": "project-1",
+      "category": "project",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 8.281399999759742,
+      "bytes": 3419,
+      "ids": [
+        "decision:cache",
+        "decision:left",
+        "decision:new",
+        "decision:old",
+        "decision:right",
+        "example:code",
+        "feedback:negative",
+        "feedback:positive",
+        "incident:alpha",
+        "incident:cache",
+        "project:alpha"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-1",
+      "category": "project",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 259.87420000092243,
+      "bytes": 5928,
+      "ids": [
+        "decision:left",
+        "decision:new",
+        "decision:right",
+        "example:code",
+        "incident:alpha",
+        "project:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-1",
+      "category": "project",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 281.2095999997837,
+      "bytes": 5928,
+      "ids": [
+        "decision:left",
+        "decision:new",
+        "decision:right",
+        "example:code",
+        "incident:alpha",
+        "project:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-1",
+      "category": "project",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 258.8179000013042,
+      "bytes": 5928,
+      "ids": [
+        "decision:left",
+        "decision:new",
+        "decision:right",
+        "example:code",
+        "incident:alpha",
+        "project:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-1",
+      "category": "project",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 125.35530000059225,
+      "bytes": 5928,
+      "ids": [
+        "decision:left",
+        "decision:new",
+        "decision:right",
+        "example:code",
+        "incident:alpha",
+        "project:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-1",
+      "category": "project",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 9.00290000026871,
+      "bytes": 3419,
+      "ids": [
+        "decision:cache",
+        "decision:left",
+        "decision:new",
+        "decision:old",
+        "decision:right",
+        "example:code",
+        "feedback:negative",
+        "feedback:positive",
+        "incident:alpha",
+        "incident:cache",
+        "project:alpha"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-1",
+      "category": "project",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 110.34470000049623,
+      "bytes": 5928,
+      "ids": [
+        "decision:left",
+        "decision:new",
+        "decision:right",
+        "example:code",
+        "incident:alpha",
+        "project:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-1",
+      "category": "project",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 4.139699998631841,
+      "bytes": 3419,
+      "ids": [
+        "decision:cache",
+        "decision:left",
+        "decision:new",
+        "decision:old",
+        "decision:right",
+        "example:code",
+        "feedback:negative",
+        "feedback:positive",
+        "incident:alpha",
+        "incident:cache",
+        "project:alpha"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-1",
+      "category": "project",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 180.5168999999296,
+      "bytes": 5928,
+      "ids": [
+        "decision:left",
+        "decision:new",
+        "decision:right",
+        "example:code",
+        "incident:alpha",
+        "project:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-2",
+      "category": "project",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 190.28000000071188,
+      "bytes": 2988,
+      "ids": [
+        "example:document",
+        "incident:beta",
+        "project:beta"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-2",
+      "category": "project",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 640.0014999999257,
+      "bytes": 2988,
+      "ids": [
+        "example:document",
+        "incident:beta",
+        "project:beta"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-2",
+      "category": "project",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 10.51759999973001,
+      "bytes": 1362,
+      "ids": [
+        "example:document",
+        "incident:beta",
+        "project:beta"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-2",
+      "category": "project",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 936.1164000001736,
+      "bytes": 2988,
+      "ids": [
+        "example:document",
+        "incident:beta",
+        "project:beta"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-2",
+      "category": "project",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 981.1408999994455,
+      "bytes": 1362,
+      "ids": [
+        "example:document",
+        "incident:beta",
+        "project:beta"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-2",
+      "category": "project",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 756.6415999990568,
+      "bytes": 2988,
+      "ids": [
+        "example:document",
+        "incident:beta",
+        "project:beta"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-2",
+      "category": "project",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 8.437500000582077,
+      "bytes": 1362,
+      "ids": [
+        "example:document",
+        "incident:beta",
+        "project:beta"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-2",
+      "category": "project",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 1227.121599999009,
+      "bytes": 2988,
+      "ids": [
+        "example:document",
+        "incident:beta",
+        "project:beta"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-2",
+      "category": "project",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 687.9257000000507,
+      "bytes": 2988,
+      "ids": [
+        "example:document",
+        "incident:beta",
+        "project:beta"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-3",
+      "category": "project",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 174.88690000027418,
+      "bytes": 1299,
+      "ids": [
+        "incident:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-3",
+      "category": "project",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 6.012199999531731,
+      "bytes": 3425,
+      "ids": [
+        "decision:cache",
+        "decision:left",
+        "example:code",
+        "incident:alpha",
+        "incident:cache",
+        "project:alpha"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-3",
+      "category": "project",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 397.95070000036503,
+      "bytes": 1299,
+      "ids": [
+        "incident:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-3",
+      "category": "project",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 14.982299999246607,
+      "bytes": 3425,
+      "ids": [
+        "decision:cache",
+        "decision:left",
+        "example:code",
+        "incident:alpha",
+        "incident:cache",
+        "project:alpha"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-3",
+      "category": "project",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 969.7068000004947,
+      "bytes": 1299,
+      "ids": [
+        "incident:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-3",
+      "category": "project",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 1818.4309000007488,
+      "bytes": 1299,
+      "ids": [
+        "incident:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-3",
+      "category": "project",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 1251.0819999988598,
+      "bytes": 1299,
+      "ids": [
+        "incident:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-3",
+      "category": "project",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 142.53690000077768,
+      "bytes": 1299,
+      "ids": [
+        "incident:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-3",
+      "category": "project",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 10.053400001197588,
+      "bytes": 3425,
+      "ids": [
+        "decision:cache",
+        "decision:left",
+        "example:code",
+        "incident:alpha",
+        "incident:cache",
+        "project:alpha"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-4",
+      "category": "project",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 8.975599999757833,
+      "bytes": 1485,
+      "ids": [
+        "example:code",
+        "example:document"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-4",
+      "category": "project",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 2305.630499999097,
+      "bytes": 1268,
+      "ids": [
+        "example:code"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-4",
+      "category": "project",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 244.79629999950703,
+      "bytes": 1268,
+      "ids": [
+        "example:code"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-4",
+      "category": "project",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 706.0459999993327,
+      "bytes": 1268,
+      "ids": [
+        "example:code"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-4",
+      "category": "project",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 424.1586999996798,
+      "bytes": 1268,
+      "ids": [
+        "example:code"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-4",
+      "category": "project",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 15.643700000509853,
+      "bytes": 1485,
+      "ids": [
+        "example:code",
+        "example:document"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-4",
+      "category": "project",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 402.43399999963003,
+      "bytes": 1268,
+      "ids": [
+        "example:code"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-4",
+      "category": "project",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 6.818699999712408,
+      "bytes": 1485,
+      "ids": [
+        "example:code",
+        "example:document"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-4",
+      "category": "project",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 486.75030000049446,
+      "bytes": 1268,
+      "ids": [
+        "example:code"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "project-5",
+      "category": "project",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 573.70340000125,
+      "bytes": 398,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "project-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "project-5",
+      "category": "project",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 397.62549999977637,
+      "bytes": 398,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "project-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "project-5",
+      "category": "project",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 3.407300000617397,
+      "bytes": 28,
+      "ids": [],
+      "warnings": [
+        "no-results"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "project-5",
+      "category": "project",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 431.93869999959134,
+      "bytes": 398,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "project-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "project-5",
+      "category": "project",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 6.149099999674945,
+      "bytes": 28,
+      "ids": [],
+      "warnings": [
+        "no-results"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "project-5",
+      "category": "project",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 2120.7140000005893,
+      "bytes": 398,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "project-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "project-5",
+      "category": "project",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 5.5799000001570676,
+      "bytes": 28,
+      "ids": [],
+      "warnings": [
+        "no-results"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "project-5",
+      "category": "project",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 455.40600000094855,
+      "bytes": 398,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "project-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "project-5",
+      "category": "project",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 251.55420000010054,
+      "bytes": 398,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "project-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "project-6",
+      "category": "project",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 265.1582000016788,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "project-6",
+      "category": "project",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 6.336499998724321,
+      "bytes": 910,
+      "ids": [
+        "incident:beta"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [
+        "incident:beta"
+      ],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "project-6",
+      "category": "project",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 494.89770000036515,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "project-6",
+      "category": "project",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 6.079400000089663,
+      "bytes": 910,
+      "ids": [
+        "incident:beta"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [
+        "incident:beta"
+      ],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "project-6",
+      "category": "project",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 750.4460000000108,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "project-6",
+      "category": "project",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 197.2377999991295,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "project-6",
+      "category": "project",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 908.62080000079,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "project-6",
+      "category": "project",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 172.43970000163245,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "project-6",
+      "category": "project",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 6.637999998929445,
+      "bytes": 910,
+      "ids": [
+        "incident:beta"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [
+        "incident:beta"
+      ],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "aliases-1",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 6.303699999989476,
+      "bytes": 3390,
+      "ids": [
+        "decision:cache",
+        "decision:left",
+        "decision:new",
+        "decision:old",
+        "decision:right",
+        "example:code",
+        "feedback:negative",
+        "feedback:positive",
+        "incident:alpha",
+        "incident:cache",
+        "project:alpha"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-1",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 612.1452000006684,
+      "bytes": 1233,
+      "ids": [
+        "project:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-1",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 277.16810000129044,
+      "bytes": 1233,
+      "ids": [
+        "project:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-1",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 940.5846000008751,
+      "bytes": 1233,
+      "ids": [
+        "project:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-1",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 294.119000000137,
+      "bytes": 1233,
+      "ids": [
+        "project:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-1",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 7.02850000016042,
+      "bytes": 3390,
+      "ids": [
+        "decision:cache",
+        "decision:left",
+        "decision:new",
+        "decision:old",
+        "decision:right",
+        "example:code",
+        "feedback:negative",
+        "feedback:positive",
+        "incident:alpha",
+        "incident:cache",
+        "project:alpha"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-1",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 266.6712999998708,
+      "bytes": 1233,
+      "ids": [
+        "project:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-1",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 7.679099999222672,
+      "bytes": 3390,
+      "ids": [
+        "decision:cache",
+        "decision:left",
+        "decision:new",
+        "decision:old",
+        "decision:right",
+        "example:code",
+        "feedback:negative",
+        "feedback:positive",
+        "incident:alpha",
+        "incident:cache",
+        "project:alpha"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-1",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 368.74019999959273,
+      "bytes": 1233,
+      "ids": [
+        "project:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-2",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 422.6846999990812,
+      "bytes": 1203,
+      "ids": [
+        "project:beta"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-2",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 193.84290000016335,
+      "bytes": 1203,
+      "ids": [
+        "project:beta"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-2",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 5.528900001081638,
+      "bytes": 1326,
+      "ids": [
+        "example:document",
+        "incident:beta",
+        "project:beta"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-2",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 215.25930000098015,
+      "bytes": 1203,
+      "ids": [
+        "project:beta"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-2",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 13.41339999999036,
+      "bytes": 1326,
+      "ids": [
+        "example:document",
+        "incident:beta",
+        "project:beta"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-2",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 359.49000000073283,
+      "bytes": 1203,
+      "ids": [
+        "project:beta"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-2",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 10.338099998989492,
+      "bytes": 1326,
+      "ids": [
+        "example:document",
+        "incident:beta",
+        "project:beta"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-2",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 317.92829999903915,
+      "bytes": 1203,
+      "ids": [
+        "project:beta"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-2",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 322.2839000009117,
+      "bytes": 1203,
+      "ids": [
+        "project:beta"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-3",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 179.50310000014724,
+      "bytes": 1294,
+      "ids": [
+        "incident:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-3",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 7.50779999907536,
+      "bytes": 966,
+      "ids": [
+        "incident:alpha"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-3",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 324.2295000000013,
+      "bytes": 1294,
+      "ids": [
+        "incident:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-3",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 11.581599999772152,
+      "bytes": 966,
+      "ids": [
+        "incident:alpha"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-3",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 301.4041999995243,
+      "bytes": 1294,
+      "ids": [
+        "incident:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-3",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 299.0028000003804,
+      "bytes": 1294,
+      "ids": [
+        "incident:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-3",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 378.562800000509,
+      "bytes": 1294,
+      "ids": [
+        "incident:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-3",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 276.9748000009713,
+      "bytes": 1294,
+      "ids": [
+        "incident:alpha"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-3",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 24.50479999970412,
+      "bytes": 966,
+      "ids": [
+        "incident:alpha"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-4",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 9.436399999685818,
+      "bytes": 910,
+      "ids": [
+        "incident:beta"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-4",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 309.7801999992953,
+      "bytes": 1233,
+      "ids": [
+        "incident:beta"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-4",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 304.12499999874854,
+      "bytes": 1233,
+      "ids": [
+        "incident:beta"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-4",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 273.8597999996273,
+      "bytes": 1233,
+      "ids": [
+        "incident:beta"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-4",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 253.21489999987534,
+      "bytes": 1233,
+      "ids": [
+        "incident:beta"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-4",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 16.6508000002068,
+      "bytes": 910,
+      "ids": [
+        "incident:beta"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-4",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 242.91509999966365,
+      "bytes": 1233,
+      "ids": [
+        "incident:beta"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-4",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 11.02069999978994,
+      "bytes": 910,
+      "ids": [
+        "incident:beta"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-4",
+      "category": "aliases",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 302.1042000000307,
+      "bytes": 1233,
+      "ids": [
+        "incident:beta"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "aliases-5",
+      "category": "aliases",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 291.35370000039984,
+      "bytes": 396,
+      "ids": [],
+      "warnings": [
+        "ambiguous-alias",
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "aliases-5",
+      "category": "aliases",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 311.4363999993657,
+      "bytes": 396,
+      "ids": [],
+      "warnings": [
+        "ambiguous-alias",
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "aliases-5",
+      "category": "aliases",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 12.789999998858548,
+      "bytes": 1310,
+      "ids": [
+        "project:alpha",
+        "project:beta"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "aliases-5",
+      "category": "aliases",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 200.80939999934344,
+      "bytes": 396,
+      "ids": [],
+      "warnings": [
+        "ambiguous-alias",
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "aliases-5",
+      "category": "aliases",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 8.678199999849312,
+      "bytes": 1310,
+      "ids": [
+        "project:alpha",
+        "project:beta"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "aliases-5",
+      "category": "aliases",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 363.4245000012015,
+      "bytes": 396,
+      "ids": [],
+      "warnings": [
+        "ambiguous-alias",
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "aliases-5",
+      "category": "aliases",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 26.426099999298458,
+      "bytes": 1310,
+      "ids": [
+        "project:alpha",
+        "project:beta"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "aliases-5",
+      "category": "aliases",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 402.32749999995576,
+      "bytes": 396,
+      "ids": [],
+      "warnings": [
+        "ambiguous-alias",
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "aliases-5",
+      "category": "aliases",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 295.2441999987059,
+      "bytes": 396,
+      "ids": [],
+      "warnings": [
+        "ambiguous-alias",
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "aliases-6",
+      "category": "aliases",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 244.34669999936887,
+      "bytes": 395,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "note-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "aliases-6",
+      "category": "aliases",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 7.302999998501036,
+      "bytes": 464,
+      "ids": [],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "aliases-6",
+      "category": "aliases",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 367.1186999999918,
+      "bytes": 395,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "note-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "aliases-6",
+      "category": "aliases",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 5.634099999952014,
+      "bytes": 464,
+      "ids": [],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "aliases-6",
+      "category": "aliases",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 307.0809000000736,
+      "bytes": 395,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "note-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "aliases-6",
+      "category": "aliases",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 710.0891999998566,
+      "bytes": 395,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "note-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "aliases-6",
+      "category": "aliases",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 493.76610000035726,
+      "bytes": 395,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "note-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "aliases-6",
+      "category": "aliases",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 227.16310000032536,
+      "bytes": 395,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "note-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "aliases-6",
+      "category": "aliases",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 9.066399999937858,
+      "bytes": 464,
+      "ids": [],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "decision-1",
+      "category": "decision",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 17.016900001181057,
+      "bytes": 1489,
+      "ids": [
+        "decision:cache",
+        "incident:cache"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-1",
+      "category": "decision",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 347.7562999996735,
+      "bytes": 2181,
+      "ids": [
+        "decision:cache",
+        "incident:cache"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-1",
+      "category": "decision",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 263.6902000012924,
+      "bytes": 2181,
+      "ids": [
+        "decision:cache",
+        "incident:cache"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-1",
+      "category": "decision",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 372.0548000001145,
+      "bytes": 2181,
+      "ids": [
+        "decision:cache",
+        "incident:cache"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-1",
+      "category": "decision",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 309.52369999977236,
+      "bytes": 2181,
+      "ids": [
+        "decision:cache",
+        "incident:cache"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-1",
+      "category": "decision",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 18.4705000010581,
+      "bytes": 1489,
+      "ids": [
+        "decision:cache",
+        "incident:cache"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-1",
+      "category": "decision",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 264.0866999990976,
+      "bytes": 2181,
+      "ids": [
+        "decision:cache",
+        "incident:cache"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-1",
+      "category": "decision",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 10.300199999619508,
+      "bytes": 1489,
+      "ids": [
+        "decision:cache",
+        "incident:cache"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-1",
+      "category": "decision",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 369.1963000001124,
+      "bytes": 2181,
+      "ids": [
+        "decision:cache",
+        "incident:cache"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-2",
+      "category": "decision",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 325.17790000019886,
+      "bytes": 1255,
+      "ids": [
+        "decision:cache"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-2",
+      "category": "decision",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 224.74070000134816,
+      "bytes": 1255,
+      "ids": [
+        "decision:cache"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-2",
+      "category": "decision",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 4.855299999690033,
+      "bytes": 3350,
+      "ids": [
+        "decision:cache",
+        "decision:left",
+        "decision:new",
+        "decision:old",
+        "decision:right",
+        "incident:cache"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-2",
+      "category": "decision",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 289.2991999997321,
+      "bytes": 1255,
+      "ids": [
+        "decision:cache"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-2",
+      "category": "decision",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 5.9718000011343975,
+      "bytes": 3350,
+      "ids": [
+        "decision:cache",
+        "decision:left",
+        "decision:new",
+        "decision:old",
+        "decision:right",
+        "incident:cache"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-2",
+      "category": "decision",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 598.3878000006371,
+      "bytes": 1255,
+      "ids": [
+        "decision:cache"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-2",
+      "category": "decision",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 21.144399999684538,
+      "bytes": 3350,
+      "ids": [
+        "decision:cache",
+        "decision:left",
+        "decision:new",
+        "decision:old",
+        "decision:right",
+        "incident:cache"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-2",
+      "category": "decision",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 454.9208999997063,
+      "bytes": 1255,
+      "ids": [
+        "decision:cache"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-2",
+      "category": "decision",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 271.91490000041085,
+      "bytes": 1255,
+      "ids": [
+        "decision:cache"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-3",
+      "category": "decision",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 237.61900000135938,
+      "bytes": 2181,
+      "ids": [
+        "decision:cache",
+        "incident:cache"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-3",
+      "category": "decision",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 6.1451999990822515,
+      "bytes": 1489,
+      "ids": [
+        "decision:cache",
+        "incident:cache"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-3",
+      "category": "decision",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 297.16650000045775,
+      "bytes": 2181,
+      "ids": [
+        "decision:cache",
+        "incident:cache"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-3",
+      "category": "decision",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 8.17540000025474,
+      "bytes": 1489,
+      "ids": [
+        "decision:cache",
+        "incident:cache"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-3",
+      "category": "decision",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 391.9134000007034,
+      "bytes": 2181,
+      "ids": [
+        "decision:cache",
+        "incident:cache"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-3",
+      "category": "decision",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 297.958799999833,
+      "bytes": 2181,
+      "ids": [
+        "decision:cache",
+        "incident:cache"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-3",
+      "category": "decision",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 363.19579999872076,
+      "bytes": 2181,
+      "ids": [
+        "decision:cache",
+        "incident:cache"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-3",
+      "category": "decision",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 475.584699999672,
+      "bytes": 2181,
+      "ids": [
+        "decision:cache",
+        "incident:cache"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-3",
+      "category": "decision",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 16.153900000063004,
+      "bytes": 1489,
+      "ids": [
+        "decision:cache",
+        "incident:cache"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-4",
+      "category": "decision",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 5.166400000234717,
+      "bytes": 1507,
+      "ids": [
+        "feedback:negative",
+        "feedback:positive"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-4",
+      "category": "decision",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 443.7386999998125,
+      "bytes": 2187,
+      "ids": [
+        "feedback:negative",
+        "feedback:positive"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-4",
+      "category": "decision",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 193.17829999999958,
+      "bytes": 2187,
+      "ids": [
+        "feedback:negative",
+        "feedback:positive"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-4",
+      "category": "decision",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 302.5041000000783,
+      "bytes": 2187,
+      "ids": [
+        "feedback:negative",
+        "feedback:positive"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-4",
+      "category": "decision",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 975.6606999999349,
+      "bytes": 2187,
+      "ids": [
+        "feedback:negative",
+        "feedback:positive"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-4",
+      "category": "decision",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 4.507199999352451,
+      "bytes": 1507,
+      "ids": [
+        "feedback:negative",
+        "feedback:positive"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-4",
+      "category": "decision",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 246.78640000092855,
+      "bytes": 2187,
+      "ids": [
+        "feedback:negative",
+        "feedback:positive"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-4",
+      "category": "decision",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 7.221700001537101,
+      "bytes": 1507,
+      "ids": [
+        "feedback:negative",
+        "feedback:positive"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-4",
+      "category": "decision",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 325.8277000004455,
+      "bytes": 2187,
+      "ids": [
+        "feedback:negative",
+        "feedback:positive"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-5",
+      "category": "decision",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 275.79100000002654,
+      "bytes": 1291,
+      "ids": [
+        "feedback:negative"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-5",
+      "category": "decision",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 183.77739999959886,
+      "bytes": 1291,
+      "ids": [
+        "feedback:negative"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-5",
+      "category": "decision",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 8.364499999515829,
+      "bytes": 1475,
+      "ids": [
+        "feedback:negative",
+        "feedback:positive"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-5",
+      "category": "decision",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 234.3581000004633,
+      "bytes": 1291,
+      "ids": [
+        "feedback:negative"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-5",
+      "category": "decision",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 9.662000000389526,
+      "bytes": 1475,
+      "ids": [
+        "feedback:negative",
+        "feedback:positive"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-5",
+      "category": "decision",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 549.7979000010673,
+      "bytes": 1291,
+      "ids": [
+        "feedback:negative"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-5",
+      "category": "decision",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 144.02750000044762,
+      "bytes": 1475,
+      "ids": [
+        "feedback:negative",
+        "feedback:positive"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-5",
+      "category": "decision",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 465.2485999995406,
+      "bytes": 1291,
+      "ids": [
+        "feedback:negative"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-5",
+      "category": "decision",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 275.61989999958314,
+      "bytes": 1291,
+      "ids": [
+        "feedback:negative"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-6",
+      "category": "decision",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 982.7672999999777,
+      "bytes": 1269,
+      "ids": [
+        "example:document"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-6",
+      "category": "decision",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 7.523700000092504,
+      "bytes": 1489,
+      "ids": [
+        "example:code",
+        "example:document"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-6",
+      "category": "decision",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 1306.6717000001518,
+      "bytes": 1269,
+      "ids": [
+        "example:document"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-6",
+      "category": "decision",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 54.998500001602224,
+      "bytes": 1489,
+      "ids": [
+        "example:code",
+        "example:document"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-6",
+      "category": "decision",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 306.1524999993708,
+      "bytes": 1269,
+      "ids": [
+        "example:document"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-6",
+      "category": "decision",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 336.4385000004404,
+      "bytes": 1269,
+      "ids": [
+        "example:document"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-6",
+      "category": "decision",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 719.9273000005633,
+      "bytes": 1269,
+      "ids": [
+        "example:document"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-6",
+      "category": "decision",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 139.79310000104306,
+      "bytes": 1269,
+      "ids": [
+        "example:document"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "decision-6",
+      "category": "decision",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 6.157300000268151,
+      "bytes": 1489,
+      "ids": [
+        "example:code",
+        "example:document"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-1",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 9.495700000115903,
+      "bytes": 1373,
+      "ids": [
+        "decision:new",
+        "decision:old"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": 1.0,
+      "forbidden_hits": [
+        "decision:new"
+      ],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-1",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 243.2528999997885,
+      "bytes": 1252,
+      "ids": [
+        "decision:old"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-1",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 247.80039999859582,
+      "bytes": 1252,
+      "ids": [
+        "decision:old"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-1",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 429.5564000003651,
+      "bytes": 1252,
+      "ids": [
+        "decision:old"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-1",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 452.76059999923746,
+      "bytes": 1252,
+      "ids": [
+        "decision:old"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-1",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 5.530100001124083,
+      "bytes": 1373,
+      "ids": [
+        "decision:new",
+        "decision:old"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": 1.0,
+      "forbidden_hits": [
+        "decision:new"
+      ],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-1",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 210.04750000065542,
+      "bytes": 1252,
+      "ids": [
+        "decision:old"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-1",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 6.771399999706773,
+      "bytes": 1373,
+      "ids": [
+        "decision:new",
+        "decision:old"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": 1.0,
+      "forbidden_hits": [
+        "decision:new"
+      ],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-1",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 441.4636999990762,
+      "bytes": 1252,
+      "ids": [
+        "decision:old"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-2",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 303.9329999992333,
+      "bytes": 1258,
+      "ids": [
+        "decision:new"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-2",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 297.89049999999406,
+      "bytes": 1258,
+      "ids": [
+        "decision:new"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-2",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 16.01019999907294,
+      "bytes": 1373,
+      "ids": [
+        "decision:new",
+        "decision:old"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": 1.0,
+      "forbidden_hits": [
+        "decision:old"
+      ],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-2",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 791.489700000966,
+      "bytes": 1258,
+      "ids": [
+        "decision:new"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-2",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 9.218500001225038,
+      "bytes": 1373,
+      "ids": [
+        "decision:new",
+        "decision:old"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": 1.0,
+      "forbidden_hits": [
+        "decision:old"
+      ],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-2",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 538.012200000594,
+      "bytes": 1258,
+      "ids": [
+        "decision:new"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-2",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 59.00360000123328,
+      "bytes": 1373,
+      "ids": [
+        "decision:new",
+        "decision:old"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": 1.0,
+      "forbidden_hits": [
+        "decision:old"
+      ],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-2",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 574.9412000004668,
+      "bytes": 1258,
+      "ids": [
+        "decision:new"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-2",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 620.5869000004895,
+      "bytes": 1258,
+      "ids": [
+        "decision:new"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-3",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 559.9956000005477,
+      "bytes": 1255,
+      "ids": [
+        "decision:old"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-3",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 5.2460000006249174,
+      "bytes": 2869,
+      "ids": [
+        "decision:cache",
+        "decision:left",
+        "decision:new",
+        "decision:old",
+        "decision:right"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-3",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 399.92309999979625,
+      "bytes": 1255,
+      "ids": [
+        "decision:old"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-3",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 6.925400000909576,
+      "bytes": 2869,
+      "ids": [
+        "decision:cache",
+        "decision:left",
+        "decision:new",
+        "decision:old",
+        "decision:right"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-3",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 1034.7937000005913,
+      "bytes": 1255,
+      "ids": [
+        "decision:old"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-3",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 560.5132999990019,
+      "bytes": 1255,
+      "ids": [
+        "decision:old"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-3",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 879.6990999999252,
+      "bytes": 1255,
+      "ids": [
+        "decision:old"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-3",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 490.85070000000997,
+      "bytes": 1255,
+      "ids": [
+        "decision:old"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-3",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 22.911699999895063,
+      "bytes": 2869,
+      "ids": [
+        "decision:cache",
+        "decision:left",
+        "decision:new",
+        "decision:old",
+        "decision:right"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-4",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 19.80790000015986,
+      "bytes": 2869,
+      "ids": [
+        "decision:cache",
+        "decision:left",
+        "decision:new",
+        "decision:old",
+        "decision:right"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-4",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 1704.2695000000094,
+      "bytes": 1261,
+      "ids": [
+        "decision:new"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-4",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 663.1106000004365,
+      "bytes": 1261,
+      "ids": [
+        "decision:new"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-4",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 1231.097800000498,
+      "bytes": 1261,
+      "ids": [
+        "decision:new"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-4",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 599.9111000000994,
+      "bytes": 1261,
+      "ids": [
+        "decision:new"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-4",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 70.20430000011402,
+      "bytes": 2869,
+      "ids": [
+        "decision:cache",
+        "decision:left",
+        "decision:new",
+        "decision:old",
+        "decision:right"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-4",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 669.8570999997173,
+      "bytes": 1261,
+      "ids": [
+        "decision:new"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-4",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 18.758600001092418,
+      "bytes": 2869,
+      "ids": [
+        "decision:cache",
+        "decision:left",
+        "decision:new",
+        "decision:old",
+        "decision:right"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-4",
+      "category": "temporal",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 757.3706999992282,
+      "bytes": 1261,
+      "ids": [
+        "decision:new"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-5",
+      "category": "temporal",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 576.993599999696,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "temporal-5",
+      "category": "temporal",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 421.3276999998925,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "temporal-5",
+      "category": "temporal",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 32.298799998898176,
+      "bytes": 1373,
+      "ids": [
+        "decision:new",
+        "decision:old"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "temporal-5",
+      "category": "temporal",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 425.39790000046196,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "temporal-5",
+      "category": "temporal",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 9.01990000056685,
+      "bytes": 1373,
+      "ids": [
+        "decision:new",
+        "decision:old"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "temporal-5",
+      "category": "temporal",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 590.9372999994957,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "temporal-5",
+      "category": "temporal",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 27.021299998523318,
+      "bytes": 1373,
+      "ids": [
+        "decision:new",
+        "decision:old"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "temporal-5",
+      "category": "temporal",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 727.9500999993616,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "temporal-5",
+      "category": "temporal",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 523.6910000003263,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "temporal-6",
+      "category": "temporal",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 718.661400000201,
+      "bytes": 1258,
+      "ids": [
+        "decision:new"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-6",
+      "category": "temporal",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 8.890799999790033,
+      "bytes": 1373,
+      "ids": [
+        "decision:new",
+        "decision:old"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": 1.0,
+      "forbidden_hits": [
+        "decision:old"
+      ],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-6",
+      "category": "temporal",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 1670.1807999997982,
+      "bytes": 1258,
+      "ids": [
+        "decision:new"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-6",
+      "category": "temporal",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 12.342499998339918,
+      "bytes": 1373,
+      "ids": [
+        "decision:new",
+        "decision:old"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": 1.0,
+      "forbidden_hits": [
+        "decision:old"
+      ],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-6",
+      "category": "temporal",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 1020.4644000004919,
+      "bytes": 1258,
+      "ids": [
+        "decision:new"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-6",
+      "category": "temporal",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 958.3402999996906,
+      "bytes": 1258,
+      "ids": [
+        "decision:new"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-6",
+      "category": "temporal",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 880.4971999998088,
+      "bytes": 1258,
+      "ids": [
+        "decision:new"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-6",
+      "category": "temporal",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 541.0357000000658,
+      "bytes": 1258,
+      "ids": [
+        "decision:new"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "temporal-6",
+      "category": "temporal",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 13.11829999940528,
+      "bytes": 1373,
+      "ids": [
+        "decision:new",
+        "decision:old"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": 1.0,
+      "forbidden_hits": [
+        "decision:old"
+      ],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "absence-1",
+      "category": "absence",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 112.08209999858809,
+      "bytes": 466,
+      "ids": [],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-1",
+      "category": "absence",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 703.1246000005922,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-1",
+      "category": "absence",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 503.1294999989768,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-1",
+      "category": "absence",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 730.0307000004977,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-1",
+      "category": "absence",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 376.9439000006969,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-1",
+      "category": "absence",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 178.66250000042783,
+      "bytes": 466,
+      "ids": [],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-1",
+      "category": "absence",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 465.75940000002447,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-1",
+      "category": "absence",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 51.712500000576256,
+      "bytes": 466,
+      "ids": [],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-1",
+      "category": "absence",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 390.0981999995565,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-2",
+      "category": "absence",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 1043.1168000013713,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-2",
+      "category": "absence",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 386.044300001231,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-2",
+      "category": "absence",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 9.597099999155034,
+      "bytes": 466,
+      "ids": [],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-2",
+      "category": "absence",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 523.9677000008669,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-2",
+      "category": "absence",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 7.825400000001537,
+      "bytes": 466,
+      "ids": [],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-2",
+      "category": "absence",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 667.1294000007038,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-2",
+      "category": "absence",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 8.820800001558382,
+      "bytes": 466,
+      "ids": [],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-2",
+      "category": "absence",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 1110.5419999985315,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-2",
+      "category": "absence",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 514.7049000006518,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-3",
+      "category": "absence",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 398.70840000003227,
+      "bytes": 395,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "note-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-3",
+      "category": "absence",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 71.43399999949906,
+      "bytes": 1461,
+      "ids": [
+        "example:code",
+        "example:document"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "absence-3",
+      "category": "absence",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 522.2517999991396,
+      "bytes": 395,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "note-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-3",
+      "category": "absence",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 14.12019999952463,
+      "bytes": 1461,
+      "ids": [
+        "example:code",
+        "example:document"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "absence-3",
+      "category": "absence",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 988.2722999991529,
+      "bytes": 395,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "note-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-3",
+      "category": "absence",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 470.52719999919645,
+      "bytes": 395,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "note-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-3",
+      "category": "absence",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 1162.9775000001246,
+      "bytes": 395,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "note-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-3",
+      "category": "absence",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 513.7969000006706,
+      "bytes": 395,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "note-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-3",
+      "category": "absence",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 22.712600000886596,
+      "bytes": 1461,
+      "ids": [
+        "example:code",
+        "example:document"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "absence-4",
+      "category": "absence",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 6.054900000890484,
+      "bytes": 1381,
+      "ids": [
+        "decision:left",
+        "decision:right"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "absence-4",
+      "category": "absence",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 967.6430999988952,
+      "bytes": 2374,
+      "ids": [
+        "decision:left",
+        "decision:right"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "absence-4",
+      "category": "absence",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 1256.616099999519,
+      "bytes": 2374,
+      "ids": [
+        "decision:left",
+        "decision:right"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "absence-4",
+      "category": "absence",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 1808.8705999998638,
+      "bytes": 2374,
+      "ids": [
+        "decision:left",
+        "decision:right"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "absence-4",
+      "category": "absence",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 266.34630000080506,
+      "bytes": 2374,
+      "ids": [
+        "decision:left",
+        "decision:right"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "absence-4",
+      "category": "absence",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 8.487399998557521,
+      "bytes": 1381,
+      "ids": [
+        "decision:left",
+        "decision:right"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "absence-4",
+      "category": "absence",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 1162.5686999996105,
+      "bytes": 2374,
+      "ids": [
+        "decision:left",
+        "decision:right"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "absence-4",
+      "category": "absence",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 17.045999999027117,
+      "bytes": 1381,
+      "ids": [
+        "decision:left",
+        "decision:right"
+      ],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "absence-4",
+      "category": "absence",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 1562.4269999989338,
+      "bytes": 2374,
+      "ids": [
+        "decision:left",
+        "decision:right"
+      ],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": 1.0,
+      "forbidden_hits": [],
+      "abstention_correct": null
+    },
+    {
+      "case_id": "absence-5",
+      "category": "absence",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 757.1239000008063,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-5",
+      "category": "absence",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 618.8020000008692,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-5",
+      "category": "absence",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 16.207200000280864,
+      "bytes": 466,
+      "ids": [],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-5",
+      "category": "absence",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 501.0961000007228,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-5",
+      "category": "absence",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 7.413799999994808,
+      "bytes": 466,
+      "ids": [],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-5",
+      "category": "absence",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 1213.606900000741,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-5",
+      "category": "absence",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 5.503499998667394,
+      "bytes": 466,
+      "ids": [],
+      "warnings": [],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-5",
+      "category": "absence",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 2710.1938999985578,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-5",
+      "category": "absence",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 1435.0635999999213,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-6",
+      "category": "absence",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 1466.5085999986331,
+      "bytes": 398,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "section-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-6",
+      "category": "absence",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 6.884200000058627,
+      "bytes": 1489,
+      "ids": [
+        "example:code",
+        "example:document"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "absence-6",
+      "category": "absence",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 1018.9846999983274,
+      "bytes": 398,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "section-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-6",
+      "category": "absence",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 10.005299998738337,
+      "bytes": 1489,
+      "ids": [
+        "example:code",
+        "example:document"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "absence-6",
+      "category": "absence",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 618.5310000000754,
+      "bytes": 398,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "section-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-6",
+      "category": "absence",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 558.6027000008471,
+      "bytes": 398,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "section-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-6",
+      "category": "absence",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 1167.7560999996786,
+      "bytes": 398,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "section-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-6",
+      "category": "absence",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 594.1295000011451,
+      "bytes": 398,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "section-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "absence-6",
+      "category": "absence",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 48.67059999924095,
+      "bytes": 1489,
+      "ids": [
+        "example:code",
+        "example:document"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "privacy-1",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 16.91220000066096,
+      "bytes": 955,
+      "ids": [
+        "private:one"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [
+        "private:one"
+      ],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "privacy-1",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 1003.1379000010929,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-1",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 1799.0936999995029,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-1",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 1172.6961999993364,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-1",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 904.1521000017383,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-1",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 14.956099999835715,
+      "bytes": 955,
+      "ids": [
+        "private:one"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [
+        "private:one"
+      ],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "privacy-1",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 1569.0952000004472,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-1",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 47.63219999949797,
+      "bytes": 955,
+      "ids": [
+        "private:one"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [
+        "private:one"
+      ],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "privacy-1",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 774.5662999986962,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-2",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 874.4022999999288,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-2",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 1081.5490999993926,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-2",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 11.63539999834029,
+      "bytes": 916,
+      "ids": [
+        "excluded:one"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [
+        "excluded:one"
+      ],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "privacy-2",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 1167.120399999476,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-2",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 9.497299999566167,
+      "bytes": 916,
+      "ids": [
+        "excluded:one"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [
+        "excluded:one"
+      ],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "privacy-2",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 784.455999999409,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-2",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 133.43879999956698,
+      "bytes": 916,
+      "ids": [
+        "excluded:one"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [
+        "excluded:one"
+      ],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "privacy-2",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 1586.2460999996983,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-2",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 755.0417999991623,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-3",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 1151.7636999997194,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-3",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 72.21670000035374,
+      "bytes": 967,
+      "ids": [
+        "malformed:one"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [
+        "malformed:one"
+      ],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "privacy-3",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 1776.3833999997587,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-3",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 10.421199998745578,
+      "bytes": 967,
+      "ids": [
+        "malformed:one"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [
+        "malformed:one"
+      ],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "privacy-3",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 1435.4531999997562,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-3",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 989.1170999999304,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-3",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 1536.6338999992877,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-3",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 676.2123999997129,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-3",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 12.113799999497132,
+      "bytes": 967,
+      "ids": [
+        "malformed:one"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [
+        "malformed:one"
+      ],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "privacy-4",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 109.90420000052836,
+      "bytes": 1417,
+      "ids": [
+        "duplicate:one"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [
+        "duplicate:one"
+      ],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "privacy-4",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 281.8486000014673,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-4",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 517.0588000000862,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-4",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 687.1332000009716,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-4",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 1089.5870000003924,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-4",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 9.085599998797989,
+      "bytes": 1417,
+      "ids": [
+        "duplicate:one"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [
+        "duplicate:one"
+      ],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "privacy-4",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 1327.2385000000213,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-4",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 9.980900000300608,
+      "bytes": 1417,
+      "ids": [
+        "duplicate:one"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [
+        "duplicate:one"
+      ],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "privacy-4",
+      "category": "privacy",
+      "split": "dev",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 603.8557000010769,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-5",
+      "category": "privacy",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 714.1666999996232,
+      "bytes": 395,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "note-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-5",
+      "category": "privacy",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 962.0526999988215,
+      "bytes": 395,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "note-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-5",
+      "category": "privacy",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 11.202499999853899,
+      "bytes": 3187,
+      "ids": [
+        "deleted:one",
+        "duplicate:one",
+        "excluded:one",
+        "malformed:one",
+        "private:one"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [
+        "private:one"
+      ],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "privacy-5",
+      "category": "privacy",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 1929.572900000494,
+      "bytes": 395,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "note-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-5",
+      "category": "privacy",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 14.538999999786029,
+      "bytes": 3187,
+      "ids": [
+        "deleted:one",
+        "duplicate:one",
+        "excluded:one",
+        "malformed:one",
+        "private:one"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [
+        "private:one"
+      ],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "privacy-5",
+      "category": "privacy",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 1192.4448999998276,
+      "bytes": 395,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "note-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-5",
+      "category": "privacy",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 24.614800000563264,
+      "bytes": 3187,
+      "ids": [
+        "deleted:one",
+        "duplicate:one",
+        "excluded:one",
+        "malformed:one",
+        "private:one"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [
+        "private:one"
+      ],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "privacy-5",
+      "category": "privacy",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 857.6337999984389,
+      "bytes": 395,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "note-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-5",
+      "category": "privacy",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 839.3400000004476,
+      "bytes": 395,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter",
+        "note-not-found"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-6",
+      "category": "privacy",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 0,
+      "ms": 829.3016999996325,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-6",
+      "category": "privacy",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 0,
+      "ms": 123.06770000031975,
+      "bytes": 910,
+      "ids": [
+        "deleted:one"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [
+        "deleted:one"
+      ],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "privacy-6",
+      "category": "privacy",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 0,
+      "ms": 762.4130999993213,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-6",
+      "category": "privacy",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 1,
+      "ms": 7.849399999031448,
+      "bytes": 910,
+      "ids": [
+        "deleted:one"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [
+        "deleted:one"
+      ],
+      "abstention_correct": false
+    },
+    {
+      "case_id": "privacy-6",
+      "category": "privacy",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 1,
+      "ms": 1143.5868999997183,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-6",
+      "category": "privacy",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 1,
+      "ms": 883.3224000009068,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-6",
+      "category": "privacy",
+      "split": "holdout",
+      "variant": "B",
+      "repetition": 2,
+      "ms": 874.7172000003047,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-6",
+      "category": "privacy",
+      "split": "holdout",
+      "variant": "C",
+      "repetition": 2,
+      "ms": 1393.1748000013613,
+      "bytes": 391,
+      "ids": [],
+      "warnings": [
+        "duplicate-id-quarantined",
+        "no-results",
+        "note-excluded:excluded-note",
+        "note-excluded:unclosed-frontmatter"
+      ],
+      "passed": true,
+      "source_coverage": null,
+      "forbidden_hits": [],
+      "abstention_correct": true
+    },
+    {
+      "case_id": "privacy-6",
+      "category": "privacy",
+      "split": "holdout",
+      "variant": "A",
+      "repetition": 2,
+      "ms": 12.596399999893038,
+      "bytes": 910,
+      "ids": [
+        "deleted:one"
+      ],
+      "warnings": [],
+      "passed": false,
+      "source_coverage": null,
+      "forbidden_hits": [
+        "deleted:one"
+      ],
+      "abstention_correct": false
+    }
+  ],
+  "priming": {
+    "calls": 108,
+    "total_ms": 62514.41429999977
+  },
+  "total_model_tokens": null,
+  "token_savings": null,
+  "human_correction_time": null,
+  "holdout_status": "diagnostic, evaluated after implementation; invalidate on retrieval tuning",
+  "adoption": {
+    "embeddings": "not adopted: no measured end-to-end gain or user failure evidence",
+    "links": "optional explicit one-hop source links, disabled by default",
+    "obsidian_uri": "optional policy-resolved link; no automatic launch or UI benefit claim"
+  },
+  "concurrent_load": "Full unit suite ran concurrently; timings are descriptive, not an isolated speed comparison.",
+  "code_sha256": {
+    "adhd/obsidian.py": "b66623e168ff9f590ed6c8dd031b5de427584442167dd7241b6a6cdabe0243dc",
+    "adhd/obsidian_index.py": "9b93a3d9f474131afe27c8f0e57023b8dfcc6115f7c6095019e900e0c34dbc4a",
+    "adhd/obsidian_assets/bridge.py": "4b805e21c59d29c103cd00e8258e977e5d5749496510251d1b2c5346e022fe96",
+    "scripts/benchmark_obsidian.py": "c0f99546974e89064259dbdf4bcac4bffb856b96088f3ded81577140e853824f"
+  }
+}

@@ -54,6 +54,7 @@ Declare concrete regular output files in native `artifacts` (for example,
 | Same task, changed requirements | `sync-intent` with observed pending `source_turn_id`, matching contract `intent_version` as `base_revision`, and `amend` operations. |
 | Genuinely new task | `new_task` has no operations; resolve running children and archive/reset before a new `begin`. |
 | User-authorized resume | Continue the preserved contract after checking current inputs and state. |
+| `/goal` or `$adhd-goal` | Use the observed goal request with begin, or reconcile the active contract then submit `native goal`; retain independent acceptance. |
 
 The amendment allowlist is **criteria, artifacts, documents, protected_inputs**.
 It does not include assumptions, non_goals or mode. A same-task amendment must not

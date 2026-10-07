@@ -1,0 +1,7 @@
+interface:
+  display_name: "ADHD · 목표 달성 루프"
+  short_description: "지정한 목표가 검증될 때까지 구현과 점검, 수정을 반복"
+  default_prompt: "$adhd-goal 지정한 목표를 달성하고 실제 검증을 통과할 때까지 계속 작업해 줘."
+
+policy:
+  allow_implicit_invocation: true

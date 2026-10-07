@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://adhd.local/schemas/wiki-packet.json",
+  "title": "ADHD Obsidian source packet v1",
+  "type": "object",
+  "required": ["schema_version", "policy_epoch", "index_generation", "cards", "warnings", "expansion_pointers", "conflicts", "budget"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "packet_schema_version": {"const": 1},
+    "policy_epoch": {"type": "integer", "minimum": 0},
+    "index_generation": {"type": "integer", "minimum": 0},
+    "cards": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "source_namespace", "authority", "revision", "section", "project", "privacy", "verification_scope", "locator", "excerpt"],
+        "properties": {
+          "id": {"type": "string"},
+          "source_namespace": {"const": "obsidian"},
+          "authority": {"const": "source_data"},
+          "revision": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "section": {"type": ["string", "null"]},
+          "project": {"type": ["string", "null"]},
+          "projects": {"type": "array", "items": {"type": "string"}},
+          "privacy": {"enum": ["public", "private", "restricted", "sensitive"]},
+          "kind": {"type": "string"},
+          "verification_scope": {"type": ["string", "null"]},
+          "locator": {
+            "type": "object",
+            "required": ["vault_id", "relative_path", "section"],
+            "properties": {
+              "vault_id": {"type": "string"},
+              "relative_path": {"type": "string"},
+              "section": {"type": ["string", "null"]}
+            }
+          },
+          "excerpt": {"type": "string"}
+        }
+      }
+    },
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "expansion_pointers": {"type": "array", "items": {"type": "object", "required": ["id", "revision", "section"]}},
+    "conflicts": {"type": "array", "items": {"type": "object", "required": ["id", "with"]}},
+    "budget": {
+      "type": "object",
+      "required": ["unit", "scope", "limit", "used", "tokens"],
+      "properties": {
+        "unit": {"const": "characters"},
+        "scope": {"const": "excerpts"},
+        "limit": {"type": "integer", "minimum": 1},
+        "used": {"type": "integer", "minimum": 0},
+        "packet_limit": {"type": "integer", "minimum": 2048},
+        "tokens": {"type": "null"}
+      }
+    }
+  }
+}

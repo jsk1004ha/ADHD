@@ -402,6 +402,49 @@ class Memory:
                 'used_chars':size,'eligible_records':len(rows),
                 'selection':'FTS5 + Korean bigrams + RRF' if self.fts else 'Korean bigram lexical fallback'}
 
+    def recall_with_wiki(self, query: str, scope: str, *, workspace: Path,
+                         limit: int=6, max_chars: int=6500, project: str|None=None,
+                         environment: str='') -> dict:
+        """Combine bounded source data; never install wiki text as a procedure."""
+        from . import obsidian
+        try:
+            configured = obsidian.load_config(workspace)
+        except ValueError:
+            configured = None
+        if not configured or not configured['enabled'] or scope=='global':
+            return self.recall(query,scope,limit=limit,max_chars=max_chars,environment=environment)
+        if not 1<=limit<=12 or not 2048<=max_chars<=16000:
+            raise ValueError('Invalid combined recall budget')
+        result=self.recall(query,scope,limit=max(1,limit//2),max_chars=max(500,max_chars//2),environment=environment)
+        wiki=obsidian.context(workspace,query,limit=max(1,limit//2),max_chars=max(2048,max_chars//2),project=project)
+        retained=[]
+        for card in wiki['cards']:
+            duplicate=False
+            for record in result['records']:
+                current=self.db.execute('SELECT 1 FROM observations WHERE canonical_id=? AND source_revision=?',
+                                        (record['id'],card['revision'])).fetchone()
+                if record['logical_key']==card['id'] and current:
+                    duplicate=True;break
+            aliases=self.db.execute('SELECT canonical_id FROM record_aliases WHERE namespace=? AND alias=?',
+                                    ('obsidian',card['id'])).fetchall()
+            if any(self._lifecycle(row['canonical_id'])=='forgotten' for row in aliases):duplicate=True
+            if not duplicate:retained.append(card)
+        wiki['cards']=retained
+        ids={card['id'] for card in retained}
+        wiki['expansion_pointers']=[p for p in wiki['expansion_pointers'] if p['id'] in ids]
+        wiki['conflicts']=[p for p in wiki['conflicts'] if p['id'] in ids]
+        wiki['budget']['used']=sum(len(card['excerpt']) for card in retained)
+        result['wiki_context']=wiki
+        result['selection'] += ' + configured source-native wiki (deduplicated by explicit identity/revision)'
+        while len(json.dumps(result,ensure_ascii=False))>max_chars and (wiki['cards'] or result['records']):
+            if wiki['cards']:
+                removed=wiki['cards'].pop();wiki['expansion_pointers']=[p for p in wiki['expansion_pointers'] if p['id']!=removed['id']]
+                wiki['conflicts']=[p for p in wiki['conflicts'] if p['id']!=removed['id']]
+                wiki['budget']['used']=sum(len(card['excerpt']) for card in wiki['cards'])
+            else:result['records'].pop()
+            if 'combined-budget-exhausted' not in wiki['warnings']:wiki['warnings'].append('combined-budget-exhausted')
+        return result
+
     def stats(self) -> dict:
         return {'counts':{r[0]:r[1] for r in self.db.execute('SELECT status,COUNT(*) FROM records GROUP BY status')},
                 'forgotten':self.db.execute('SELECT COUNT(*) FROM tombstones').fetchone()[0],

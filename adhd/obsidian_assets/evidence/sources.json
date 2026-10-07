@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "origin": "previously implemented ADHD evidence archive worktree snapshot",
+  "origin_git_base": "6a157c433ede753b7315f9d36dbc09d8f92c6321",
+  "authority": "reviewed library code, not wiki instructions",
+  "files": {
+    "evidence_archive.py": "6b9b5aba8d84e5298959905e7a99349308831e456b4a7579d0ecace051d2c237",
+    "evidence_codec.py": "b1b0a109271856d3dffbbb38d693ff73f6e5e9bfca61d26c4bea3f9c0db94f34"
+  }
+}

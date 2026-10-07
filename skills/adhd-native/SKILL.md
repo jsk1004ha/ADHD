@@ -2,7 +2,7 @@
 name: adhd-native
 description: ADHD Codex App/CLI workflow for substantive research, study, document editing, coding and games when this harness is the selected owner. Task-sized plans, bounded delegation and artifact verification.
 ---
-# ADHD — Autonomous Delegation Harness Director v0.1.5 — map, not a giant prompt
+# ADHD — Autonomous Delegation Harness Director v0.1.6 — map, not a giant prompt
 Small questions: answer directly. Use Luna only when a separate call is worthwhile. Substantive work: use the native hook's SESSION/view path and read `ADHD_ROOT/skills/adhd-native/references/protocol.md` and `ADHD_ROOT/skills/adhd-native/references/v12-gates.md`. Missing hooks, role tools or acknowledgements are real capability failures; never simulate success.
 
 ## First: understand and plan, then actually finish
@@ -38,6 +38,7 @@ not a separate execution loop. Use the shared [handoff and native command mappin
 
 | Need | Helper | Result for the current owner |
 | --- | --- | --- |
+| Work until a defined outcome is verified | [adhd-goal](../adhd-goal/SKILL.md) | Persistent work/check/repair in this owner, with explicit limits and independent acceptance |
 | Vague idea before a deep plan | [adhd-shape](../adhd-shape/SKILL.md) | Problem, first complete scope, constraints and completion criteria |
 | Important untested assumptions | [adhd-challenge](../adhd-challenge/SKILL.md) | Material risks and the smallest checks that change a decision |
 | A consequential choice among real alternatives | [adhd-decide](../adhd-decide/SKILL.md) | Chosen option, grounds, consequences and revisit conditions |

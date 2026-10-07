@@ -64,6 +64,18 @@ class ReleaseSmokeTests(unittest.TestCase):
             installed = cli('install', '--codex-home', str(codex), '--agents-home', str(agents))
             release = Path(installed['release'])
             self.assertTrue(release.is_relative_to(codex / 'adhd' / 'releases'))
+            for name in ('skills/adhd-goal/SKILL.md', 'adhd/obsidian.py',
+                         'adhd/experience.py', 'adhd/obsidian_assets/bridge.py',
+                         'adhd/obsidian_assets/evidence/evidence_archive.py',
+                         'adhd/obsidian_assets/evidence/evidence_codec.py',
+                         'adhd/obsidian_assets/evidence/sources.json',
+                         'schemas/wiki-packet.json', 'docs/obsidian.md',
+                         'docs/releases/0.1.6.md', 'examples/obsidian/config.json'):
+                self.assertTrue((release / name).is_file(), name)
+            self.assertIn('goal', run([str(python), str(release / 'adhd.py'), 'native', '--help']))
+            disabled = cli('wiki', 'context', '--workspace', str(workspace), '--query', 'release smoke')
+            self.assertEqual(disabled['cards'], [])
+            self.assertIn('obsidian-disabled', disabled['warnings'])
             report = cli('doctor', '--codex-home', str(codex))
             self.assertTrue(report['native_installation'])
             self.assertEqual(report['installation_drift'], [])

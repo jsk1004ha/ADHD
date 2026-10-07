@@ -1,0 +1,16 @@
+{
+  "task_id": "example-task",
+  "artifact_revision": "actual-revision",
+  "kind": "feedback",
+  "project": "example-project",
+  "summary": "사용자가 명시적으로 평가한 행동을 기록한다.",
+  "feedback": [
+    {
+      "polarity": "negative",
+      "dimension": "workflow",
+      "scope": "task",
+      "quote": "실제 평가 원문으로 교체",
+      "source": "actual-user-turn-id"
+    }
+  ]
+}

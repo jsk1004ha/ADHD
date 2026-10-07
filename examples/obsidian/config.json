@@ -1,0 +1,18 @@
+{
+  "vault": "C:/Vault",
+  "engine": "99 시스템/도구/wiki_context.py",
+  "enabled": true,
+  "read_roots": [
+    "홈.md",
+    "10 기록",
+    "20 지식",
+    "30 인덱스",
+    "99 시스템/운영"
+  ],
+  "allowed_privacy": [
+    "public",
+    "private"
+  ],
+  "write_enabled": false,
+  "write_roots": []
+}

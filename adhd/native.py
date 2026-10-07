@@ -25,7 +25,8 @@ from .core import (ROOT, MODES, atomic_json, digest, file_hash, home, read_json,
 from .models import ROLES, route, execution_profile
 from .gates import (validate_plan, validate_document_contract, document_candidate,
                     review_documents, validate_learning_check)
-from .host_capabilities import normalize_event, observe_event, completion_capability
+from .host_capabilities import (normalize_event, observe_event, completion_capability,
+                                observed_thread_goal)
 from .intent import apply_intent_patch
 from .evidence import (validate_execution, observe_host_tool, validate_tool_observations,
                        receipt_test_failures)
@@ -46,6 +47,97 @@ DEFAULTS = {'max_rounds': 8, 'max_seconds': 3600, 'max_children': 3,
             'max_review_children': 3, 'max_epochs': 3,
             'max_lifetime_children': 36, 'max_lifetime_rounds': 24}
 MAX_PROGRESS_AGE = 3600
+GOAL_IMPLICIT_LIMITS = frozenset({'max_rounds', 'max_seconds', 'max_stagnation',
+    'max_total_children', 'max_review_children', 'max_epochs',
+    'max_lifetime_children', 'max_lifetime_rounds'})
+
+
+def goal_command(prompt: str) -> str | None:
+    """Only a leading human command selects persistence; mentions are ordinary text."""
+    match = re.match(r'^\s*(?:/goal|\$adhd-goal)(?=\s|$)\s*([\s\S]*)$', prompt)
+    return match.group(1).strip() if match else None
+
+
+def limit_enabled(state: dict, name: str) -> bool:
+    return (state.get('loop_mode', 'bounded') != 'goal'
+            or name not in GOAL_IMPLICIT_LIMITS
+            or name in state.get('explicit_policy_keys', []))
+
+
+def observe_thread_goal(state: dict, event: dict, directory: Path) -> None:
+    """Bind a real host /goal without inventing a UserPromptSubmit event."""
+    scan = observed_thread_goal(event, state.get('host_goal_cursor'))
+    if scan is None:
+        return
+    state['host_goal_cursor'] = scan['cursor']
+    was_pending = state.get('host_goal_scan_pending', False)
+    state['host_goal_scan_pending'] = scan['pending']
+    previous = state.get('host_goal_observation')
+    observed = scan['observed'] or previous
+    request = state.get('goal_request') or {}
+    if scan['pending']:
+        if request.get('origin') == 'host_thread_goal' and state['status'] in ACTIVE:
+            end_after_children(state, 'paused',
+                'Host goal updates are still being read; preserve unfinished work.')
+        # Do not authorize or resume from a partially checked transcript.
+        if scan['observed'] is not None:
+            state['host_goal_observation'] = observed
+        return
+    if observed is None or (observed == previous and not was_pending):
+        return
+    state['host_goal_observation'] = observed
+    goal = observed['goal']
+    if goal is None or goal['status'] != 'active':
+        state.pop('host_resume_pending', None)
+        if request.get('origin') == 'host_thread_goal' and state['status'] in ACTIVE:
+            end_after_children(state, 'paused',
+                'The host goal stopped or paused; native acceptance is not completion.')
+        return
+    outcome = goal['objective'].strip()
+    if request.get('outcome') == outcome:
+        reactivated = previous and (previous['goal'] is None or previous['goal']['status'] != 'active')
+        if request.get('origin') == 'host_thread_goal' and (reactivated or was_pending):
+            if state['status'] == 'interrupt_pending' and state.get('pending_terminal') == 'paused':
+                state['host_resume_pending'] = True
+            elif state['status'] == 'paused' or (reactivated and state['status'] in {'blocked', 'budget_exhausted', 'cancelled'}):
+                resume_native(state, 'Resumed by the host goal; original contract retained.')
+        return
+    turn = 'host-goal:' + digest([goal['threadId'], goal.get('createdAt'), outcome])
+    state['goal_request'] = {'source_turn_id': turn, 'outcome': outcome,
+                             'origin': 'host_thread_goal'}
+    if not any(prompt['turn_id'] == turn for prompt in state['prompts']):
+        state['prompts'].append({'text': outcome, 'turn_id': turn, 'time': time.time(),
+                                'source': 'host_thread_goal'})
+        if state.get('contract'):
+            state['pending_turn_ids'].append(turn)
+            state['feedback'] = 'Reconcile the observed host goal before enabling the goal loop.'
+        else:
+            state['intent_version'] += 1
+    append_event(directory, 'host_goal_observed', {'source_id': turn,
+                   'event_sha256': observed['event_sha256'], 'status': goal['status']})
+
+
+def resume_native(state: dict, feedback: str) -> None:
+    if (limit_reached(state, 'max_epochs', state.get('epoch', 1)) or
+            limit_reached(state, 'max_lifetime_children', state.get('lifetime_children', 0)) or
+            limit_reached(state, 'max_lifetime_rounds', state.get('lifetime_rounds', 0))):
+        state['feedback'] = 'Lifetime continuation limit reached; preserve the unfinished contract.'
+        return
+    state['epoch'] = state.get('epoch', 1) + 1
+    state['status'] = 'working'
+    state['halt_emitted'] = False
+    state['started'] = time.time()
+    state['rounds'] = 0
+    state['stagnation'] = 0
+    state['total_children'] = 0
+    state['review_children'] = 0
+    state['feedback'] = feedback
+    claim_writer(state)
+
+
+def limit_reached(state: dict, name: str, value: int | float, *, inclusive: bool = True) -> bool:
+    return limit_enabled(state, name) and (
+        value >= state['policy'][name] if inclusive else value > state['policy'][name])
 
 
 def target_manifest(state: dict) -> dict[str, str | None]:
@@ -326,6 +418,7 @@ def end_after_children(state: dict, terminal: str, feedback: str | None = None) 
     """Commit a terminal transition only after the last observed child stops."""
     if terminal not in leases.TERMINAL:
         raise ValueError('Invalid terminal state')
+    state.pop('host_resume_pending', None)
     if feedback is not None:
         state['feedback'] = feedback
     if any(child.get('status') == 'running' for child in state.get('children', {}).values()):
@@ -339,7 +432,7 @@ def end_after_children(state: dict, terminal: str, feedback: str | None = None) 
 def export_view(state: dict) -> None:
     b = bridge(Path(state['workspace']), state['key']); b.mkdir(parents=True, exist_ok=True)
     # This is a model-readable copy; never trust it as authoritative state.
-    public = {k:v for k,v in state.items() if k not in {'processed','reservations','seen_stops'}}
+    public = {k:v for k,v in state.items() if k not in {'processed','reservations','seen_stops','host_goal_cursor'}}
     public['completion_capability']=completion_capability(state.get('host_capabilities',{}))
     public['pending_intent']=bool(state.get('pending_turn_ids'))
     p = checked_path(Path(state['workspace']), str((b/'view.json').relative_to(state['workspace'])))
@@ -366,12 +459,16 @@ def initial(key: str, ws: Path) -> dict:
             'failure_history':[], 'failure_counts':{}, 'needs_replan':False,
             'model_calls':[], 'tool_observations':[],
             'epoch':1, 'review_children':0, 'lifetime_children':0, 'lifetime_rounds':0,
+            'loop_mode':'bounded', 'goal_request':None, 'explicit_policy_keys':[],
             'policy':load_policy(), 'usage':{'observed':False,'tokens':None,
             'note':'Native hooks do not expose a stable billable-token counter. Limits below are continuation/spawn limits, not a hard token cap.'}}
 
 
 def migrate_state(state: dict, d: Path) -> None:
     """Preserve older state while requiring current evidence for completion."""
+    state.setdefault('loop_mode', 'bounded')
+    state.setdefault('goal_request', None)
+    state.setdefault('explicit_policy_keys', [])
     if state.get('schema_version', 1) >= 2:
         state['version']=__version__
         state.setdefault('failure_history',[])
@@ -559,6 +656,9 @@ def archive_for_new_task(state: dict, d: Path, turn_id: str) -> None:
     fresh=initial(state['key'],Path(state['workspace']))
     fresh['prompt_turns']=state['prompt_turns']
     fresh['prompts']=[new_prompt]
+    outcome = goal_command(new_prompt['text'])
+    if outcome is not None:
+        fresh['goal_request']={'source_turn_id':turn_id, 'outcome':outcome}
     fresh['intent_version']=state['intent_version']+1
     fresh['archived_runs']=state.get('archived_runs',[])+[str(archive/'state.json')]
     state.clear();state.update(fresh)
@@ -571,6 +671,13 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             raise ValueError('Only a new user task in idle state may begin; use checkpoint, sync-intent, or user-authorized resume')
         if not state['prompts']:
             raise ValueError('No original user prompt recorded by Codex hook')
+        loop_mode = payload.get('loop_mode', 'goal' if state.get('goal_request') else 'bounded')
+        if loop_mode not in {'bounded', 'goal'}:
+            raise ValueError('Invalid loop_mode; use bounded or goal')
+        if loop_mode == 'goal' and not state.get('goal_request'):
+            raise ValueError('Goal mode requires an observed /goal or $adhd-goal user command')
+        if state.get('goal_request') and loop_mode != 'goal':
+            raise ValueError('An observed goal command cannot be downgraded to bounded execution')
         if store().resolve().is_relative_to(ws.resolve()):
             raise ValueError('Use a project folder that does not contain the Codex host state directory')
         for field in ['assumptions','non_goals']:
@@ -611,7 +718,8 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             mode=mode, rounds=0, astra_calls=0,total_children=0,children={},reservations={},
             seen_stops=[],halt_emitted=False,last_stop_decision={},feedback='',candidate=None,stagnation=0,last_progress=None,checkpoints=[],
             progress_initialized=False,seen_progress=[],verified_progress=[],test_outcomes={},
-            policy=load_policy(profile['name']), plan=None,
+            policy=load_policy(profile['name']), loop_mode=loop_mode,
+            explicit_policy_keys=sorted(read_json(store() / 'native-policy.json', {})), plan=None,
             plan_required=profile['plan_depth']!='optional', execution_profile=profile,
             pending_turn_ids=[],epoch=1,review_children=0,lifetime_children=0,lifetime_rounds=0)
         state['failure_history']=[];state['failure_counts']={};state['verified_failure_counts']={};state['needs_replan']=False
@@ -633,6 +741,14 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             return 'Simple run armed. Execute directly or use one bounded child; verify before independent review.'
         return 'Run armed. Read relevant memory/skills, then submit a requirement-covered plan before implementation. Do not wait for user approval of reversible decisions.'
     if op=='status': return 'Status exported to view.json.'
+    if op=='goal':
+        request = state.get('goal_request')
+        if (not request or payload.get('source_turn_id') != request['source_turn_id']
+                or state['status'] not in ACTIVE or state.get('pending_turn_ids')):
+            raise ValueError('Goal needs an active contract and a reconciled observed goal command')
+        state['loop_mode']='goal'
+        state['feedback']='Goal loop enabled. Continue until fresh independent acceptance or an explicit stop/limit/blocker.'
+        return state['feedback']
     if op=='pause':
         end_after_children(state, 'paused')
         return ('Pause pending while running children finish; writer lease retained.'
@@ -1009,13 +1125,14 @@ def spawn_guard(state: dict, ev: dict) -> dict:
     if len(active)+len(pending)>=state['policy']['max_children']:
         return deny('Parallel-child limit reached; wait for a running child.')
     work_limit=state['policy']['max_total_children']-state['policy']['max_review_children']
-    if role!='adhd-verifier' and state['total_children']-state.get('review_children',0)>=work_limit:
+    if (role!='adhd-verifier' and limit_enabled(state, 'max_total_children')
+            and state['total_children']-state.get('review_children',0)>=work_limit):
         return deny('Work-child budget reached; preserve the review reserve.')
-    if role=='adhd-verifier' and state.get('review_children',0)>=state['policy']['max_review_children']:
+    if role=='adhd-verifier' and limit_reached(state, 'max_review_children', state.get('review_children',0)):
         return deny('Review-child budget reached; report the unresolved candidate.')
-    if state['total_children']>=state['policy']['max_total_children']:
+    if limit_reached(state, 'max_total_children', state['total_children']):
         return deny('Task child-call budget reached; integrate current evidence without more children.')
-    if state.get('lifetime_children',0)>=state['policy']['max_lifetime_children']:
+    if limit_reached(state, 'max_lifetime_children', state.get('lifetime_children',0)):
         return deny('Lifetime child-call budget reached; do not reset it through resume.')
     if role=='adhd-implementer' and any(c['role']==role for c in active+pending):
         return deny('Single-writer invariant: another implementation child is active.')
@@ -1078,9 +1195,9 @@ def start_child(state: dict, ev: dict) -> dict:
         ev.get('reasoning_effort') in {None,route(role)['effort']} and
         is_fresh(state) and
         active_children<state['policy']['max_children'] and
-        state['total_children']<state['policy']['max_total_children'] and
-        state.get('lifetime_children',0)<state['policy']['max_lifetime_children'] and
-        state.get('review_children',0)<state['policy']['max_review_children'])
+        not limit_reached(state, 'max_total_children', state['total_children']) and
+        not limit_reached(state, 'max_lifetime_children', state.get('lifetime_children',0)) and
+        not limit_reached(state, 'max_review_children', state.get('review_children',0)))
     if matched: state['reservations'].pop(str(tool_use_id))
     else:
         # Current App lifecycle hooks omit the spawn tool ID. The custom profile,
@@ -1128,7 +1245,11 @@ def stop_child(state: dict, ev: dict, d: Path) -> dict:
         archive_for_new_task(state,d,state['handoff_turn_id'])
         return message('SubagentStop','Previous run archived; a new begin contract may be submitted.')
     if state['status']=='interrupt_pending' and not any(c['status']=='running' for c in state['children'].values()):
+        resume = state.pop('host_resume_pending', False) and state.get('pending_terminal') == 'paused'
         end_after_children(state, state.get('pending_terminal','paused'))
+        if resume:
+            resume_native(state, 'Resumed by the host goal after all old children stopped.')
+            return message('SubagentStop','Host goal resume processed after all old children finished.')
         return message('SubagentStop','Run stopped after all running children finished; writer lease released.')
     if child['role'] != 'adhd-verifier' or state['status'] not in ACTIVE: return {}
     try:
@@ -1221,6 +1342,10 @@ def context(state: dict) -> str:
               'Research mode: separate measured, calculated, interpreted and unverified claims; '
               'bind numerical claims with provenance. ' if mode=='research' else
               'Deliverable mode: complete and verify the requested output. ')
+    goal = ('\nGoal execution requested. Read '+str(ROOT/'skills'/'adhd-goal'/'SKILL.md')+
+            '. Preserve the requested outcome and continue work/check/repair until independently accepted. '
+            'Reconcile new goal text before enabling native goal on an existing run. '
+            if state.get('goal_request') else '')
     return (DISPLAY_NAME+' v'+__version__+' available. Read '+str(ROOT/'skills'/'adhd-native'/'SKILL.md')+
       '\nSESSION='+state['key']+'; workspace='+state['workspace']+'; view='+str(b/'view.json')+
       '\nFor small questions answer directly (optionally adhd-light); do not start a durable loop. '
@@ -1229,7 +1354,7 @@ def context(state: dict) -> str:
        +outcome+
        'Preserve the selected parent model and effort; pinned ADHD helpers use Sol, Luna or Astra by role. '
        'If OMX or another owner is active, do not begin ADHD. Original user text in view.json outranks generated plans. '
-      'Native tokens are unmeasured; do not claim a hard token cap. Status='+state['status']+
+       'Native tokens are unmeasured; do not claim a hard token cap. Status='+state['status']+goal+
       ('; feedback='+truncate_content(state.get('feedback',''),500) if state.get('feedback') else ''))
 
 
@@ -1246,6 +1371,8 @@ def handle_event(ev: dict) -> dict:
         if state['workspace']!=str(ws): raise ValueError('Session workspace changed; start a new session')
         migrate_state(state,d)
         observe_event(state['host_capabilities'],normalized)
+        if name in {'SessionStart', 'UserPromptSubmit', 'PostToolUse', 'Stop'}:
+            observe_thread_goal(state, ev, d)
         out={}
         if name=='UserPromptSubmit':
             prompt=ev.get('prompt',''); turn=str(ev.get('turn_id',''))
@@ -1258,17 +1385,12 @@ def handle_event(ev: dict) -> dict:
                     state['halt_emitted']=False;state['feedback']='Stopped by explicit user message.'
                     end_after_children(state, 'cancelled')
                 elif normalized in {'resume','재개','이어서 계속','계속 진행'} and state.get('contract') and state['status'] in {'paused','blocked','budget_exhausted','cancelled'}:
-                    if (state.get('epoch',1)>=state['policy']['max_epochs'] or
-                            state.get('lifetime_children',0)>=state['policy']['max_lifetime_children'] or
-                            state.get('lifetime_rounds',0)>=state['policy']['max_lifetime_rounds']):
-                        state['feedback']='Lifetime continuation limit reached; preserve the unfinished contract.'
-                    else:
-                        state['epoch']=state.get('epoch',1)+1
-                        state['status']='working';state['halt_emitted']=False;state['started']=time.time()
-                        state['rounds']=0;state['stagnation']=0;state['total_children']=0;state['review_children']=0
-                        state['feedback']='Resumed by explicit user message; original contract retained.';claim_writer(state)
+                    resume_native(state, 'Resumed by explicit user message; original contract retained.')
                 else:
                     state['prompts'].append({'text':prompt,'turn_id':turn,'time':time.time()})
+                    outcome = goal_command(prompt)
+                    if outcome is not None:
+                        state['goal_request']={'source_turn_id':turn, 'outcome':outcome}
                     if state.get('contract'):
                         state['pending_turn_ids'].append(turn)
                         state['feedback']='Classify the latest user turn as no_change, amend or new_task before final review.'
@@ -1292,9 +1414,11 @@ def handle_event(ev: dict) -> dict:
         elif name=='SubagentStart': out=start_child(state,ev)
         elif name=='SubagentStop': out=stop_child(state,ev,d)
         elif name=='SessionEnd':
+            state.pop('host_resume_pending', None)
             if state['status'] in ACTIVE:
                 end_after_children(state, 'paused')
         elif name=='Interrupt':
+            state.pop('host_resume_pending', None)
             if state['status'] in ACTIVE:
                 end_after_children(state, 'paused',
                                    'Waiting for running children to stop before releasing ownership.')
@@ -1310,10 +1434,10 @@ def handle_event(ev: dict) -> dict:
                     state['seen_stops']=(state['seen_stops']+[turn])[-100:]
                     state['rounds']+=1;state['lifetime_rounds']=state.get('lifetime_rounds',0)+1
                     update_stagnation(state)
-                    exceeded=(state['rounds']>state['policy']['max_rounds'] or
-                              state['lifetime_rounds']>state['policy']['max_lifetime_rounds'] or
-                              time.time()-state['started']>=state['policy']['max_seconds']
-                              or state['stagnation']>=state['policy']['max_stagnation'])
+                    exceeded=(limit_reached(state, 'max_rounds', state['rounds'], inclusive=False) or
+                              limit_reached(state, 'max_lifetime_rounds', state['lifetime_rounds'], inclusive=False) or
+                              limit_reached(state, 'max_seconds', time.time()-state['started']) or
+                              limit_reached(state, 'max_stagnation', state['stagnation']))
                     if exceeded:
                         failure=record_failure(state,'budget_exhausted',
                             'Continuation/time/no-progress limit reached','hook:Stop/'+turn)
@@ -1321,6 +1445,10 @@ def handle_event(ev: dict) -> dict:
                         out={'continue':False,'stopReason':state['feedback']}
                     else:
                         action='Resolve feedback, perform the work, then submit a fresh candidate and independently review it.'
+                        if state.get('loop_mode') == 'goal':
+                            action='Continue toward the original goal: implement, check, repair, submit a fresh candidate and independently review it.'
+                            if state['stagnation'] >= state['policy']['max_stagnation']:
+                                action+=' No verified progress: change the hypothesis or approach using concrete failure evidence; report blocked if no viable path remains.'
                         if state['status']=='reviewing': action='Wait for the verifier, or spawn adhd-verifier on the candidate digest. Do not self-approve.'
                         out={'decision':'block','reason':PREFIX+key+'] '+action+' Read '+str(bridge(ws,key)/'view.json')+'. '+truncate_content(state.get('feedback',''),800)}
             elif state['status']=='complete' and not state.get('halt_emitted'):

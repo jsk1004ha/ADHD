@@ -81,7 +81,7 @@ def parser() -> argparse.ArgumentParser:
     q.add_argument('--workspace', type=Path, default=Path.cwd())
     q.add_argument('--mode', choices=MODES, default='coding')
     q = sub.add_parser('native', help='Sandbox-side requests to the native App/CLI controller')
-    q.add_argument('operation', choices=['begin','plan','checkpoint','candidate','sync-intent','attach-large','pause','blocked','status'])
+    q.add_argument('operation', choices=['begin','goal','plan','checkpoint','candidate','sync-intent','attach-large','pause','blocked','status'])
     q.add_argument('--session', required=True)
     q.add_argument('--workspace', type=Path, default=Path.cwd())
     q.add_argument('--payload-file', type=Path)

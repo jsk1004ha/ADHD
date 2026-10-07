@@ -2,7 +2,7 @@
 name: adhd-native
 description: App/interactive-CLI coordinator for substantive research, learning, reports, coding and games when ADHD owns the task. Preserve intent, delegate selectively and verify deliverables.
 ---
-# ADHD native request protocol v0.1.5
+# ADHD native request protocol v0.1.6
 
 ## Start automatically, without making the user operate a harness
 Follow the installed native hook's SESSION and view.json path. No `$adhd`, slash command, separate terminal loop or new chat per step is required. For a trivial question answer directly; delegate to adhd-light only when its savings justify another call. Preserve the active parent model; a prompt does not change it to Luna.
@@ -173,6 +173,36 @@ the same child-draining termination path. While any child runs, status remains
 lease. The last child finalizes termination and releases ownership. Recovery also
 refuses to reclaim a terminal owner whose persisted children still run.
 Native Stop hooks continue work until accepted or bounded termination. A generated `[ADHD_CONTINUE:...]` prompt is control feedback, not new user intent. Defaults: 8 continuation rounds, 3600 seconds, stagnation threshold 3, 3 parallel children, 12 child calls including 3 reserved reviews, 1 Astra call, and 3 user-authorized epochs. Limits apply at observed hook events, not a mid-inference kill switch. Prose-only checkpoint edits do not reset stagnation. Native token consumption is unknown, not zero and not hard-capped. Provider caps and actual usage UI remain relevant. No background work is provided after closing the App.
+
+### Explicit goal execution
+
+A human message beginning with `/goal OUTCOME` or `$adhd-goal OUTCOME` records a
+goal request. `begin` automatically selects `loop_mode: "goal"` for that request;
+an explicit goal mode without an observed command is rejected. Read
+[adhd-goal](../../adhd-goal/SKILL.md) for the workflow. Ordinary mentions do not
+select goal execution. The built-in `/goal` bypasses UserPromptSubmit. Hooks bind
+its real `thread_goal_updated` event from the host-supplied transcript, matching
+the session header, workspace and thread ID under CODEX_HOME/sessions. Only an
+active goal authorizes goal mode; ordinary transcript text and tool output do
+not. The observer reads bounded 2 MiB increments without running commands, keeps
+an internal cursor and pauses unfinished work while unread updates remain. Host
+pause/clear/termination retains unfinished work; resume keeps explicit lifetime
+limits, and host completion never substitutes for native independent acceptance.
+`$adhd-goal` remains the direct skill entry point when transcript support is absent.
+
+Goal mode skips implicit round, elapsed-time, stagnation, epoch and cumulative
+child-call limits. Explicit policy keys are pinned at begin and remain enforced,
+including values equal to defaults. Parallel-child limits, single-writer rules,
+the Astra cap, permissions and acceptance gates remain active. Stagnation still
+records actual progress and directs a changed hypothesis instead of blind retries.
+Cancellation, pause, session end, essential blockers and explicit limits halt the
+loop without claiming completion. There is no native hard token meter.
+
+To enable persistence on an existing active contract, reconcile the observed
+command with `sync-intent`, then submit `native goal` with
+`{"source_turn_id":"OBSERVED_GOAL_TURN_ID"}`. This changes the loop strategy only;
+the original goal and criteria stay bound to the normal intent/review protocol.
+Changed outcome text must be reconciled as a real amendment or new task.
 
 When stuck, change the hypothesis once using concrete failure evidence instead of repeating the same call. At a budget/authorization/essential-data blocker, provide useful completed artifacts and state what remains. Do not repeatedly ask for permission to continue. `그만`/`중단` stops; a real user `재개`/`이어서 계속` resumes the preserved contract, not an agent-generated resume. The UI stop button cancels current activity according to the host; do not assume a nonexistent Interrupt hook.
 

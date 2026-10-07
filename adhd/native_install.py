@@ -29,9 +29,10 @@ NATIVE_SCHEMA_VERSION=3
 INSTALL_SUBDIR='adhd'
 RELEASE_DIRS=('adhd','skills','native','schemas','third_party','tests','config','bundled')
 RELEASE_FILES=('adhd.py','hook.py','LICENSE','LICENSE-RAIBIT-MIT','THIRD_PARTY_NOTICES.md','requirements-documents.txt','README.md','README.ko.md','ADHD_PROVENANCE.md',
-               'docs/large-tasks.md','docs/releases/0.1.4.md','docs/releases/0.1.5.md',
-               'examples/large-task.json','examples/large-limits.json','examples/batch-checks.json')
-WORKFLOW_SKILLS=('adhd-shape','adhd-challenge','adhd-decide','adhd-steer',
+               'docs/large-tasks.md','docs/obsidian.md','docs/releases/0.1.4.md','docs/releases/0.1.5.md','docs/releases/0.1.6.md',
+               'examples/large-task.json','examples/large-limits.json','examples/batch-checks.json',
+               'examples/obsidian/config.json','examples/obsidian/feedback.json','scripts/benchmark_obsidian.py')
+WORKFLOW_SKILLS=('adhd-goal','adhd-shape','adhd-challenge','adhd-decide','adhd-steer',
                  'adhd-unblock','adhd-retro','adhd-optimize')
 NATIVE_CAPABILITIES=('adhd-native','adhd-memory','adhd-documents','adhd-extensions')+WORKFLOW_SKILLS
 
@@ -305,7 +306,7 @@ def _install_native(target: Path, agents_home: Path|None=None, compact: bool=Fal
                              **({'additionalContextLimit':1200} if event in {'SessionStart','UserPromptSubmit','SubagentStart'} else {})}]}
             hooks.setdefault('hooks',{}).setdefault(event,[]).append(group)
             hook_additions.append({'event':event,'group':group})
-        for event,matcher in [('PostToolUse','Bash|apply_patch|update_plan|mcp__.*'),('PreToolUse','Agent|spawn_agent')]:
+        for event,matcher in [('PostToolUse','Bash|exec|wait|exec_command|write_stdin|apply_patch|update_plan|mcp__.*'),('PreToolUse','Agent|spawn_agent')]:
             matched_group={'matcher':matcher,'hooks':[{'type':'command','command':cmd,'commandWindows':cmd,'timeout':20,'additionalContextLimit':1200}]}
             hooks['hooks'].setdefault(event,[]).append(matched_group);hook_additions.append({'event':event,'group':matched_group})
         # No trusted_hash or bypass is manufactured. Observe Codex's actual trust decision.

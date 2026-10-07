@@ -1,0 +1,15 @@
+filters:
+  and:
+    - file.ext == "md"
+    - type == "artifact"
+    - template != true
+    - artifact_kind == "procedure"
+views:
+  - type: table
+    name: 절차 자료
+    order:
+      - file.name
+      - status
+      - projects
+      - verified_at
+      - verification_scope

@@ -313,11 +313,31 @@ def memory_db() -> Iterator[sqlite3.Connection]:
 
 
 def recipes(workspace: Path, mode: str, goal: str, limit: int = 3) -> list[dict[str, Any]]:
+    prepare_wiki_context(workspace,goal)
     env = digest(environment_signature(workspace))
     from .memory import Memory
     with Memory() as memory:
         memory.migrate_legacy_recipes(store()/'memory.sqlite3')
         return memory.procedure_recipes(workspace,mode,goal,env,limit)
+
+
+def prepare_wiki_context(workspace: Path, goal: str) -> dict|None:
+    """Native begin calls recipes once; source context stays outside recipes."""
+    from . import obsidian
+    try:config=obsidian.load_config(workspace)
+    except (ValueError,OSError):
+        atomic_json(workspace/'.adhd/wiki-plan-context.json',{'schema_version':1,'cards':[],
+            'warnings':['invalid-obsidian-configuration'],'authority':'source_data'})
+        return {'cards':0,'warnings':['invalid-obsidian-configuration']}
+    if not config or not config['enabled']:return None
+    packet=obsidian.context(workspace,goal[:1000] or workspace.name,project=workspace.name,
+                            limit=3,max_chars=4500)
+    packet.update({'task_fingerprint':digest(goal),'current_user_and_contract_override':True,
+                   'revalidate_revisions_before_dependent_action':True})
+    path=workspace/'.adhd/wiki-plan-context.json'
+    atomic_json(path,packet)
+    return {'path':str(path),'cards':len(packet['cards']),'warnings':packet['warnings'],
+            'policy_epoch':packet['policy_epoch'],'index_generation':packet['index_generation']}
 
 
 def save_recipe(workspace: Path, mode: str, goal: str, steps: list[str], evidence: str,
@@ -337,7 +357,53 @@ def save_recipe(workspace: Path, mode: str, goal: str, steps: list[str], evidenc
                 '\n'.join(f'{i+1}. {s}' for i, s in enumerate(clean)) +
                 ('\n\nProcedure bundle:\n'+json.dumps(clean_bundle,ensure_ascii=False,indent=2) if clean_bundle else '')+
                 '\n\nEvidence: ' + evidence + '\n')
+    # Capture only published independent completion; defer while the enclosing
+    # native controller has not flushed status=complete yet.
+    capture_wiki_completion(workspace,evidence)
     return rid
+
+
+def capture_wiki_completion(workspace: Path, evidence: str) -> dict|None:
+    from . import obsidian
+    config=obsidian.load_config(workspace)
+    if not config or not config['enabled']:return None
+    from .experience_procedures import _completion
+    from .experience import candidate,record_usage
+    path=Path(evidence)
+    if not path.is_file() or not path.name.startswith('completion-'):return None
+    session_key=path.parent.name
+    run_id=path.stem.removeprefix('completion-')
+    try:
+        completed=_completion(workspace.resolve(),{'session_key':session_key,'run_id':run_id},current=True)
+    except ValueError:
+        # save_recipe can run before the enclosing controller lock has flushed
+        # status=complete to state.json. Resolve after publication, never certify
+        # the in-memory status ourselves.
+        if not path.resolve().is_relative_to((store()/'native').resolve()):return None
+        pending=read_json(path.parent/'state.json',{})
+        if pending.get('workspace')!=str(workspace.resolve()) or pending.get('run_id')!=run_id:
+            return {'status':'unverified'}
+        if pending.get('status') not in {'working','revising'}:return {'status':'unverified'}
+        atomic_json(workspace/'.adhd/experience/pending-completions'/f'{run_id}.json',
+                    {'completion_receipt':str(path),'sha256':file_hash(path),'status':'awaiting-published-controller-state'})
+        return {'status':'deferred','run_id':run_id}
+    state=completed['state'];final=state['candidate'];artifacts=final['files'].get('artifacts',[])
+    references=[]
+    for item in artifacts:
+        if item.get('kind')=='file' and item.get('sha256') and item.get('path'):
+            references.append({'kind':'document','path':item['path'],'sha256':item['sha256'],
+                               'requirements':[r['id'] for r in state['contract']['criteria']]})
+    if not references:return None
+    receipts=[{'kind':'receipt','path':name,'run_id':run_id,'contract_revision':state['intent_version']}
+              for name in final.get('execution_receipts',{})][:8]
+    event={'task_id':run_id,'artifact_revision':final['digest'],'kind':'success','project':workspace.name,
+           'title':'검증한 ADHD 작업','summary':'독립 검증으로 완료된 작업. 정본과 실제 검사 근거를 참조한다.',
+           'verification_scope':'현재 완료 계약의 로컬 검사와 독립 검증 범위','reusable':True,
+           'artifacts':references[:8],'receipts':receipts,'source_ids':['run:'+run_id]}
+    result=candidate(workspace,event)
+    record_usage(workspace,{'call_id':'native-completion:'+run_id,'task_id':run_id,'phase':'capture',
+                            'role':'native-controller','input_tokens':None,'output_tokens':None,'cached_input_tokens':None})
+    return result
 
 
 def quarantine(recipe_ids: list[str]) -> None:

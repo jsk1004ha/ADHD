@@ -1,0 +1,970 @@
+{
+  "schema_version": 1,
+  "scope": "hand-authored diagnostic fixtures, not human UX or population claims",
+  "notes": [
+    {
+      "path": "10 기록/Alpha.md",
+      "id": "project:alpha",
+      "body": "# Alpha\nAlpha project current entry. 알파 프로젝트.",
+      "metadata": {
+        "type": "project",
+        "domain": "project",
+        "layer": "record",
+        "privacy": "public",
+        "status": "inbox",
+        "template": false,
+        "source_ids": [
+          "fixture:project:alpha"
+        ],
+        "projects": [
+          "alpha"
+        ],
+        "aliases": [
+          "AlphaProject",
+          "알파",
+          "Demo"
+        ]
+      }
+    },
+    {
+      "path": "10 기록/Beta.md",
+      "id": "project:beta",
+      "body": "# Beta\nBeta project current entry.",
+      "metadata": {
+        "type": "project",
+        "domain": "project",
+        "layer": "record",
+        "privacy": "public",
+        "status": "inbox",
+        "template": false,
+        "source_ids": [
+          "fixture:project:beta"
+        ],
+        "projects": [
+          "beta"
+        ],
+        "aliases": [
+          "BetaProject",
+          "베타",
+          "Demo"
+        ]
+      }
+    },
+    {
+      "path": "10 기록/AlphaError.md",
+      "id": "incident:alpha",
+      "body": "# Alpha error\nUnicodeError alpha encoding recovery.\n## Proof\nUTF-8 input and exact bytes were checked.",
+      "metadata": {
+        "type": "artifact",
+        "domain": "artifact",
+        "layer": "record",
+        "privacy": "public",
+        "status": "inbox",
+        "template": false,
+        "source_ids": [
+          "fixture:incident:alpha"
+        ],
+        "projects": [
+          "alpha"
+        ]
+      }
+    },
+    {
+      "path": "10 기록/BetaError.md",
+      "id": "incident:beta",
+      "body": "# Beta error\nMAGNET_HARD_OFF beta shutdown guard.",
+      "metadata": {
+        "type": "artifact",
+        "domain": "artifact",
+        "layer": "record",
+        "privacy": "public",
+        "status": "inbox",
+        "template": false,
+        "source_ids": [
+          "fixture:incident:beta"
+        ],
+        "projects": [
+          "beta"
+        ]
+      }
+    },
+    {
+      "path": "10 기록/CodeRef.md",
+      "id": "example:code",
+      "body": "# Canonical code\nImmutable git commit file pointer. Verified local fixture only.",
+      "metadata": {
+        "type": "artifact",
+        "domain": "artifact",
+        "layer": "record",
+        "privacy": "public",
+        "status": "inbox",
+        "template": false,
+        "source_ids": [
+          "fixture:example:code"
+        ],
+        "projects": [
+          "alpha"
+        ]
+      }
+    },
+    {
+      "path": "10 기록/DocumentRef.md",
+      "id": "example:document",
+      "body": "# Canonical document\nDocument hash and requirement pointers.\n## Verification\nfixture source only",
+      "metadata": {
+        "type": "artifact",
+        "domain": "artifact",
+        "layer": "record",
+        "privacy": "public",
+        "status": "inbox",
+        "template": false,
+        "source_ids": [
+          "fixture:example:document"
+        ],
+        "projects": [
+          "beta"
+        ]
+      }
+    },
+    {
+      "path": "10 기록/CacheDecision.md",
+      "id": "decision:cache",
+      "body": "# 왜 캐시\n작업당 필요한 출처만 조회한다.\n## 근거\n회귀 검사와 실패 근거를 분리한다.",
+      "metadata": {
+        "type": "artifact",
+        "domain": "artifact",
+        "layer": "record",
+        "privacy": "public",
+        "status": "inbox",
+        "template": false,
+        "source_ids": [
+          "incident:cache"
+        ],
+        "projects": [
+          "alpha"
+        ]
+      }
+    },
+    {
+      "path": "10 기록/CacheFailure.md",
+      "id": "incident:cache",
+      "body": "# 반복 실패\n캐시 삭제 누락 증상과 재발 근거.",
+      "metadata": {
+        "type": "artifact",
+        "domain": "artifact",
+        "layer": "record",
+        "privacy": "public",
+        "status": "inbox",
+        "template": false,
+        "source_ids": [
+          "fixture:incident:cache"
+        ],
+        "projects": [
+          "alpha"
+        ]
+      }
+    },
+    {
+      "path": "10 기록/PositiveFeedback.md",
+      "id": "feedback:positive",
+      "body": "# 표현 평가\n명시적 긍정 평가. 기술 검증은 별도.",
+      "metadata": {
+        "type": "artifact",
+        "domain": "artifact",
+        "layer": "record",
+        "privacy": "public",
+        "status": "inbox",
+        "template": false,
+        "source_ids": [
+          "fixture:feedback:positive"
+        ],
+        "projects": [
+          "alpha"
+        ]
+      }
+    },
+    {
+      "path": "10 기록/NegativeFeedback.md",
+      "id": "feedback:negative",
+      "body": "# 작업 방식 평가\n검사 통과와 불만이 동시에 존재한다.",
+      "metadata": {
+        "type": "artifact",
+        "domain": "artifact",
+        "layer": "record",
+        "privacy": "public",
+        "status": "inbox",
+        "template": false,
+        "source_ids": [
+          "fixture:feedback:negative"
+        ],
+        "projects": [
+          "alpha"
+        ]
+      }
+    },
+    {
+      "path": "10 기록/OldDecision.md",
+      "id": "decision:old",
+      "body": "# Renderer choice\nRendererChoice old decision.",
+      "metadata": {
+        "type": "artifact",
+        "domain": "artifact",
+        "layer": "record",
+        "privacy": "public",
+        "status": "inbox",
+        "template": false,
+        "source_ids": [
+          "fixture:decision:old"
+        ],
+        "projects": [
+          "alpha"
+        ],
+        "valid_from": "2025-01-01",
+        "valid_until": "2026-05-31"
+      }
+    },
+    {
+      "path": "10 기록/NewDecision.md",
+      "id": "decision:new",
+      "body": "# Renderer choice\nRendererChoice new decision.",
+      "metadata": {
+        "type": "artifact",
+        "domain": "artifact",
+        "layer": "record",
+        "privacy": "public",
+        "status": "inbox",
+        "template": false,
+        "source_ids": [
+          "fixture:decision:new"
+        ],
+        "projects": [
+          "alpha"
+        ],
+        "valid_from": "2026-06-01",
+        "supersedes": [
+          "decision:old"
+        ]
+      }
+    },
+    {
+      "path": "10 기록/ConflictLeft.md",
+      "id": "decision:left",
+      "body": "# Memory policy\nConflictSignal preference one.",
+      "metadata": {
+        "type": "artifact",
+        "domain": "artifact",
+        "layer": "record",
+        "privacy": "public",
+        "status": "inbox",
+        "template": false,
+        "source_ids": [
+          "fixture:decision:left"
+        ],
+        "projects": [
+          "alpha"
+        ],
+        "contradicts": [
+          "decision:right"
+        ]
+      }
+    },
+    {
+      "path": "10 기록/ConflictRight.md",
+      "id": "decision:right",
+      "body": "# Memory policy\nConflictSignal preference two.",
+      "metadata": {
+        "type": "artifact",
+        "domain": "artifact",
+        "layer": "record",
+        "privacy": "public",
+        "status": "inbox",
+        "template": false,
+        "source_ids": [
+          "fixture:decision:right"
+        ],
+        "projects": [
+          "alpha"
+        ],
+        "contradicts": [
+          "decision:left"
+        ]
+      }
+    },
+    {
+      "path": "10 기록/Private.md",
+      "id": "private:one",
+      "body": "# PrivateNeedle\nPrivateNeedle must not be returned under public-only policy.",
+      "metadata": {
+        "type": "artifact",
+        "domain": "artifact",
+        "layer": "record",
+        "privacy": "private",
+        "status": "inbox",
+        "template": false,
+        "source_ids": [
+          "fixture:private:one"
+        ]
+      }
+    },
+    {
+      "path": "10 기록/Excluded.md",
+      "id": "excluded:one",
+      "body": "# ExcludedNeedle\nExcludedNeedle",
+      "metadata": {
+        "type": "artifact",
+        "domain": "artifact",
+        "layer": "record",
+        "privacy": "public",
+        "status": "inbox",
+        "template": false,
+        "source_ids": [
+          "fixture:excluded:one"
+        ],
+        "retrieval": "excluded"
+      }
+    },
+    {
+      "path": "10 기록/Malformed.md",
+      "id": "malformed:one",
+      "body": "# MalformedNeedle\nMalformedNeedle",
+      "metadata": {
+        "type": "artifact",
+        "domain": "artifact",
+        "layer": "record",
+        "privacy": "public",
+        "status": "inbox",
+        "template": false,
+        "source_ids": [
+          "fixture:malformed:one"
+        ],
+        "malformed": true
+      }
+    },
+    {
+      "path": "10 기록/DuplicateOne.md",
+      "id": "duplicate:one",
+      "body": "# DuplicateNeedle\nDuplicateNeedle first",
+      "metadata": {
+        "type": "artifact",
+        "domain": "artifact",
+        "layer": "record",
+        "privacy": "public",
+        "status": "inbox",
+        "template": false,
+        "source_ids": [
+          "fixture:duplicate:one"
+        ]
+      }
+    },
+    {
+      "path": "10 기록/DuplicateTwo.md",
+      "id": "duplicate:one",
+      "body": "# DuplicateNeedle\nDuplicateNeedle second",
+      "metadata": {
+        "type": "artifact",
+        "domain": "artifact",
+        "layer": "record",
+        "privacy": "public",
+        "status": "inbox",
+        "template": false,
+        "source_ids": [
+          "fixture:duplicate:one"
+        ]
+      }
+    },
+    {
+      "path": "10 기록/Deleted.md",
+      "id": "deleted:one",
+      "body": "# DeletedNeedle\nDeletedNeedle",
+      "metadata": {
+        "type": "artifact",
+        "domain": "artifact",
+        "layer": "record",
+        "privacy": "public",
+        "status": "deleted",
+        "template": false,
+        "source_ids": [
+          "fixture:deleted:one"
+        ]
+      }
+    }
+  ],
+  "cases": [
+    {
+      "id": "project-1",
+      "category": "project",
+      "split": "dev",
+      "operation": "project",
+      "query": "Alpha",
+      "args": {},
+      "expected": {
+        "required_ids": [
+          "project:alpha"
+        ],
+        "forbidden_ids": [],
+        "abstain": false
+      }
+    },
+    {
+      "id": "project-2",
+      "category": "project",
+      "split": "dev",
+      "operation": "project",
+      "query": "Beta",
+      "args": {},
+      "expected": {
+        "required_ids": [
+          "project:beta"
+        ],
+        "forbidden_ids": [],
+        "abstain": false
+      }
+    },
+    {
+      "id": "project-3",
+      "category": "project",
+      "split": "dev",
+      "operation": "read",
+      "query": "",
+      "args": {
+        "note_id": "incident:alpha"
+      },
+      "expected": {
+        "required_ids": [
+          "incident:alpha"
+        ],
+        "forbidden_ids": [],
+        "abstain": false
+      }
+    },
+    {
+      "id": "project-4",
+      "category": "project",
+      "split": "dev",
+      "operation": "read",
+      "query": "",
+      "args": {
+        "note_id": "example:code"
+      },
+      "expected": {
+        "required_ids": [
+          "example:code"
+        ],
+        "forbidden_ids": [],
+        "abstain": false
+      }
+    },
+    {
+      "id": "project-5",
+      "category": "project",
+      "split": "holdout",
+      "operation": "project",
+      "query": "ProjectDoesNotExistZZ",
+      "args": {},
+      "expected": {
+        "required_ids": [],
+        "forbidden_ids": [],
+        "abstain": true
+      }
+    },
+    {
+      "id": "project-6",
+      "category": "project",
+      "split": "holdout",
+      "operation": "context",
+      "query": "MAGNET_HARD_OFF",
+      "args": {
+        "project": "Alpha"
+      },
+      "expected": {
+        "required_ids": [],
+        "forbidden_ids": [
+          "incident:beta"
+        ],
+        "abstain": true
+      }
+    },
+    {
+      "id": "aliases-1",
+      "category": "aliases",
+      "split": "dev",
+      "operation": "project",
+      "query": "알파",
+      "args": {},
+      "expected": {
+        "required_ids": [
+          "project:alpha"
+        ],
+        "forbidden_ids": [],
+        "abstain": false
+      }
+    },
+    {
+      "id": "aliases-2",
+      "category": "aliases",
+      "split": "dev",
+      "operation": "project",
+      "query": "BetaProject",
+      "args": {},
+      "expected": {
+        "required_ids": [
+          "project:beta"
+        ],
+        "forbidden_ids": [],
+        "abstain": false
+      }
+    },
+    {
+      "id": "aliases-3",
+      "category": "aliases",
+      "split": "dev",
+      "operation": "context",
+      "query": "UnicodeError",
+      "args": {
+        "project": "Alpha"
+      },
+      "expected": {
+        "required_ids": [
+          "incident:alpha"
+        ],
+        "forbidden_ids": [],
+        "abstain": false
+      }
+    },
+    {
+      "id": "aliases-4",
+      "category": "aliases",
+      "split": "dev",
+      "operation": "context",
+      "query": "MAGNET_HARD_OFF",
+      "args": {
+        "project": "Beta"
+      },
+      "expected": {
+        "required_ids": [
+          "incident:beta"
+        ],
+        "forbidden_ids": [],
+        "abstain": false
+      }
+    },
+    {
+      "id": "aliases-5",
+      "category": "aliases",
+      "split": "holdout",
+      "operation": "read",
+      "query": "",
+      "args": {
+        "note_id": "Demo"
+      },
+      "expected": {
+        "required_ids": [],
+        "forbidden_ids": [],
+        "abstain": true
+      }
+    },
+    {
+      "id": "aliases-6",
+      "category": "aliases",
+      "split": "holdout",
+      "operation": "read",
+      "query": "",
+      "args": {
+        "note_id": "NoSuchAliasZZ"
+      },
+      "expected": {
+        "required_ids": [],
+        "forbidden_ids": [],
+        "abstain": true
+      }
+    },
+    {
+      "id": "decision-1",
+      "category": "decision",
+      "split": "dev",
+      "operation": "context",
+      "query": "왜 캐시",
+      "args": {},
+      "expected": {
+        "required_ids": [
+          "decision:cache"
+        ],
+        "forbidden_ids": [],
+        "abstain": false
+      }
+    },
+    {
+      "id": "decision-2",
+      "category": "decision",
+      "split": "dev",
+      "operation": "read",
+      "query": "",
+      "args": {
+        "note_id": "decision:cache",
+        "section": "근거"
+      },
+      "expected": {
+        "required_ids": [
+          "decision:cache"
+        ],
+        "forbidden_ids": [],
+        "abstain": false
+      }
+    },
+    {
+      "id": "decision-3",
+      "category": "decision",
+      "split": "dev",
+      "operation": "context",
+      "query": "왜 캐시",
+      "args": {
+        "expand_links": true
+      },
+      "expected": {
+        "required_ids": [
+          "decision:cache",
+          "incident:cache"
+        ],
+        "forbidden_ids": [],
+        "abstain": false
+      }
+    },
+    {
+      "id": "decision-4",
+      "category": "decision",
+      "split": "dev",
+      "operation": "context",
+      "query": "표현 평가",
+      "args": {},
+      "expected": {
+        "required_ids": [
+          "feedback:positive"
+        ],
+        "forbidden_ids": [],
+        "abstain": false
+      }
+    },
+    {
+      "id": "decision-5",
+      "category": "decision",
+      "split": "holdout",
+      "operation": "read",
+      "query": "",
+      "args": {
+        "note_id": "feedback:negative"
+      },
+      "expected": {
+        "required_ids": [
+          "feedback:negative"
+        ],
+        "forbidden_ids": [],
+        "abstain": false
+      }
+    },
+    {
+      "id": "decision-6",
+      "category": "decision",
+      "split": "holdout",
+      "operation": "read",
+      "query": "",
+      "args": {
+        "note_id": "example:document",
+        "section": "Verification"
+      },
+      "expected": {
+        "required_ids": [
+          "example:document"
+        ],
+        "forbidden_ids": [],
+        "abstain": false
+      }
+    },
+    {
+      "id": "temporal-1",
+      "category": "temporal",
+      "split": "dev",
+      "operation": "context",
+      "query": "RendererChoice",
+      "args": {
+        "as_of": "2026-05-01"
+      },
+      "expected": {
+        "required_ids": [
+          "decision:old"
+        ],
+        "forbidden_ids": [
+          "decision:new"
+        ],
+        "abstain": false
+      }
+    },
+    {
+      "id": "temporal-2",
+      "category": "temporal",
+      "split": "dev",
+      "operation": "context",
+      "query": "RendererChoice",
+      "args": {
+        "as_of": "2026-07-01"
+      },
+      "expected": {
+        "required_ids": [
+          "decision:new"
+        ],
+        "forbidden_ids": [
+          "decision:old"
+        ],
+        "abstain": false
+      }
+    },
+    {
+      "id": "temporal-3",
+      "category": "temporal",
+      "split": "dev",
+      "operation": "read",
+      "query": "",
+      "args": {
+        "note_id": "decision:old"
+      },
+      "expected": {
+        "required_ids": [
+          "decision:old"
+        ],
+        "forbidden_ids": [],
+        "abstain": false
+      }
+    },
+    {
+      "id": "temporal-4",
+      "category": "temporal",
+      "split": "dev",
+      "operation": "read",
+      "query": "",
+      "args": {
+        "note_id": "decision:new"
+      },
+      "expected": {
+        "required_ids": [
+          "decision:new"
+        ],
+        "forbidden_ids": [],
+        "abstain": false
+      }
+    },
+    {
+      "id": "temporal-5",
+      "category": "temporal",
+      "split": "holdout",
+      "operation": "context",
+      "query": "RendererChoice",
+      "args": {
+        "as_of": "2024-01-01"
+      },
+      "expected": {
+        "required_ids": [],
+        "forbidden_ids": [],
+        "abstain": true
+      }
+    },
+    {
+      "id": "temporal-6",
+      "category": "temporal",
+      "split": "holdout",
+      "operation": "context",
+      "query": "RendererChoice",
+      "args": {
+        "as_of": "2027-01-01"
+      },
+      "expected": {
+        "required_ids": [
+          "decision:new"
+        ],
+        "forbidden_ids": [
+          "decision:old"
+        ],
+        "abstain": false
+      }
+    },
+    {
+      "id": "absence-1",
+      "category": "absence",
+      "split": "dev",
+      "operation": "context",
+      "query": "NoEvidenceZZA11",
+      "args": {},
+      "expected": {
+        "required_ids": [],
+        "forbidden_ids": [],
+        "abstain": true
+      }
+    },
+    {
+      "id": "absence-2",
+      "category": "absence",
+      "split": "dev",
+      "operation": "context",
+      "query": "NoEvidenceZZA12",
+      "args": {},
+      "expected": {
+        "required_ids": [],
+        "forbidden_ids": [],
+        "abstain": true
+      }
+    },
+    {
+      "id": "absence-3",
+      "category": "absence",
+      "split": "dev",
+      "operation": "read",
+      "query": "",
+      "args": {
+        "note_id": "example:missing"
+      },
+      "expected": {
+        "required_ids": [],
+        "forbidden_ids": [],
+        "abstain": true
+      }
+    },
+    {
+      "id": "absence-4",
+      "category": "absence",
+      "split": "dev",
+      "operation": "context",
+      "query": "ConflictSignal",
+      "args": {},
+      "expected": {
+        "required_ids": [
+          "decision:left",
+          "decision:right"
+        ],
+        "forbidden_ids": [],
+        "abstain": false
+      }
+    },
+    {
+      "id": "absence-5",
+      "category": "absence",
+      "split": "holdout",
+      "operation": "context",
+      "query": "NoEvidenceZZA15",
+      "args": {
+        "project": "Alpha"
+      },
+      "expected": {
+        "required_ids": [],
+        "forbidden_ids": [],
+        "abstain": true
+      }
+    },
+    {
+      "id": "absence-6",
+      "category": "absence",
+      "split": "holdout",
+      "operation": "read",
+      "query": "",
+      "args": {
+        "note_id": "example:document",
+        "section": "SectionNotPresentZZ"
+      },
+      "expected": {
+        "required_ids": [],
+        "forbidden_ids": [],
+        "abstain": true
+      }
+    },
+    {
+      "id": "privacy-1",
+      "category": "privacy",
+      "split": "dev",
+      "operation": "context",
+      "query": "PrivateNeedle",
+      "args": {},
+      "expected": {
+        "required_ids": [],
+        "forbidden_ids": [
+          "private:one"
+        ],
+        "abstain": true
+      }
+    },
+    {
+      "id": "privacy-2",
+      "category": "privacy",
+      "split": "dev",
+      "operation": "context",
+      "query": "ExcludedNeedle",
+      "args": {},
+      "expected": {
+        "required_ids": [],
+        "forbidden_ids": [
+          "excluded:one"
+        ],
+        "abstain": true
+      }
+    },
+    {
+      "id": "privacy-3",
+      "category": "privacy",
+      "split": "dev",
+      "operation": "context",
+      "query": "MalformedNeedle",
+      "args": {},
+      "expected": {
+        "required_ids": [],
+        "forbidden_ids": [
+          "malformed:one"
+        ],
+        "abstain": true
+      }
+    },
+    {
+      "id": "privacy-4",
+      "category": "privacy",
+      "split": "dev",
+      "operation": "context",
+      "query": "DuplicateNeedle",
+      "args": {},
+      "expected": {
+        "required_ids": [],
+        "forbidden_ids": [
+          "duplicate:one"
+        ],
+        "abstain": true
+      }
+    },
+    {
+      "id": "privacy-5",
+      "category": "privacy",
+      "split": "holdout",
+      "operation": "read",
+      "query": "",
+      "args": {
+        "note_id": "private:one"
+      },
+      "expected": {
+        "required_ids": [],
+        "forbidden_ids": [
+          "private:one"
+        ],
+        "abstain": true
+      }
+    },
+    {
+      "id": "privacy-6",
+      "category": "privacy",
+      "split": "holdout",
+      "operation": "context",
+      "query": "DeletedNeedle",
+      "args": {},
+      "expected": {
+        "required_ids": [],
+        "forbidden_ids": [
+          "deleted:one"
+        ],
+        "abstain": true
+      }
+    }
+  ],
+  "freeze_rule": "evaluate holdout once after implementation; any retrieval tuning afterwards invalidates it"
+}

@@ -1,0 +1,17 @@
+filters:
+  and:
+    - file.ext == "md"
+    - type == "artifact"
+    - layer == "record"
+    - template != true
+    - status == "inbox"
+views:
+  - type: table
+    name: 검토 후보
+    order:
+      - file.name
+      - status
+      - projects
+      - verification_scope
+      - verified_at
+      - privacy

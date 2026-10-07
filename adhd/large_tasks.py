@@ -470,6 +470,44 @@ class LargeTaskStore:
         state['staging_dirty'] = False
         return path
 
+    def partition_invalid_validation_inputs(self) -> dict:
+        """Repair only an unexecutable >500-input declaration, preserving coverage.
+
+        Every partition repeats the same command and keeps all original input
+        paths. Valid declarations and successful validation are never unlocked.
+        No worker budgets, task states, contract or approval are changed.
+        """
+        with self._transaction() as (db, maybe_state):
+            state=self._need_state(maybe_state)
+            locked=state.get('validation_plan')
+            if not locked or state.get('validation') or state.get('acceptance') or state.get('pending_intent'):
+                raise ValueError('Only an unvalidated current declaration can be partitioned')
+            if not any(len(c['subject_paths'])>500 for c in locked['checks']):
+                raise ValueError('Valid validation declarations remain locked')
+            original=copy.deepcopy(locked);checks=[];mandatory=list(locked['mandatory_checks'])
+            known={c['id'] for c in original['checks']};expanded={}
+            for row in original['checks']:
+                parts=[row['subject_paths'][i:i+500] for i in range(0,len(row['subject_paths']),500)]
+                identities=[row['id']]
+                for number in range(1,len(parts)):
+                    ident=row['id']+'_inputs_'+str(number+1)
+                    if len(ident)>80 or ident in known:raise ValueError('Partition check ID collision')
+                    known.add(ident);identities.append(ident)
+                expanded[row['id']]=identities
+                for ident,paths in zip(identities,parts):
+                    item=copy.deepcopy(row);item.update(id=ident,subject_paths=paths)
+                    item['depends_on']=[piece for dep in row.get('depends_on',[]) for piece in expanded[dep]]
+                    checks.append(item)
+                    if row['id'] in original['mandatory_checks'] and ident not in mandatory:mandatory.append(ident)
+            corrected={**locked,'checks':checks,'mandatory_checks':mandatory}
+            from .validation_batch import validate_plan
+            validate_plan(corrected)
+            state['validation_plan']=corrected
+            self._event(db,'invalid_validation_inputs_partitioned',{
+                'original_plan':original,'original_digest':digest(original),
+                'corrected_digest':digest(corrected),'all_input_paths_preserved':True})
+            return copy.deepcopy(corrected)
+
     def _git_metadata(self, stage: Path) -> dict:
         pointer = stage / '.git'
         if not pointer.is_file() or pointer.is_symlink():
