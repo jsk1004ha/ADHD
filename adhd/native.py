@@ -503,7 +503,7 @@ def end_after_children(state: dict, terminal: str, feedback: str | None = None) 
 def export_view(state: dict) -> None:
     b = bridge(Path(state['workspace']), state['key']); b.mkdir(parents=True, exist_ok=True)
     # This is a model-readable copy; never trust it as authoritative state.
-    public = {k:v for k,v in state.items() if k not in {'processed','reservations','seen_stops','host_goal_cursor'}}
+    public = {k:v for k,v in state.items() if k not in {'processed','reservations','seen_stops','host_goal_cursor','guidance_signature'}}
     public['completion_capability']=completion_capability(state.get('host_capabilities',{}))
     public['pending_intent']=bool(state.get('pending_turn_ids'))
     p = checked_path(Path(state['workspace']), str((b/'view.json').relative_to(state['workspace'])))
@@ -1404,29 +1404,71 @@ def stop_child(state: dict, ev: dict, d: Path) -> dict:
         return message('SubagentStop',state['feedback'])
 
 
-def context(state: dict) -> str:
+def guidance_signature(state: dict) -> str:
+    """Output bookkeeping only; prompt collection and event handling always run."""
+    return digest([state['status'], state.get('execution_profile'), state.get('contract_hash'),
+                   state.get('pending_turn_ids'), state.get('feedback'), state.get('goal_request'),
+                   state.get('plan', {}).get('sha256') if state.get('plan') else None,
+                   state.get('candidate', {}).get('digest') if state.get('candidate') else None,
+                   state.get('needs_replan'), state.get('host_goal_scan_pending')])
+
+
+def context(state: dict, *, bootstrap: bool = True, restore: bool = False) -> str:
     b=bridge(Path(state['workspace']),state['key'])
-    mode=state.get('mode')
-    outcome= ('Study mode: explain the concept, provide a short applicable self-check and answer key; '
-              'give a full solution when explicitly requested. '
-              if mode=='study' else
-              'Research mode: separate measured, calculated, interpreted and unverified claims; '
-              'bind numerical claims with provenance. ' if mode=='research' else
-              'Deliverable mode: complete and verify the requested output. ')
-    goal = ('\nGoal execution requested. Read '+str(ROOT/'skills'/'adhd-goal'/'SKILL.md')+
-            '. Preserve the requested outcome and continue work/check/repair until independently accepted. '
-            'Reconcile new goal text before enabling native goal on an existing run. '
-            if state.get('goal_request') else '')
-    return (DISPLAY_NAME+' v'+__version__+' available. Read '+str(ROOT/'skills'/'adhd-native'/'SKILL.md')+
-      '\nSESSION='+state['key']+'; workspace='+state['workspace']+'; view='+str(b/'view.json')+
-      '\nFor small questions answer directly (optionally adhd-light); do not start a durable loop. '
-      'For substantive deliverables/multi-step work, submit begin through the installed adhd.py native bridge. '
-      'First read actual inputs, route installed skills and relevant project memory; submit a deep plan covering every requirement before implementation. '
-       +outcome+
-       'Preserve the selected parent model and effort; pinned ADHD helpers use Sol, Luna or Astra by role. '
-       'If OMX or another owner is active, do not begin ADHD. Original user text in view.json outranks generated plans. '
-       'Native tokens are unmeasured; do not claim a hard token cap. Status='+state['status']+goal+
-      ('; feedback='+truncate_content(state.get('feedback',''),500) if state.get('feedback') else ''))
+    profile=execution_profile(state.get('execution_profile', {}).get('name', 'standard'))
+    planning={'optional':'Plan is optional; execute directly or use limited delegation.',
+              'brief':'Submit a brief requirement-covered plan before implementation.',
+              'deep':'Submit a deep plan covering every requirement before implementation.'}
+    lines=['ADHD Status='+state['status']+'; Profile='+profile['name']+'; plan='+profile['plan_depth']+'. '+planning[profile['plan_depth']]]
+    if state.get('goal_request'):
+        lines.append('Goal execution requested: '+truncate_content(state['goal_request']['outcome'],90)+
+                     '. Read '+str(ROOT/'skills/adhd-goal/SKILL.md')+'. Continue until independent acceptance or explicit stop/limit/blocker.')
+    if restore:
+        contract=state.get('contract', {})
+        objective=(state.get('plan') or {}).get('content', {}).get('objective')
+        if not objective and state.get('prompts'):
+            objective=state['prompts'][0]['text']
+        if objective:
+            lines.append('Objective: '+truncate_content(objective,140))
+        unmet=[row['id'] for row in contract.get('criteria', [])] if state['status']!='complete' else []
+        if unmet:
+            lines.append('Unmet acceptance: '+truncate_content(', '.join(unmet),120)+'. Full contract: view.json.')
+        if state.get('pending_turn_ids'):
+            next_action='Classify '+str(len(state['pending_turn_ids']))+' pending user turn(s) via native sync-intent before review.'
+        elif state.get('plan_required') and (not state.get('plan') or state['plan']['intent_version']!=state['intent_version']):
+            next_action='Submit native plan for the current requirements.'
+        elif state['status']=='reviewing':
+            next_action='Independent adhd-verifier must review the current candidate digest.'
+        elif state['status'] in ACTIVE:
+            next_action='Implement/check the current requirements, then submit candidate and independent review.'
+        elif state['status']=='complete':
+            next_action='Report verified deliverables and limits.'
+        elif state['status']=='idle':
+            next_action='For substantive work use native begin; small questions can be answered directly.'
+        else:
+            next_action='Resolve the recorded blocker; resume only with real user/host authorization.'
+        lines.append('Next: '+next_action)
+        if state.get('mode')=='study':
+            lines.append('Study: explain and give a short self-check/answer key; full solution when explicitly requested.')
+        elif state.get('mode')=='research':
+            lines.append('Research: separate measured/calculated/interpreted/unverified claims and bind provenance.')
+    if state.get('feedback'):
+        lines.append('Feedback: '+truncate_content(state['feedback'],160))
+    if bootstrap:
+        lines.append('SESSION='+state['key']+'; view='+str(b/'view.json'))
+        lines.append('ADHD v'+__version__+'. Read '+str(ROOT/'skills/adhd-native/SKILL.md')+'.')
+        if state.get('contract'):
+            lines.append('Preserve model/effort and original intent; verify independently. No competing owner. Tokens unknown.')
+        else:
+            lines.append('Small questions: answer directly. For substantive work use '+str(ROOT/'adhd.py')+
+                         ' native begin. Read inputs/skills/memory. Preserve parent model/effort and original intent; '
+                         'verify independently. If another owner is active, do not begin ADHD. Native tokens are unknown.')
+    else:
+        lines.append('ADHD view='+str(b/'view.json'))
+    # Our guidance budget is in characters; the host's additionalContextLimit
+    # is an approximate token threshold. Restore state before common reminders.
+    text='\n'.join(lines)
+    return text if len(text)<=1200 else text[:1197]+'...'
 
 
 def handle_event(ev: dict, *, diagnostics=None) -> dict:
@@ -1453,6 +1495,7 @@ def handle_event(ev: dict, *, diagnostics=None) -> dict:
         dispatch_started = time.perf_counter_ns() if diagnostics.enabled else None
         out={}
         if name=='UserPromptSubmit':
+            restore=False
             prompt=ev.get('prompt',''); turn=str(ev.get('turn_id',''))
             if not isinstance(prompt,str) or len(prompt)>MAX_MESSAGE: raise ValueError('Invalid/oversized user prompt')
             continuation=prompt.startswith(PREFIX+key+']')
@@ -1464,6 +1507,7 @@ def handle_event(ev: dict, *, diagnostics=None) -> dict:
                     end_after_children(state, 'cancelled')
                 elif normalized in {'resume','재개','이어서 계속','계속 진행'} and state.get('contract') and state['status'] in {'paused','blocked','budget_exhausted','cancelled'}:
                     resume_native(state, 'Resumed by explicit user message; original contract retained.')
+                    restore=True
                 else:
                     state['prompts'].append({'text':prompt,'turn_id':turn,'time':time.time()})
                     outcome = goal_command(prompt)
@@ -1475,13 +1519,19 @@ def handle_event(ev: dict, *, diagnostics=None) -> dict:
                     else:
                         state['intent_version']+=1
                 append_event(d,'user_prompt',{'turn_id':turn,'intent_version':state['intent_version'],'status':state['status']})
-            out=message(name,context(state))
+            signature=guidance_signature(state)
+            if not state.get('guidance_signature'):
+                out=message(name,context(state,restore=bool(state.get('contract') or state.get('goal_request'))))
+            elif restore or signature!=state['guidance_signature']:
+                out=message(name,context(state,bootstrap=False,restore=True))
+            state['guidance_signature']=signature
         elif name=='SessionStart':
             # Codex loads custom agent roles with the session. Disk changes during
             # a hot upgrade cannot attest what an already-running session loaded.
             state['session_verifier_profile']={'release_root':str(ROOT.resolve()),
                 'profile_hash':verifier_profile_hash()}
-            out=message(name,context(state))
+            out=message(name,context(state,restore=True))
+            state['guidance_signature']=guidance_signature(state)
         elif name=='PostCompact':
             out=message(name,context(state))
         elif name=='PostToolUse':

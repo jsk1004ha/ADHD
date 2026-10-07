@@ -24,6 +24,7 @@ class HookDiagnosticTests(unittest.TestCase):
         self.ws = Path(temporary.name) / 'workspace'
         self.ws.mkdir()
         env = patch.dict(os.environ, {'CODEX_HOME': str(Path(temporary.name) / 'codex'),
+                                     'ADHD_HOME': str(Path(temporary.name) / 'codex/adhd'),
                                      'ADHD_EXEC_OWNER': '', 'ADHD_HOOK_DIAGNOSTICS': ''})
         env.start()
         self.addCleanup(env.stop)
@@ -60,6 +61,8 @@ class HookDiagnosticTests(unittest.TestCase):
         self.assertEqual(output_sizes({})['emitted_context_chars'], 0)
 
     def test_enabled_preserves_output_state_and_view_and_measures_import(self):
+        # Bootstrap is an intentional one-time output; compare identical steady-state events.
+        handle_event({**self.event, 'hook_event_name': 'SessionStart', 'source': 'startup'})
         before, _ = self.invoke(False)
         state_path = folder(session_key(self.event['session_id'])) / 'state.json'
         state = read_json(state_path)
@@ -112,6 +115,43 @@ class HookDiagnosticTests(unittest.TestCase):
         for value in ['', '0', 'false', 'yes']:
             with patch.dict(os.environ, {'ADHD_HOOK_DIAGNOSTICS': value}):
                 self.assertFalse(HookDiagnostics().enabled)
+
+    def test_invalid_and_valid_inbox_requests_keep_identical_results(self):
+        from adhd.native import submit_request
+        acknowledgements = []
+        for enabled in (False, True):
+            workspace = self.ws / str(enabled)
+            workspace.mkdir()
+            sid = 'request-' + str(enabled)
+            key = session_key(sid)
+            event = {**self.event, 'session_id': sid, 'cwd': str(workspace)}
+            handle_event(event)
+            outcomes = []
+            for payload in ({'criteria': []}, {'mode': 'coding', 'execution_profile': 'simple',
+                    'criteria': [{'id': 'R1', 'text': 'Verified result', 'kind': 'test'}],
+                    'artifacts': ['result.txt']}):
+                request = submit_request(key, workspace, 'begin', payload)
+                diagnostics = HookDiagnostics(enabled=enabled)
+                out = handle_event({**event, 'hook_event_name': 'PostToolUse', 'tool_name': 'exec_command'},
+                                   diagnostics=diagnostics)
+                write_hook_diagnostics(diagnostics, out, json.dumps(out))
+                outcomes.append(read_json(Path(request['receipt'])))
+                self.assertIn(request['queued'], read_json(folder(key) / 'state.json')['processed'])
+                self.assertTrue((workspace / '.adhd/bridge' / key / 'processed' / (request['queued'] + '.json')).exists())
+            self.assertFalse(outcomes[0]['ok'])
+            self.assertTrue(outcomes[1]['ok'])
+            acknowledgements.append(outcomes)
+        self.assertEqual(*acknowledgements)
+
+    def test_concurrent_ledger_append_keeps_json_and_event_processing(self):
+        from concurrent.futures import ThreadPoolExecutor
+        self.invoke(False)
+        self.event.update(hook_event_name='PostToolUse', tool_name='exec_command')
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            results = list(pool.map(lambda _: self.invoke(True), range(4)))
+        self.assertTrue(all(output == {} for output, _ in results))
+        self.assertEqual(sum(row['event'] == 'hook_diagnostics' for row in self.records()), 4)
+        self.assertEqual(len(read_json(folder(session_key(self.event['session_id'])) / 'state.json')['prompts']), 1)
 
     def test_existing_host_usage_is_reused_only_for_observed_child_stop(self):
         diagnostics = HookDiagnostics(enabled=True)

@@ -13,21 +13,15 @@
       "--ref",
       "baseline=2d5c443",
       "--ref",
-      "A=WORKTREE",
+      "A=adba2f5",
+      "--ref",
+      "B=WORKTREE",
       "--rounds",
       "5",
       "--warmups",
       "1",
-      "--scenario",
-      "idle_prompt",
-      "--scenario",
-      "idle_cli_begin",
-      "--scenario",
-      "active_prompt",
-      "--scenario",
-      "active_stop",
       "--out",
-      ".adhd/hook-baseline-A.json"
+      "docs/hook-benchmark-results.json"
     ]
   },
   "rounds": 5,
@@ -48,11 +42,20 @@
     },
     {
       "label": "A",
-      "identity": "WORKTREE at 2d5c4430290b5ff0bd67abc89f76e0d44ac88ab8",
+      "identity": "adba2f5ae7d75a0fd5e4e299c3211c66a5b3d993",
       "sha256": {
-        "hook.py": "c830021588e01e023ee78717de0845a857fba23fe24ba5c03c707861a36c2029",
-        "adhd/native.py": "1f4a4f23ce9d335be222d7851bdaa1bfd2724621b89627e901ff4c54822ab858",
-        "adhd/hook_diagnostics.py": "7398e31486d166740a2f80f2020e49656c5797a493bdf3ed8fca6b8b27b2977c"
+        "hook.py": "ce558678dbb5e2a09d81b25a56c45269a06b861f5a2265c7b606090326562845",
+        "adhd/native.py": "718b3a5ccd1851f4c64d03fa40ac79ca28de23043c67b893e0a432754e4b1ec8",
+        "adhd/hook_diagnostics.py": "4b163e36e20d3c4b26b66c5572e742d445a6fae1da6c5044eec46495e0239207"
+      }
+    },
+    {
+      "label": "B",
+      "identity": "WORKTREE at adba2f5ae7d75a0fd5e4e299c3211c66a5b3d993",
+      "sha256": {
+        "hook.py": "ce558678dbb5e2a09d81b25a56c45269a06b861f5a2265c7b606090326562845",
+        "adhd/native.py": "751d92c7cd826f630a3a8360fe471f4fe80ced10b1c0d8c99a92640a1bc48b27",
+        "adhd/hook_diagnostics.py": "4b163e36e20d3c4b26b66c5572e742d445a6fae1da6c5044eec46495e0239207"
       }
     }
   ],
@@ -64,8 +67,8 @@
       "scenario": "idle_prompt",
       "metrics": {
         "process_elapsed_ns": {
-          "median": 680549600,
-          "p95": 728523100
+          "median": 404042300,
+          "p95": 572224000
         },
         "emitted_context_chars": {
           "median": 1126,
@@ -82,7 +85,7 @@
       },
       "samples": [
         {
-          "process_elapsed_ns": 694909600,
+          "process_elapsed_ns": 323744800,
           "emitted_context_chars": 1126,
           "emitted_context_bytes": 1128,
           "stdout_json_bytes": 1251,
@@ -90,7 +93,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 728523100,
+          "process_elapsed_ns": 436318100,
           "emitted_context_chars": 1126,
           "emitted_context_bytes": 1128,
           "stdout_json_bytes": 1251,
@@ -98,7 +101,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 300952700,
+          "process_elapsed_ns": 404042300,
           "emitted_context_chars": 1126,
           "emitted_context_bytes": 1128,
           "stdout_json_bytes": 1251,
@@ -106,7 +109,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 680549600,
+          "process_elapsed_ns": 309062900,
           "emitted_context_chars": 1126,
           "emitted_context_bytes": 1128,
           "stdout_json_bytes": 1251,
@@ -114,7 +117,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 513453300,
+          "process_elapsed_ns": 572224000,
           "emitted_context_chars": 1126,
           "emitted_context_bytes": 1128,
           "stdout_json_bytes": 1251,
@@ -130,8 +133,8 @@
       "scenario": "idle_cli_begin",
       "metrics": {
         "process_elapsed_ns": {
-          "median": 402992600,
-          "p95": 538518800
+          "median": 453648800,
+          "p95": 2050044300
         },
         "emitted_context_chars": {
           "median": 261,
@@ -148,7 +151,7 @@
       },
       "samples": [
         {
-          "process_elapsed_ns": 538518800,
+          "process_elapsed_ns": 904943800,
           "emitted_context_chars": 261,
           "emitted_context_bytes": 261,
           "stdout_json_bytes": 355,
@@ -156,7 +159,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 469814100,
+          "process_elapsed_ns": 2050044300,
           "emitted_context_chars": 261,
           "emitted_context_bytes": 261,
           "stdout_json_bytes": 355,
@@ -164,7 +167,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 402992600,
+          "process_elapsed_ns": 453648800,
           "emitted_context_chars": 261,
           "emitted_context_bytes": 261,
           "stdout_json_bytes": 355,
@@ -172,7 +175,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 350769500,
+          "process_elapsed_ns": 420025300,
           "emitted_context_chars": 261,
           "emitted_context_bytes": 261,
           "stdout_json_bytes": 355,
@@ -180,7 +183,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 390092500,
+          "process_elapsed_ns": 375348800,
           "emitted_context_chars": 261,
           "emitted_context_bytes": 261,
           "stdout_json_bytes": 355,
@@ -193,11 +196,77 @@
       "version": "baseline",
       "diagnostics_requested": false,
       "diagnostics_observed": false,
+      "scenario": "idle_post_tool",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 346441600,
+          "p95": 366452800
+        },
+        "emitted_context_chars": {
+          "median": 0,
+          "p95": 0
+        },
+        "emitted_context_bytes": {
+          "median": 0,
+          "p95": 0
+        },
+        "stdout_json_bytes": {
+          "median": 4,
+          "p95": 4
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 346441600,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 366452800,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 356539200,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 329613300,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 336607000,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        }
+      ]
+    },
+    {
+      "version": "baseline",
+      "diagnostics_requested": false,
+      "diagnostics_observed": false,
       "scenario": "active_prompt",
       "metrics": {
         "process_elapsed_ns": {
-          "median": 302634500,
-          "p95": 358516300
+          "median": 296876800,
+          "p95": 335415100
         },
         "emitted_context_chars": {
           "median": 1222,
@@ -214,7 +283,7 @@
       },
       "samples": [
         {
-          "process_elapsed_ns": 358516300,
+          "process_elapsed_ns": 271110200,
           "emitted_context_chars": 1222,
           "emitted_context_bytes": 1224,
           "stdout_json_bytes": 1347,
@@ -222,7 +291,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 302634500,
+          "process_elapsed_ns": 262363100,
           "emitted_context_chars": 1222,
           "emitted_context_bytes": 1224,
           "stdout_json_bytes": 1347,
@@ -230,7 +299,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 259357500,
+          "process_elapsed_ns": 296876800,
           "emitted_context_chars": 1222,
           "emitted_context_bytes": 1224,
           "stdout_json_bytes": 1347,
@@ -238,7 +307,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 338045400,
+          "process_elapsed_ns": 303534100,
           "emitted_context_chars": 1222,
           "emitted_context_bytes": 1224,
           "stdout_json_bytes": 1347,
@@ -246,7 +315,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 286804300,
+          "process_elapsed_ns": 335415100,
           "emitted_context_chars": 1222,
           "emitted_context_bytes": 1224,
           "stdout_json_bytes": 1347,
@@ -262,8 +331,8 @@
       "scenario": "active_stop",
       "metrics": {
         "process_elapsed_ns": {
-          "median": 343103700,
-          "p95": 402727100
+          "median": 286005900,
+          "p95": 396508200
         },
         "emitted_context_chars": {
           "median": 277,
@@ -280,7 +349,7 @@
       },
       "samples": [
         {
-          "process_elapsed_ns": 273908200,
+          "process_elapsed_ns": 259964600,
           "emitted_context_chars": 277,
           "emitted_context_bytes": 277,
           "stdout_json_bytes": 326,
@@ -288,7 +357,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 265355200,
+          "process_elapsed_ns": 286005900,
           "emitted_context_chars": 277,
           "emitted_context_bytes": 277,
           "stdout_json_bytes": 326,
@@ -296,7 +365,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 343103700,
+          "process_elapsed_ns": 396508200,
           "emitted_context_chars": 277,
           "emitted_context_bytes": 277,
           "stdout_json_bytes": 326,
@@ -304,7 +373,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 371423400,
+          "process_elapsed_ns": 313411300,
           "emitted_context_chars": 277,
           "emitted_context_bytes": 277,
           "stdout_json_bytes": 326,
@@ -312,10 +381,208 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 402727100,
+          "process_elapsed_ns": 279889800,
           "emitted_context_chars": 277,
           "emitted_context_bytes": 277,
           "stdout_json_bytes": 326,
+          "processing_verified": true,
+          "diagnostic": null
+        }
+      ]
+    },
+    {
+      "version": "baseline",
+      "diagnostics_requested": false,
+      "diagnostics_observed": false,
+      "scenario": "active_compact_start",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 290301300,
+          "p95": 337542000
+        },
+        "emitted_context_chars": {
+          "median": 1129,
+          "p95": 1129
+        },
+        "emitted_context_bytes": {
+          "median": 1131,
+          "p95": 1131
+        },
+        "stdout_json_bytes": {
+          "median": 1250,
+          "p95": 1250
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 248877100,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 254954900,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 314383900,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 337542000,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 290301300,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        }
+      ]
+    },
+    {
+      "version": "baseline",
+      "diagnostics_requested": false,
+      "diagnostics_observed": false,
+      "scenario": "active_resume_start",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 276254900,
+          "p95": 396622300
+        },
+        "emitted_context_chars": {
+          "median": 1129,
+          "p95": 1129
+        },
+        "emitted_context_bytes": {
+          "median": 1131,
+          "p95": 1131
+        },
+        "stdout_json_bytes": {
+          "median": 1250,
+          "p95": 1250
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 241484000,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 276254900,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 300849200,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 396622300,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 274180300,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        }
+      ]
+    },
+    {
+      "version": "baseline",
+      "diagnostics_requested": false,
+      "diagnostics_observed": false,
+      "scenario": "active_post_compact",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 305116500,
+          "p95": 319441400
+        },
+        "emitted_context_chars": {
+          "median": 0,
+          "p95": 0
+        },
+        "emitted_context_bytes": {
+          "median": 0,
+          "p95": 0
+        },
+        "stdout_json_bytes": {
+          "median": 4,
+          "p95": 4
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 305116500,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 319441400,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 317676500,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 283728700,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 280613600,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
           "processing_verified": true,
           "diagnostic": null
         }
@@ -328,8 +595,8 @@
       "scenario": "idle_prompt",
       "metrics": {
         "process_elapsed_ns": {
-          "median": 627257800,
-          "p95": 669874900
+          "median": 325791500,
+          "p95": 430456400
         },
         "emitted_context_chars": {
           "median": 1126,
@@ -346,7 +613,7 @@
       },
       "samples": [
         {
-          "process_elapsed_ns": 632264200,
+          "process_elapsed_ns": 294099500,
           "emitted_context_chars": 1126,
           "emitted_context_bytes": 1128,
           "stdout_json_bytes": 1251,
@@ -354,7 +621,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 669874900,
+          "process_elapsed_ns": 325791500,
           "emitted_context_chars": 1126,
           "emitted_context_bytes": 1128,
           "stdout_json_bytes": 1251,
@@ -362,7 +629,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 571791300,
+          "process_elapsed_ns": 346495700,
           "emitted_context_chars": 1126,
           "emitted_context_bytes": 1128,
           "stdout_json_bytes": 1251,
@@ -370,7 +637,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 411104400,
+          "process_elapsed_ns": 317850200,
           "emitted_context_chars": 1126,
           "emitted_context_bytes": 1128,
           "stdout_json_bytes": 1251,
@@ -378,7 +645,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 627257800,
+          "process_elapsed_ns": 430456400,
           "emitted_context_chars": 1126,
           "emitted_context_bytes": 1128,
           "stdout_json_bytes": 1251,
@@ -394,8 +661,8 @@
       "scenario": "idle_cli_begin",
       "metrics": {
         "process_elapsed_ns": {
-          "median": 398185000,
-          "p95": 447733500
+          "median": 448438200,
+          "p95": 1010708500
         },
         "emitted_context_chars": {
           "median": 261,
@@ -412,7 +679,7 @@
       },
       "samples": [
         {
-          "process_elapsed_ns": 398185000,
+          "process_elapsed_ns": 1010708500,
           "emitted_context_chars": 261,
           "emitted_context_bytes": 261,
           "stdout_json_bytes": 355,
@@ -420,7 +687,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 447733500,
+          "process_elapsed_ns": 999638000,
           "emitted_context_chars": 261,
           "emitted_context_bytes": 261,
           "stdout_json_bytes": 355,
@@ -428,7 +695,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 425682700,
+          "process_elapsed_ns": 418937500,
           "emitted_context_chars": 261,
           "emitted_context_bytes": 261,
           "stdout_json_bytes": 355,
@@ -436,7 +703,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 342162500,
+          "process_elapsed_ns": 448438200,
           "emitted_context_chars": 261,
           "emitted_context_bytes": 261,
           "stdout_json_bytes": 355,
@@ -444,7 +711,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 335105400,
+          "process_elapsed_ns": 392510700,
           "emitted_context_chars": 261,
           "emitted_context_bytes": 261,
           "stdout_json_bytes": 355,
@@ -457,11 +724,77 @@
       "version": "baseline",
       "diagnostics_requested": true,
       "diagnostics_observed": false,
+      "scenario": "idle_post_tool",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 318306000,
+          "p95": 336805000
+        },
+        "emitted_context_chars": {
+          "median": 0,
+          "p95": 0
+        },
+        "emitted_context_bytes": {
+          "median": 0,
+          "p95": 0
+        },
+        "stdout_json_bytes": {
+          "median": 4,
+          "p95": 4
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 303176200,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 319324700,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 336805000,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 318306000,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 317477500,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        }
+      ]
+    },
+    {
+      "version": "baseline",
+      "diagnostics_requested": true,
+      "diagnostics_observed": false,
       "scenario": "active_prompt",
       "metrics": {
         "process_elapsed_ns": {
-          "median": 267603800,
-          "p95": 336708500
+          "median": 300479700,
+          "p95": 314735400
         },
         "emitted_context_chars": {
           "median": 1222,
@@ -478,7 +811,7 @@
       },
       "samples": [
         {
-          "process_elapsed_ns": 267603800,
+          "process_elapsed_ns": 300479700,
           "emitted_context_chars": 1222,
           "emitted_context_bytes": 1224,
           "stdout_json_bytes": 1347,
@@ -486,7 +819,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 336708500,
+          "process_elapsed_ns": 314735400,
           "emitted_context_chars": 1222,
           "emitted_context_bytes": 1224,
           "stdout_json_bytes": 1347,
@@ -494,7 +827,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 276379000,
+          "process_elapsed_ns": 286678400,
           "emitted_context_chars": 1222,
           "emitted_context_bytes": 1224,
           "stdout_json_bytes": 1347,
@@ -502,7 +835,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 257557800,
+          "process_elapsed_ns": 294125600,
           "emitted_context_chars": 1222,
           "emitted_context_bytes": 1224,
           "stdout_json_bytes": 1347,
@@ -510,7 +843,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 252991800,
+          "process_elapsed_ns": 310731700,
           "emitted_context_chars": 1222,
           "emitted_context_bytes": 1224,
           "stdout_json_bytes": 1347,
@@ -526,8 +859,8 @@
       "scenario": "active_stop",
       "metrics": {
         "process_elapsed_ns": {
-          "median": 310580600,
-          "p95": 361977900
+          "median": 300519500,
+          "p95": 370890100
         },
         "emitted_context_chars": {
           "median": 277,
@@ -544,7 +877,7 @@
       },
       "samples": [
         {
-          "process_elapsed_ns": 303414200,
+          "process_elapsed_ns": 348709500,
           "emitted_context_chars": 277,
           "emitted_context_bytes": 277,
           "stdout_json_bytes": 326,
@@ -552,7 +885,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 261670900,
+          "process_elapsed_ns": 292607400,
           "emitted_context_chars": 277,
           "emitted_context_bytes": 277,
           "stdout_json_bytes": 326,
@@ -560,7 +893,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 310580600,
+          "process_elapsed_ns": 370890100,
           "emitted_context_chars": 277,
           "emitted_context_bytes": 277,
           "stdout_json_bytes": 326,
@@ -568,7 +901,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 336916500,
+          "process_elapsed_ns": 300519500,
           "emitted_context_chars": 277,
           "emitted_context_bytes": 277,
           "stdout_json_bytes": 326,
@@ -576,10 +909,208 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 361977900,
+          "process_elapsed_ns": 232410500,
           "emitted_context_chars": 277,
           "emitted_context_bytes": 277,
           "stdout_json_bytes": 326,
+          "processing_verified": true,
+          "diagnostic": null
+        }
+      ]
+    },
+    {
+      "version": "baseline",
+      "diagnostics_requested": true,
+      "diagnostics_observed": false,
+      "scenario": "active_compact_start",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 253543200,
+          "p95": 282721100
+        },
+        "emitted_context_chars": {
+          "median": 1129,
+          "p95": 1129
+        },
+        "emitted_context_bytes": {
+          "median": 1131,
+          "p95": 1131
+        },
+        "stdout_json_bytes": {
+          "median": 1250,
+          "p95": 1250
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 253543200,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 222597900,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 282721100,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 244760800,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 275461300,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        }
+      ]
+    },
+    {
+      "version": "baseline",
+      "diagnostics_requested": true,
+      "diagnostics_observed": false,
+      "scenario": "active_resume_start",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 310453000,
+          "p95": 316117700
+        },
+        "emitted_context_chars": {
+          "median": 1129,
+          "p95": 1129
+        },
+        "emitted_context_bytes": {
+          "median": 1131,
+          "p95": 1131
+        },
+        "stdout_json_bytes": {
+          "median": 1250,
+          "p95": 1250
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 235202500,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 233534900,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 313064300,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 316117700,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 310453000,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        }
+      ]
+    },
+    {
+      "version": "baseline",
+      "diagnostics_requested": true,
+      "diagnostics_observed": false,
+      "scenario": "active_post_compact",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 293935800,
+          "p95": 344617500
+        },
+        "emitted_context_chars": {
+          "median": 0,
+          "p95": 0
+        },
+        "emitted_context_bytes": {
+          "median": 0,
+          "p95": 0
+        },
+        "stdout_json_bytes": {
+          "median": 4,
+          "p95": 4
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 293935800,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 308767900,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 344617500,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 280968100,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 267370300,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
           "processing_verified": true,
           "diagnostic": null
         }
@@ -592,8 +1123,8 @@
       "scenario": "idle_prompt",
       "metrics": {
         "process_elapsed_ns": {
-          "median": 646808000,
-          "p95": 831496100
+          "median": 456125600,
+          "p95": 645078900
         },
         "emitted_context_chars": {
           "median": 1126,
@@ -610,7 +1141,7 @@
       },
       "samples": [
         {
-          "process_elapsed_ns": 831496100,
+          "process_elapsed_ns": 492963500,
           "emitted_context_chars": 1126,
           "emitted_context_bytes": 1128,
           "stdout_json_bytes": 1251,
@@ -618,7 +1149,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 646808000,
+          "process_elapsed_ns": 645078900,
           "emitted_context_chars": 1126,
           "emitted_context_bytes": 1128,
           "stdout_json_bytes": 1251,
@@ -626,7 +1157,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 666966800,
+          "process_elapsed_ns": 456125600,
           "emitted_context_chars": 1126,
           "emitted_context_bytes": 1128,
           "stdout_json_bytes": 1251,
@@ -634,7 +1165,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 430345700,
+          "process_elapsed_ns": 311101100,
           "emitted_context_chars": 1126,
           "emitted_context_bytes": 1128,
           "stdout_json_bytes": 1251,
@@ -642,7 +1173,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 321826900,
+          "process_elapsed_ns": 336026300,
           "emitted_context_chars": 1126,
           "emitted_context_bytes": 1128,
           "stdout_json_bytes": 1251,
@@ -658,8 +1189,8 @@
       "scenario": "idle_cli_begin",
       "metrics": {
         "process_elapsed_ns": {
-          "median": 389257600,
-          "p95": 1371170500
+          "median": 513921100,
+          "p95": 912179500
         },
         "emitted_context_chars": {
           "median": 261,
@@ -676,7 +1207,7 @@
       },
       "samples": [
         {
-          "process_elapsed_ns": 411247200,
+          "process_elapsed_ns": 847159100,
           "emitted_context_chars": 261,
           "emitted_context_bytes": 261,
           "stdout_json_bytes": 355,
@@ -684,7 +1215,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 1371170500,
+          "process_elapsed_ns": 912179500,
           "emitted_context_chars": 261,
           "emitted_context_bytes": 261,
           "stdout_json_bytes": 355,
@@ -692,7 +1223,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 358136000,
+          "process_elapsed_ns": 504318400,
           "emitted_context_chars": 261,
           "emitted_context_bytes": 261,
           "stdout_json_bytes": 355,
@@ -700,7 +1231,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 389257600,
+          "process_elapsed_ns": 513921100,
           "emitted_context_chars": 261,
           "emitted_context_bytes": 261,
           "stdout_json_bytes": 355,
@@ -708,7 +1239,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 353714100,
+          "process_elapsed_ns": 403462900,
           "emitted_context_chars": 261,
           "emitted_context_bytes": 261,
           "stdout_json_bytes": 355,
@@ -721,11 +1252,77 @@
       "version": "A",
       "diagnostics_requested": false,
       "diagnostics_observed": false,
+      "scenario": "idle_post_tool",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 285543600,
+          "p95": 389508700
+        },
+        "emitted_context_chars": {
+          "median": 0,
+          "p95": 0
+        },
+        "emitted_context_bytes": {
+          "median": 0,
+          "p95": 0
+        },
+        "stdout_json_bytes": {
+          "median": 4,
+          "p95": 4
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 343350800,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 281972500,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 285543600,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 389508700,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 279587800,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        }
+      ]
+    },
+    {
+      "version": "A",
+      "diagnostics_requested": false,
+      "diagnostics_observed": false,
       "scenario": "active_prompt",
       "metrics": {
         "process_elapsed_ns": {
-          "median": 326688400,
-          "p95": 353446900
+          "median": 315564600,
+          "p95": 321029800
         },
         "emitted_context_chars": {
           "median": 1222,
@@ -742,7 +1339,7 @@
       },
       "samples": [
         {
-          "process_elapsed_ns": 353446900,
+          "process_elapsed_ns": 292387900,
           "emitted_context_chars": 1222,
           "emitted_context_bytes": 1224,
           "stdout_json_bytes": 1347,
@@ -750,7 +1347,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 326688400,
+          "process_elapsed_ns": 302590700,
           "emitted_context_chars": 1222,
           "emitted_context_bytes": 1224,
           "stdout_json_bytes": 1347,
@@ -758,7 +1355,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 327876000,
+          "process_elapsed_ns": 317397800,
           "emitted_context_chars": 1222,
           "emitted_context_bytes": 1224,
           "stdout_json_bytes": 1347,
@@ -766,7 +1363,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 265439500,
+          "process_elapsed_ns": 315564600,
           "emitted_context_chars": 1222,
           "emitted_context_bytes": 1224,
           "stdout_json_bytes": 1347,
@@ -774,7 +1371,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 317021000,
+          "process_elapsed_ns": 321029800,
           "emitted_context_chars": 1222,
           "emitted_context_bytes": 1224,
           "stdout_json_bytes": 1347,
@@ -790,8 +1387,8 @@
       "scenario": "active_stop",
       "metrics": {
         "process_elapsed_ns": {
-          "median": 296403800,
-          "p95": 325386800
+          "median": 278868700,
+          "p95": 424967600
         },
         "emitted_context_chars": {
           "median": 277,
@@ -808,7 +1405,7 @@
       },
       "samples": [
         {
-          "process_elapsed_ns": 271401000,
+          "process_elapsed_ns": 259963800,
           "emitted_context_chars": 277,
           "emitted_context_bytes": 277,
           "stdout_json_bytes": 326,
@@ -816,7 +1413,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 258650200,
+          "process_elapsed_ns": 278868700,
           "emitted_context_chars": 277,
           "emitted_context_bytes": 277,
           "stdout_json_bytes": 326,
@@ -824,7 +1421,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 325386800,
+          "process_elapsed_ns": 424967600,
           "emitted_context_chars": 277,
           "emitted_context_bytes": 277,
           "stdout_json_bytes": 326,
@@ -832,7 +1429,7 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 296403800,
+          "process_elapsed_ns": 291864300,
           "emitted_context_chars": 277,
           "emitted_context_bytes": 277,
           "stdout_json_bytes": 326,
@@ -840,10 +1437,208 @@
           "diagnostic": null
         },
         {
-          "process_elapsed_ns": 315771400,
+          "process_elapsed_ns": 237455900,
           "emitted_context_chars": 277,
           "emitted_context_bytes": 277,
           "stdout_json_bytes": 326,
+          "processing_verified": true,
+          "diagnostic": null
+        }
+      ]
+    },
+    {
+      "version": "A",
+      "diagnostics_requested": false,
+      "diagnostics_observed": false,
+      "scenario": "active_compact_start",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 305402000,
+          "p95": 322862000
+        },
+        "emitted_context_chars": {
+          "median": 1129,
+          "p95": 1129
+        },
+        "emitted_context_bytes": {
+          "median": 1131,
+          "p95": 1131
+        },
+        "stdout_json_bytes": {
+          "median": 1250,
+          "p95": 1250
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 236179000,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 312222800,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 275188800,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 322862000,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 305402000,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        }
+      ]
+    },
+    {
+      "version": "A",
+      "diagnostics_requested": false,
+      "diagnostics_observed": false,
+      "scenario": "active_resume_start",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 278190400,
+          "p95": 331933900
+        },
+        "emitted_context_chars": {
+          "median": 1129,
+          "p95": 1129
+        },
+        "emitted_context_bytes": {
+          "median": 1131,
+          "p95": 1131
+        },
+        "stdout_json_bytes": {
+          "median": 1250,
+          "p95": 1250
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 278190400,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 231486500,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 273811000,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 331933900,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 284520300,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": null
+        }
+      ]
+    },
+    {
+      "version": "A",
+      "diagnostics_requested": false,
+      "diagnostics_observed": false,
+      "scenario": "active_post_compact",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 296265900,
+          "p95": 313666100
+        },
+        "emitted_context_chars": {
+          "median": 0,
+          "p95": 0
+        },
+        "emitted_context_bytes": {
+          "median": 0,
+          "p95": 0
+        },
+        "stdout_json_bytes": {
+          "median": 4,
+          "p95": 4
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 309052800,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 313666100,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 296265900,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 289560300,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 281435000,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
           "processing_verified": true,
           "diagnostic": null
         }
@@ -856,8 +1651,8 @@
       "scenario": "idle_prompt",
       "metrics": {
         "process_elapsed_ns": {
-          "median": 423228400,
-          "p95": 808628900
+          "median": 440338300,
+          "p95": 562252300
         },
         "emitted_context_chars": {
           "median": 1126,
@@ -874,29 +1669,29 @@
       },
       "samples": [
         {
-          "process_elapsed_ns": 808628900,
+          "process_elapsed_ns": 400125400,
           "emitted_context_chars": 1126,
           "emitted_context_bytes": 1128,
           "stdout_json_bytes": 1251,
           "processing_verified": true,
           "diagnostic": {
-            "time": 1791351006.5948613,
+            "time": 1791353810.373122,
             "event": "hook_diagnostics",
             "schema_version": 1,
             "event_name": "UserPromptSubmit",
-            "internal_elapsed_ns": 413762600,
+            "internal_elapsed_ns": 170375200,
             "phases_ns": {
-              "startup_imports": 6769900,
-              "native_import": 396431200,
-              "stdin_parse": 46200,
-              "lock_wait": 761900,
-              "state_read": 526900,
-              "state_prepare": 12400,
-              "goal_check": 3600,
-              "event_dispatch": 1724100,
-              "persist": 5097100,
-              "stdout_serialize": 21900,
-              "ledger_lock_wait": 1057600
+              "startup_imports": 4994000,
+              "native_import": 155544400,
+              "stdin_parse": 42900,
+              "lock_wait": 667300,
+              "state_read": 264700,
+              "state_prepare": 12800,
+              "goal_check": 3200,
+              "event_dispatch": 1718800,
+              "persist": 4210500,
+              "stdout_serialize": 20200,
+              "ledger_lock_wait": 1739200
             },
             "emitted_context_chars": 1126,
             "emitted_context_bytes": 1128,
@@ -909,340 +1704,340 @@
           }
         },
         {
-          "process_elapsed_ns": 632590900,
+          "process_elapsed_ns": 562252300,
           "emitted_context_chars": 1126,
           "emitted_context_bytes": 1128,
           "stdout_json_bytes": 1251,
           "processing_verified": true,
           "diagnostic": {
-            "time": 1791351019.4931672,
+            "time": 1791353819.0119433,
             "event": "hook_diagnostics",
             "schema_version": 1,
             "event_name": "UserPromptSubmit",
-            "internal_elapsed_ns": 351488500,
+            "internal_elapsed_ns": 287005500,
             "phases_ns": {
-              "startup_imports": 24236900,
-              "native_import": 311311000,
-              "stdin_parse": 141000,
-              "lock_wait": 1490500,
-              "state_read": 1045200,
-              "state_prepare": 28700,
-              "goal_check": 8800,
-              "event_dispatch": 3003600,
-              "persist": 5301100,
-              "stdout_serialize": 32100,
-              "ledger_lock_wait": 1949600
-            },
-            "emitted_context_chars": 1126,
-            "emitted_context_bytes": 1128,
-            "emitted_fields": [
-              "hookSpecificOutput.additionalContext"
-            ],
-            "stdout_json_bytes": 1251,
-            "host_usage_observed": false,
-            "host_usage": null
-          }
-        },
-        {
-          "process_elapsed_ns": 423228400,
-          "emitted_context_chars": 1126,
-          "emitted_context_bytes": 1128,
-          "stdout_json_bytes": 1251,
-          "processing_verified": true,
-          "diagnostic": {
-            "time": 1791351020.9372716,
-            "event": "hook_diagnostics",
-            "schema_version": 1,
-            "event_name": "UserPromptSubmit",
-            "internal_elapsed_ns": 213322900,
-            "phases_ns": {
-              "startup_imports": 5304900,
-              "native_import": 188061200,
-              "stdin_parse": 55800,
-              "lock_wait": 743200,
-              "state_read": 578700,
-              "state_prepare": 14000,
-              "goal_check": 4000,
-              "event_dispatch": 2030500,
-              "persist": 7881700,
-              "stdout_serialize": 43200,
-              "ledger_lock_wait": 6943700
-            },
-            "emitted_context_chars": 1126,
-            "emitted_context_bytes": 1128,
-            "emitted_fields": [
-              "hookSpecificOutput.additionalContext"
-            ],
-            "stdout_json_bytes": 1251,
-            "host_usage_observed": false,
-            "host_usage": null
-          }
-        },
-        {
-          "process_elapsed_ns": 421713800,
-          "emitted_context_chars": 1126,
-          "emitted_context_bytes": 1128,
-          "stdout_json_bytes": 1251,
-          "processing_verified": true,
-          "diagnostic": {
-            "time": 1791351030.5985103,
-            "event": "hook_diagnostics",
-            "schema_version": 1,
-            "event_name": "UserPromptSubmit",
-            "internal_elapsed_ns": 206874400,
-            "phases_ns": {
-              "startup_imports": 6201200,
-              "native_import": 187079400,
-              "stdin_parse": 43200,
-              "lock_wait": 707600,
-              "state_read": 658500,
-              "state_prepare": 19100,
-              "goal_check": 5400,
-              "event_dispatch": 2493100,
-              "persist": 6270300,
-              "stdout_serialize": 28900,
-              "ledger_lock_wait": 1870000
-            },
-            "emitted_context_chars": 1126,
-            "emitted_context_bytes": 1128,
-            "emitted_fields": [
-              "hookSpecificOutput.additionalContext"
-            ],
-            "stdout_json_bytes": 1251,
-            "host_usage_observed": false,
-            "host_usage": null
-          }
-        },
-        {
-          "process_elapsed_ns": 339832600,
-          "emitted_context_chars": 1126,
-          "emitted_context_bytes": 1128,
-          "stdout_json_bytes": 1251,
-          "processing_verified": true,
-          "diagnostic": {
-            "time": 1791351031.722567,
-            "event": "hook_diagnostics",
-            "schema_version": 1,
-            "event_name": "UserPromptSubmit",
-            "internal_elapsed_ns": 190337200,
-            "phases_ns": {
-              "startup_imports": 8344900,
-              "native_import": 171528600,
-              "stdin_parse": 38800,
-              "lock_wait": 619400,
-              "state_read": 499200,
-              "state_prepare": 12900,
-              "goal_check": 3900,
-              "event_dispatch": 2328600,
-              "persist": 4822700,
-              "stdout_serialize": 19000,
-              "ledger_lock_wait": 1029500
-            },
-            "emitted_context_chars": 1126,
-            "emitted_context_bytes": 1128,
-            "emitted_fields": [
-              "hookSpecificOutput.additionalContext"
-            ],
-            "stdout_json_bytes": 1251,
-            "host_usage_observed": false,
-            "host_usage": null
-          }
-        }
-      ]
-    },
-    {
-      "version": "A",
-      "diagnostics_requested": true,
-      "diagnostics_observed": true,
-      "scenario": "idle_cli_begin",
-      "metrics": {
-        "process_elapsed_ns": {
-          "median": 375354300,
-          "p95": 429556400
-        },
-        "emitted_context_chars": {
-          "median": 261,
-          "p95": 261
-        },
-        "emitted_context_bytes": {
-          "median": 261,
-          "p95": 261
-        },
-        "stdout_json_bytes": {
-          "median": 355,
-          "p95": 355
-        }
-      },
-      "samples": [
-        {
-          "process_elapsed_ns": 391051100,
-          "emitted_context_chars": 261,
-          "emitted_context_bytes": 261,
-          "stdout_json_bytes": 355,
-          "processing_verified": true,
-          "diagnostic": {
-            "time": 1791351043.4234083,
-            "event": "hook_diagnostics",
-            "schema_version": 1,
-            "event_name": "PostToolUse",
-            "internal_elapsed_ns": 257388600,
-            "phases_ns": {
-              "startup_imports": 4683600,
-              "native_import": 139828800,
-              "stdin_parse": 47900,
-              "lock_wait": 923500,
-              "state_read": 591700,
-              "state_prepare": 15300,
-              "goal_check": 3700,
-              "inbox": 104374700,
-              "event_dispatch": 104388000,
-              "persist": 4553500,
+              "startup_imports": 9833800,
+              "native_import": 266777300,
+              "stdin_parse": 41900,
+              "lock_wait": 852900,
+              "state_read": 742900,
+              "state_prepare": 18400,
+              "goal_check": 5300,
+              "event_dispatch": 1907000,
+              "persist": 4474400,
               "stdout_serialize": 20300,
-              "ledger_lock_wait": 1010700
+              "ledger_lock_wait": 973000
             },
-            "emitted_context_chars": 261,
-            "emitted_context_bytes": 261,
+            "emitted_context_chars": 1126,
+            "emitted_context_bytes": 1128,
             "emitted_fields": [
               "hookSpecificOutput.additionalContext"
             ],
-            "stdout_json_bytes": 355,
+            "stdout_json_bytes": 1251,
             "host_usage_observed": false,
             "host_usage": null
           }
         },
         {
-          "process_elapsed_ns": 429556400,
-          "emitted_context_chars": 261,
-          "emitted_context_bytes": 261,
-          "stdout_json_bytes": 355,
+          "process_elapsed_ns": 405257900,
+          "emitted_context_chars": 1126,
+          "emitted_context_bytes": 1128,
+          "stdout_json_bytes": 1251,
           "processing_verified": true,
           "diagnostic": {
-            "time": 1791351054.4824736,
+            "time": 1791353824.7752144,
             "event": "hook_diagnostics",
             "schema_version": 1,
-            "event_name": "PostToolUse",
-            "internal_elapsed_ns": 281399900,
+            "event_name": "UserPromptSubmit",
+            "internal_elapsed_ns": 215343600,
             "phases_ns": {
-              "startup_imports": 5658900,
-              "native_import": 163021000,
-              "stdin_parse": 63900,
-              "lock_wait": 1108400,
-              "state_read": 610500,
-              "state_prepare": 19000,
-              "goal_check": 5400,
-              "inbox": 101096100,
-              "event_dispatch": 101114400,
-              "persist": 6585500,
+              "startup_imports": 4733200,
+              "native_import": 199324900,
+              "stdin_parse": 43500,
+              "lock_wait": 740600,
+              "state_read": 739100,
+              "state_prepare": 24100,
+              "goal_check": 7000,
+              "event_dispatch": 1693100,
+              "persist": 5627500,
               "stdout_serialize": 22000,
-              "ledger_lock_wait": 1340000
+              "ledger_lock_wait": 1079900
             },
-            "emitted_context_chars": 261,
-            "emitted_context_bytes": 261,
+            "emitted_context_chars": 1126,
+            "emitted_context_bytes": 1128,
             "emitted_fields": [
               "hookSpecificOutput.additionalContext"
             ],
-            "stdout_json_bytes": 355,
+            "stdout_json_bytes": 1251,
             "host_usage_observed": false,
             "host_usage": null
           }
         },
         {
-          "process_elapsed_ns": 362521900,
-          "emitted_context_chars": 261,
-          "emitted_context_bytes": 261,
-          "stdout_json_bytes": 355,
+          "process_elapsed_ns": 526109400,
+          "emitted_context_chars": 1126,
+          "emitted_context_bytes": 1128,
+          "stdout_json_bytes": 1251,
           "processing_verified": true,
           "diagnostic": {
-            "time": 1791351055.821744,
+            "time": 1791353833.0034719,
             "event": "hook_diagnostics",
             "schema_version": 1,
-            "event_name": "PostToolUse",
-            "internal_elapsed_ns": 223253500,
+            "event_name": "UserPromptSubmit",
+            "internal_elapsed_ns": 305352400,
             "phases_ns": {
-              "startup_imports": 4305100,
-              "native_import": 125356600,
-              "stdin_parse": 62500,
-              "lock_wait": 590600,
-              "state_read": 492200,
-              "state_prepare": 11100,
-              "goal_check": 3300,
-              "inbox": 86058500,
-              "event_dispatch": 86069000,
-              "persist": 4238600,
-              "stdout_serialize": 13400,
-              "ledger_lock_wait": 840400
+              "startup_imports": 11191300,
+              "native_import": 275476800,
+              "stdin_parse": 35600,
+              "lock_wait": 656500,
+              "state_read": 258400,
+              "state_prepare": 11400,
+              "goal_check": 2900,
+              "event_dispatch": 3528000,
+              "persist": 9751400,
+              "stdout_serialize": 41400,
+              "ledger_lock_wait": 2223600
             },
-            "emitted_context_chars": 261,
-            "emitted_context_bytes": 261,
+            "emitted_context_chars": 1126,
+            "emitted_context_bytes": 1128,
             "emitted_fields": [
               "hookSpecificOutput.additionalContext"
             ],
-            "stdout_json_bytes": 355,
+            "stdout_json_bytes": 1251,
             "host_usage_observed": false,
             "host_usage": null
           }
         },
         {
-          "process_elapsed_ns": 375354300,
-          "emitted_context_chars": 261,
-          "emitted_context_bytes": 261,
-          "stdout_json_bytes": 355,
+          "process_elapsed_ns": 440338300,
+          "emitted_context_chars": 1126,
+          "emitted_context_bytes": 1128,
+          "stdout_json_bytes": 1251,
           "processing_verified": true,
           "diagnostic": {
-            "time": 1791351064.5954902,
+            "time": 1791353839.3195338,
             "event": "hook_diagnostics",
             "schema_version": 1,
-            "event_name": "PostToolUse",
-            "internal_elapsed_ns": 252183700,
+            "event_name": "UserPromptSubmit",
+            "internal_elapsed_ns": 208764800,
             "phases_ns": {
-              "startup_imports": 4609200,
-              "native_import": 141226500,
-              "stdin_parse": 47400,
-              "lock_wait": 703900,
-              "state_read": 283200,
-              "state_prepare": 13400,
-              "goal_check": 3700,
-              "inbox": 99299100,
-              "event_dispatch": 99311800,
-              "persist": 3890400,
-              "stdout_serialize": 16700,
-              "ledger_lock_wait": 820200
-            },
-            "emitted_context_chars": 261,
-            "emitted_context_bytes": 261,
-            "emitted_fields": [
-              "hookSpecificOutput.additionalContext"
-            ],
-            "stdout_json_bytes": 355,
-            "host_usage_observed": false,
-            "host_usage": null
-          }
-        },
-        {
-          "process_elapsed_ns": 345166000,
-          "emitted_context_chars": 261,
-          "emitted_context_bytes": 261,
-          "stdout_json_bytes": 355,
-          "processing_verified": true,
-          "diagnostic": {
-            "time": 1791351065.7783175,
-            "event": "hook_diagnostics",
-            "schema_version": 1,
-            "event_name": "PostToolUse",
-            "internal_elapsed_ns": 226550400,
-            "phases_ns": {
-              "startup_imports": 4150500,
-              "native_import": 126292600,
+              "startup_imports": 4885300,
+              "native_import": 191129300,
               "stdin_parse": 48800,
-              "lock_wait": 630200,
-              "state_read": 573500,
-              "state_prepare": 15800,
-              "goal_check": 5100,
-              "inbox": 89073500,
-              "event_dispatch": 89085500,
-              "persist": 3650400,
-              "stdout_serialize": 13000,
-              "ledger_lock_wait": 1095900
+              "lock_wait": 735600,
+              "state_read": 728100,
+              "state_prepare": 19700,
+              "goal_check": 6200,
+              "event_dispatch": 2726700,
+              "persist": 5481900,
+              "stdout_serialize": 25600,
+              "ledger_lock_wait": 1427400
+            },
+            "emitted_context_chars": 1126,
+            "emitted_context_bytes": 1128,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 1251,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        }
+      ]
+    },
+    {
+      "version": "A",
+      "diagnostics_requested": true,
+      "diagnostics_observed": true,
+      "scenario": "idle_cli_begin",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 493084100,
+          "p95": 844874800
+        },
+        "emitted_context_chars": {
+          "median": 261,
+          "p95": 261
+        },
+        "emitted_context_bytes": {
+          "median": 261,
+          "p95": 261
+        },
+        "stdout_json_bytes": {
+          "median": 355,
+          "p95": 355
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 493084100,
+          "emitted_context_chars": 261,
+          "emitted_context_bytes": 261,
+          "stdout_json_bytes": 355,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353866.7896655,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostToolUse",
+            "internal_elapsed_ns": 295891500,
+            "phases_ns": {
+              "startup_imports": 4953200,
+              "native_import": 160793700,
+              "stdin_parse": 42600,
+              "lock_wait": 681000,
+              "state_read": 506200,
+              "state_prepare": 26900,
+              "goal_check": 8300,
+              "inbox": 114738800,
+              "event_dispatch": 114756900,
+              "persist": 9712000,
+              "stdout_serialize": 21800,
+              "ledger_lock_wait": 3025200
+            },
+            "emitted_context_chars": 261,
+            "emitted_context_bytes": 261,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 355,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 844874800,
+          "emitted_context_chars": 261,
+          "emitted_context_bytes": 261,
+          "stdout_json_bytes": 355,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353890.7984924,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostToolUse",
+            "internal_elapsed_ns": 438526200,
+            "phases_ns": {
+              "startup_imports": 5797900,
+              "native_import": 267765100,
+              "stdin_parse": 47900,
+              "lock_wait": 794200,
+              "state_read": 1040400,
+              "state_prepare": 21100,
+              "goal_check": 6800,
+              "inbox": 143755800,
+              "event_dispatch": 143776200,
+              "persist": 6177900,
+              "stdout_serialize": 51600,
+              "ledger_lock_wait": 11013100
+            },
+            "emitted_context_chars": 261,
+            "emitted_context_bytes": 261,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 355,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 565850400,
+          "emitted_context_chars": 261,
+          "emitted_context_bytes": 261,
+          "stdout_json_bytes": 355,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353902.640311,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostToolUse",
+            "internal_elapsed_ns": 332032400,
+            "phases_ns": {
+              "startup_imports": 6231200,
+              "native_import": 192726600,
+              "stdin_parse": 53500,
+              "lock_wait": 729000,
+              "state_read": 641500,
+              "state_prepare": 14700,
+              "goal_check": 4000,
+              "inbox": 122299600,
+              "event_dispatch": 122314400,
+              "persist": 5800500,
+              "stdout_serialize": 25600,
+              "ledger_lock_wait": 1943600
+            },
+            "emitted_context_chars": 261,
+            "emitted_context_bytes": 261,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 355,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 481976300,
+          "emitted_context_chars": 261,
+          "emitted_context_bytes": 261,
+          "stdout_json_bytes": 355,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353914.4675093,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostToolUse",
+            "internal_elapsed_ns": 323313400,
+            "phases_ns": {
+              "startup_imports": 4898300,
+              "native_import": 172755200,
+              "stdin_parse": 221600,
+              "lock_wait": 1327400,
+              "state_read": 745000,
+              "state_prepare": 20100,
+              "goal_check": 5400,
+              "inbox": 129943100,
+              "event_dispatch": 129969800,
+              "persist": 10201300,
+              "stdout_serialize": 25100,
+              "ledger_lock_wait": 1153000
+            },
+            "emitted_context_chars": 261,
+            "emitted_context_bytes": 261,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 355,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 407183000,
+          "emitted_context_chars": 261,
+          "emitted_context_bytes": 261,
+          "stdout_json_bytes": 355,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353922.0427732,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostToolUse",
+            "internal_elapsed_ns": 269315800,
+            "phases_ns": {
+              "startup_imports": 4601200,
+              "native_import": 160770000,
+              "stdin_parse": 60900,
+              "lock_wait": 649500,
+              "state_read": 243000,
+              "state_prepare": 11000,
+              "goal_check": 3200,
+              "inbox": 96512900,
+              "event_dispatch": 96525200,
+              "persist": 4235500,
+              "stdout_serialize": 14800,
+              "ledger_lock_wait": 996500
             },
             "emitted_context_chars": 261,
             "emitted_context_bytes": 261,
@@ -1260,11 +2055,207 @@
       "version": "A",
       "diagnostics_requested": true,
       "diagnostics_observed": true,
+      "scenario": "idle_post_tool",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 330934500,
+          "p95": 336147400
+        },
+        "emitted_context_chars": {
+          "median": 0,
+          "p95": 0
+        },
+        "emitted_context_bytes": {
+          "median": 0,
+          "p95": 0
+        },
+        "stdout_json_bytes": {
+          "median": 4,
+          "p95": 4
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 304432300,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353934.0829933,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostToolUse",
+            "internal_elapsed_ns": 166501400,
+            "phases_ns": {
+              "startup_imports": 5504800,
+              "native_import": 153697900,
+              "stdin_parse": 58700,
+              "lock_wait": 578500,
+              "state_read": 236500,
+              "state_prepare": 10100,
+              "goal_check": 2700,
+              "inbox": 999400,
+              "event_dispatch": 1004600,
+              "persist": 3577700,
+              "stdout_serialize": 8500,
+              "ledger_lock_wait": 814600
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 330934500,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353941.025596,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostToolUse",
+            "internal_elapsed_ns": 178970200,
+            "phases_ns": {
+              "startup_imports": 4850800,
+              "native_import": 163258100,
+              "stdin_parse": 39900,
+              "lock_wait": 610200,
+              "state_read": 1076200,
+              "state_prepare": 13100,
+              "goal_check": 3200,
+              "inbox": 1513900,
+              "event_dispatch": 1520700,
+              "persist": 5053800,
+              "stdout_serialize": 10200,
+              "ledger_lock_wait": 1467800
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 336147400,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353945.685369,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostToolUse",
+            "internal_elapsed_ns": 176053400,
+            "phases_ns": {
+              "startup_imports": 7519600,
+              "native_import": 155820900,
+              "stdin_parse": 53100,
+              "lock_wait": 1051500,
+              "state_read": 627600,
+              "state_prepare": 12400,
+              "goal_check": 3200,
+              "inbox": 1069300,
+              "event_dispatch": 1074700,
+              "persist": 6379300,
+              "stdout_serialize": 14400,
+              "ledger_lock_wait": 1281400
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 331815000,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353952.6956031,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostToolUse",
+            "internal_elapsed_ns": 167971900,
+            "phases_ns": {
+              "startup_imports": 6374400,
+              "native_import": 149661800,
+              "stdin_parse": 55100,
+              "lock_wait": 775500,
+              "state_read": 965500,
+              "state_prepare": 14900,
+              "goal_check": 3900,
+              "inbox": 1764800,
+              "event_dispatch": 1774900,
+              "persist": 5404400,
+              "stdout_serialize": 11100,
+              "ledger_lock_wait": 1415200
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 283516000,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353957.2430894,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostToolUse",
+            "internal_elapsed_ns": 156638800,
+            "phases_ns": {
+              "startup_imports": 4269800,
+              "native_import": 143606400,
+              "stdin_parse": 39200,
+              "lock_wait": 646700,
+              "state_read": 301800,
+              "state_prepare": 12300,
+              "goal_check": 3400,
+              "inbox": 1410300,
+              "event_dispatch": 1418300,
+              "persist": 4306500,
+              "stdout_serialize": 10900,
+              "ledger_lock_wait": 879200
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        }
+      ]
+    },
+    {
+      "version": "A",
+      "diagnostics_requested": true,
+      "diagnostics_observed": true,
       "scenario": "active_prompt",
       "metrics": {
         "process_elapsed_ns": {
-          "median": 283495500,
-          "p95": 333605600
+          "median": 291520400,
+          "p95": 335596000
         },
         "emitted_context_chars": {
           "median": 1222,
@@ -1281,29 +2272,29 @@
       },
       "samples": [
         {
-          "process_elapsed_ns": 269878600,
+          "process_elapsed_ns": 284863600,
           "emitted_context_chars": 1222,
           "emitted_context_bytes": 1224,
           "stdout_json_bytes": 1347,
           "processing_verified": true,
           "diagnostic": {
-            "time": 1791351077.3058949,
+            "time": 1791353974.7069564,
             "event": "hook_diagnostics",
             "schema_version": 1,
             "event_name": "UserPromptSubmit",
-            "internal_elapsed_ns": 139630400,
+            "internal_elapsed_ns": 157564300,
             "phases_ns": {
-              "startup_imports": 8005300,
-              "native_import": 123393300,
-              "stdin_parse": 36300,
-              "lock_wait": 574400,
-              "state_read": 454400,
-              "state_prepare": 10400,
-              "goal_check": 2700,
-              "event_dispatch": 1758500,
-              "persist": 3595600,
-              "stdout_serialize": 16800,
-              "ledger_lock_wait": 785400
+              "startup_imports": 5007800,
+              "native_import": 142413900,
+              "stdin_parse": 38900,
+              "lock_wait": 645500,
+              "state_read": 555200,
+              "state_prepare": 13200,
+              "goal_check": 4000,
+              "event_dispatch": 1983700,
+              "persist": 4489400,
+              "stdout_serialize": 25400,
+              "ledger_lock_wait": 1024000
             },
             "emitted_context_chars": 1222,
             "emitted_context_bytes": 1224,
@@ -1316,29 +2307,29 @@
           }
         },
         {
-          "process_elapsed_ns": 261814500,
+          "process_elapsed_ns": 335596000,
           "emitted_context_chars": 1222,
           "emitted_context_bytes": 1224,
           "stdout_json_bytes": 1347,
           "processing_verified": true,
           "diagnostic": {
-            "time": 1791351089.57876,
+            "time": 1791353986.0058153,
             "event": "hook_diagnostics",
             "schema_version": 1,
             "event_name": "UserPromptSubmit",
-            "internal_elapsed_ns": 139035300,
+            "internal_elapsed_ns": 168031600,
             "phases_ns": {
-              "startup_imports": 4212800,
-              "native_import": 125944500,
-              "stdin_parse": 81700,
-              "lock_wait": 592400,
-              "state_read": 581900,
-              "state_prepare": 10600,
-              "goal_check": 3100,
-              "event_dispatch": 1709200,
-              "persist": 3709900,
-              "stdout_serialize": 16900,
-              "ledger_lock_wait": 1116400
+              "startup_imports": 5127600,
+              "native_import": 151901500,
+              "stdin_parse": 43700,
+              "lock_wait": 703400,
+              "state_read": 532200,
+              "state_prepare": 13700,
+              "goal_check": 4100,
+              "event_dispatch": 1635500,
+              "persist": 5328100,
+              "stdout_serialize": 25400,
+              "ledger_lock_wait": 1251200
             },
             "emitted_context_chars": 1222,
             "emitted_context_bytes": 1224,
@@ -1351,29 +2342,29 @@
           }
         },
         {
-          "process_elapsed_ns": 333605600,
+          "process_elapsed_ns": 291520400,
           "emitted_context_chars": 1222,
           "emitted_context_bytes": 1224,
           "stdout_json_bytes": 1347,
           "processing_verified": true,
           "diagnostic": {
-            "time": 1791351091.13983,
+            "time": 1791353994.3408108,
             "event": "hook_diagnostics",
             "schema_version": 1,
             "event_name": "UserPromptSubmit",
-            "internal_elapsed_ns": 169489300,
+            "internal_elapsed_ns": 159881700,
             "phases_ns": {
-              "startup_imports": 5131900,
-              "native_import": 151235100,
-              "stdin_parse": 108500,
-              "lock_wait": 945300,
-              "state_read": 687100,
-              "state_prepare": 18600,
-              "goal_check": 5200,
-              "event_dispatch": 2525900,
-              "persist": 5764200,
-              "stdout_serialize": 25700,
-              "ledger_lock_wait": 1355300
+              "startup_imports": 6549800,
+              "native_import": 145057600,
+              "stdin_parse": 54400,
+              "lock_wait": 643000,
+              "state_read": 502100,
+              "state_prepare": 9900,
+              "goal_check": 2900,
+              "event_dispatch": 1481600,
+              "persist": 3870600,
+              "stdout_serialize": 15600,
+              "ledger_lock_wait": 733800
             },
             "emitted_context_chars": 1222,
             "emitted_context_bytes": 1224,
@@ -1386,29 +2377,29 @@
           }
         },
         {
-          "process_elapsed_ns": 290753400,
+          "process_elapsed_ns": 300522100,
           "emitted_context_chars": 1222,
           "emitted_context_bytes": 1224,
           "stdout_json_bytes": 1347,
           "processing_verified": true,
           "diagnostic": {
-            "time": 1791351102.3299751,
+            "time": 1791354006.1580951,
             "event": "hook_diagnostics",
             "schema_version": 1,
             "event_name": "UserPromptSubmit",
-            "internal_elapsed_ns": 164324900,
+            "internal_elapsed_ns": 150177700,
             "phases_ns": {
-              "startup_imports": 4805700,
-              "native_import": 149604400,
-              "stdin_parse": 49900,
-              "lock_wait": 893600,
-              "state_read": 603600,
-              "state_prepare": 14000,
+              "startup_imports": 5625900,
+              "native_import": 135474500,
+              "stdin_parse": 37800,
+              "lock_wait": 631700,
+              "state_read": 609600,
+              "state_prepare": 13600,
               "goal_check": 3900,
-              "event_dispatch": 1925800,
-              "persist": 4200000,
-              "stdout_serialize": 17500,
-              "ledger_lock_wait": 909300
+              "event_dispatch": 1567400,
+              "persist": 4140500,
+              "stdout_serialize": 19400,
+              "ledger_lock_wait": 894900
             },
             "emitted_context_chars": 1222,
             "emitted_context_bytes": 1224,
@@ -1421,29 +2412,29 @@
           }
         },
         {
-          "process_elapsed_ns": 283495500,
+          "process_elapsed_ns": 287816500,
           "emitted_context_chars": 1222,
           "emitted_context_bytes": 1224,
           "stdout_json_bytes": 1347,
           "processing_verified": true,
           "diagnostic": {
-            "time": 1791351103.9876635,
+            "time": 1791354014.4608316,
             "event": "hook_diagnostics",
             "schema_version": 1,
             "event_name": "UserPromptSubmit",
-            "internal_elapsed_ns": 160214200,
+            "internal_elapsed_ns": 158385900,
             "phases_ns": {
-              "startup_imports": 6109500,
-              "native_import": 145384600,
-              "stdin_parse": 63700,
-              "lock_wait": 737000,
-              "state_read": 297500,
-              "state_prepare": 15400,
-              "goal_check": 4800,
-              "event_dispatch": 1754800,
-              "persist": 3917300,
-              "stdout_serialize": 16400,
-              "ledger_lock_wait": 804300
+              "startup_imports": 4576500,
+              "native_import": 143577600,
+              "stdin_parse": 56000,
+              "lock_wait": 689900,
+              "state_read": 463200,
+              "state_prepare": 11700,
+              "goal_check": 3100,
+              "event_dispatch": 1868500,
+              "persist": 4296800,
+              "stdout_serialize": 22500,
+              "ledger_lock_wait": 956500
             },
             "emitted_context_chars": 1222,
             "emitted_context_bytes": 1224,
@@ -1464,8 +2455,8 @@
       "scenario": "active_stop",
       "metrics": {
         "process_elapsed_ns": {
-          "median": 334310900,
-          "p95": 537150300
+          "median": 283488900,
+          "p95": 348617400
         },
         "emitted_context_chars": {
           "median": 277,
@@ -1482,30 +2473,30 @@
       },
       "samples": [
         {
-          "process_elapsed_ns": 281039600,
+          "process_elapsed_ns": 283488900,
           "emitted_context_chars": 277,
           "emitted_context_bytes": 277,
           "stdout_json_bytes": 326,
           "processing_verified": true,
           "diagnostic": {
-            "time": 1791351117.2839406,
+            "time": 1791354033.0048473,
             "event": "hook_diagnostics",
             "schema_version": 1,
             "event_name": "Stop",
-            "internal_elapsed_ns": 151852600,
+            "internal_elapsed_ns": 160062500,
             "phases_ns": {
-              "startup_imports": 4439000,
-              "native_import": 136089500,
-              "stdin_parse": 40700,
-              "lock_wait": 621500,
-              "state_read": 504800,
-              "state_prepare": 12200,
-              "goal_check": 3700,
-              "inbox": 2205600,
-              "event_dispatch": 4008900,
-              "persist": 4226200,
+              "startup_imports": 4167000,
+              "native_import": 143524700,
+              "stdin_parse": 88900,
+              "lock_wait": 1123400,
+              "state_read": 809000,
+              "state_prepare": 20600,
+              "goal_check": 5700,
+              "inbox": 2591500,
+              "event_dispatch": 4056700,
+              "persist": 3634300,
               "stdout_serialize": 13000,
-              "ledger_lock_wait": 802800
+              "ledger_lock_wait": 813000
             },
             "emitted_context_chars": 277,
             "emitted_context_bytes": 277,
@@ -1518,30 +2509,102 @@
           }
         },
         {
-          "process_elapsed_ns": 301170400,
+          "process_elapsed_ns": 348617400,
           "emitted_context_chars": 277,
           "emitted_context_bytes": 277,
           "stdout_json_bytes": 326,
           "processing_verified": true,
           "diagnostic": {
-            "time": 1791351127.965487,
+            "time": 1791354044.3596919,
             "event": "hook_diagnostics",
             "schema_version": 1,
             "event_name": "Stop",
-            "internal_elapsed_ns": 152366100,
+            "internal_elapsed_ns": 173780000,
             "phases_ns": {
-              "startup_imports": 4147900,
-              "native_import": 137633200,
-              "stdin_parse": 37400,
-              "lock_wait": 576500,
-              "state_read": 540800,
+              "startup_imports": 5158500,
+              "native_import": 155285900,
+              "stdin_parse": 61600,
+              "lock_wait": 753400,
+              "state_read": 662100,
+              "state_prepare": 16100,
+              "goal_check": 4500,
+              "inbox": 2760800,
+              "event_dispatch": 4622100,
+              "persist": 4891700,
+              "stdout_serialize": 17600,
+              "ledger_lock_wait": 1041200
+            },
+            "emitted_context_chars": 277,
+            "emitted_context_bytes": 277,
+            "emitted_fields": [
+              "reason"
+            ],
+            "stdout_json_bytes": 326,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 335160600,
+          "emitted_context_chars": 277,
+          "emitted_context_bytes": 277,
+          "stdout_json_bytes": 326,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354052.962126,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "Stop",
+            "internal_elapsed_ns": 192167300,
+            "phases_ns": {
+              "startup_imports": 6587300,
+              "native_import": 169323700,
+              "stdin_parse": 39500,
+              "lock_wait": 635900,
+              "state_read": 904300,
+              "state_prepare": 12900,
+              "goal_check": 4200,
+              "inbox": 3355500,
+              "event_dispatch": 5153600,
+              "persist": 5374800,
+              "stdout_serialize": 23800,
+              "ledger_lock_wait": 2660000
+            },
+            "emitted_context_chars": 277,
+            "emitted_context_bytes": 277,
+            "emitted_fields": [
+              "reason"
+            ],
+            "stdout_json_bytes": 326,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 274886300,
+          "emitted_context_chars": 277,
+          "emitted_context_bytes": 277,
+          "stdout_json_bytes": 326,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354066.0172455,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "Stop",
+            "internal_elapsed_ns": 146396100,
+            "phases_ns": {
+              "startup_imports": 4953000,
+              "native_import": 129666600,
+              "stdin_parse": 69800,
+              "lock_wait": 659000,
+              "state_read": 627500,
               "state_prepare": 14600,
               "goal_check": 4300,
-              "inbox": 2270100,
-              "event_dispatch": 3652300,
-              "persist": 3810000,
-              "stdout_serialize": 12900,
-              "ledger_lock_wait": 883500
+              "inbox": 2464600,
+              "event_dispatch": 4287200,
+              "persist": 4123300,
+              "stdout_serialize": 13500,
+              "ledger_lock_wait": 841200
             },
             "emitted_context_chars": 277,
             "emitted_context_bytes": 277,
@@ -1554,109 +2617,2751 @@
           }
         },
         {
-          "process_elapsed_ns": 399743100,
+          "process_elapsed_ns": 243704400,
           "emitted_context_chars": 277,
           "emitted_context_bytes": 277,
           "stdout_json_bytes": 326,
           "processing_verified": true,
           "diagnostic": {
-            "time": 1791351130.173394,
+            "time": 1791354073.4191294,
             "event": "hook_diagnostics",
             "schema_version": 1,
             "event_name": "Stop",
-            "internal_elapsed_ns": 218284900,
+            "internal_elapsed_ns": 129851600,
             "phases_ns": {
-              "startup_imports": 5288500,
-              "native_import": 197587800,
-              "stdin_parse": 48000,
-              "lock_wait": 859200,
-              "state_read": 713900,
+              "startup_imports": 4400200,
+              "native_import": 116208600,
+              "stdin_parse": 65100,
+              "lock_wait": 601600,
+              "state_read": 429300,
+              "state_prepare": 8800,
+              "goal_check": 2700,
+              "inbox": 1816000,
+              "event_dispatch": 3095600,
+              "persist": 3317500,
+              "stdout_serialize": 11000,
+              "ledger_lock_wait": 670500
+            },
+            "emitted_context_chars": 277,
+            "emitted_context_bytes": 277,
+            "emitted_fields": [
+              "reason"
+            ],
+            "stdout_json_bytes": 326,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        }
+      ]
+    },
+    {
+      "version": "A",
+      "diagnostics_requested": true,
+      "diagnostics_observed": true,
+      "scenario": "active_compact_start",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 237157500,
+          "p95": 304723100
+        },
+        "emitted_context_chars": {
+          "median": 1129,
+          "p95": 1129
+        },
+        "emitted_context_bytes": {
+          "median": 1131,
+          "p95": 1131
+        },
+        "stdout_json_bytes": {
+          "median": 1250,
+          "p95": 1250
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 230806400,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354091.5820098,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "SessionStart",
+            "internal_elapsed_ns": 126009800,
+            "phases_ns": {
+              "startup_imports": 5591400,
+              "native_import": 113019200,
+              "stdin_parse": 45000,
+              "lock_wait": 562200,
+              "state_read": 492800,
+              "state_prepare": 8700,
+              "goal_check": 2600,
+              "event_dispatch": 1224700,
+              "persist": 3481400,
+              "stdout_serialize": 14000,
+              "ledger_lock_wait": 679300
+            },
+            "emitted_context_chars": 1129,
+            "emitted_context_bytes": 1131,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 1250,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 231805400,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354101.5018723,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "SessionStart",
+            "internal_elapsed_ns": 122075100,
+            "phases_ns": {
+              "startup_imports": 3570100,
+              "native_import": 109979500,
+              "stdin_parse": 118400,
+              "lock_wait": 624000,
+              "state_read": 325600,
+              "state_prepare": 11800,
+              "goal_check": 3600,
+              "event_dispatch": 1609700,
+              "persist": 3662600,
+              "stdout_serialize": 16500,
+              "ledger_lock_wait": 1042900
+            },
+            "emitted_context_chars": 1129,
+            "emitted_context_bytes": 1131,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 1250,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 237157500,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354108.4890633,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "SessionStart",
+            "internal_elapsed_ns": 126063100,
+            "phases_ns": {
+              "startup_imports": 4157000,
+              "native_import": 112577500,
+              "stdin_parse": 41300,
+              "lock_wait": 862300,
+              "state_read": 617200,
+              "state_prepare": 11400,
+              "goal_check": 2700,
+              "event_dispatch": 1636800,
+              "persist": 4165500,
+              "stdout_serialize": 15800,
+              "ledger_lock_wait": 730400
+            },
+            "emitted_context_chars": 1129,
+            "emitted_context_bytes": 1131,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 1250,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 304723100,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354119.3612206,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "SessionStart",
+            "internal_elapsed_ns": 157905100,
+            "phases_ns": {
+              "startup_imports": 5529200,
+              "native_import": 143167500,
+              "stdin_parse": 37000,
+              "lock_wait": 630900,
+              "state_read": 524400,
+              "state_prepare": 13200,
+              "goal_check": 3300,
+              "event_dispatch": 1797200,
+              "persist": 4094700,
+              "stdout_serialize": 17200,
+              "ledger_lock_wait": 868100
+            },
+            "emitted_context_chars": 1129,
+            "emitted_context_bytes": 1131,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 1250,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 284930400,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354127.3109736,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "SessionStart",
+            "internal_elapsed_ns": 154977400,
+            "phases_ns": {
+              "startup_imports": 4695200,
+              "native_import": 141478100,
+              "stdin_parse": 36000,
+              "lock_wait": 632200,
+              "state_read": 516600,
+              "state_prepare": 12000,
+              "goal_check": 3400,
+              "event_dispatch": 1560000,
+              "persist": 4143100,
+              "stdout_serialize": 18300,
+              "ledger_lock_wait": 780700
+            },
+            "emitted_context_chars": 1129,
+            "emitted_context_bytes": 1131,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 1250,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        }
+      ]
+    },
+    {
+      "version": "A",
+      "diagnostics_requested": true,
+      "diagnostics_observed": true,
+      "scenario": "active_resume_start",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 266871600,
+          "p95": 351051800
+        },
+        "emitted_context_chars": {
+          "median": 1129,
+          "p95": 1129
+        },
+        "emitted_context_bytes": {
+          "median": 1131,
+          "p95": 1131
+        },
+        "stdout_json_bytes": {
+          "median": 1250,
+          "p95": 1250
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 266871600,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354146.0273714,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "SessionStart",
+            "internal_elapsed_ns": 150523000,
+            "phases_ns": {
+              "startup_imports": 4602900,
+              "native_import": 137342800,
+              "stdin_parse": 37200,
+              "lock_wait": 666800,
+              "state_read": 239300,
+              "state_prepare": 11100,
+              "goal_check": 2900,
+              "event_dispatch": 1803300,
+              "persist": 3767500,
+              "stdout_serialize": 19400,
+              "ledger_lock_wait": 897100
+            },
+            "emitted_context_chars": 1129,
+            "emitted_context_bytes": 1131,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 1250,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 245526200,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354155.943144,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "SessionStart",
+            "internal_elapsed_ns": 137568900,
+            "phases_ns": {
+              "startup_imports": 4010500,
+              "native_import": 125338300,
+              "stdin_parse": 66300,
+              "lock_wait": 545200,
+              "state_read": 224900,
+              "state_prepare": 9400,
+              "goal_check": 2900,
+              "event_dispatch": 1584400,
+              "persist": 3584000,
+              "stdout_serialize": 18400,
+              "ledger_lock_wait": 872300
+            },
+            "emitted_context_chars": 1129,
+            "emitted_context_bytes": 1131,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 1250,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 242282500,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354163.4387164,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "SessionStart",
+            "internal_elapsed_ns": 127967200,
+            "phases_ns": {
+              "startup_imports": 4080000,
+              "native_import": 116202500,
+              "stdin_parse": 32700,
+              "lock_wait": 514800,
+              "state_read": 233500,
+              "state_prepare": 8500,
+              "goal_check": 2400,
+              "event_dispatch": 1180400,
+              "persist": 4017700,
+              "stdout_serialize": 14400,
+              "ledger_lock_wait": 796600
+            },
+            "emitted_context_chars": 1129,
+            "emitted_context_bytes": 1131,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 1250,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 351051800,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354175.595021,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "SessionStart",
+            "internal_elapsed_ns": 189205300,
+            "phases_ns": {
+              "startup_imports": 5401700,
+              "native_import": 169253500,
+              "stdin_parse": 76000,
+              "lock_wait": 1584800,
+              "state_read": 956000,
+              "state_prepare": 20900,
+              "goal_check": 4500,
+              "event_dispatch": 1927400,
+              "persist": 5428900,
+              "stdout_serialize": 36800,
+              "ledger_lock_wait": 1710700
+            },
+            "emitted_context_chars": 1129,
+            "emitted_context_bytes": 1131,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 1250,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 303139300,
+          "emitted_context_chars": 1129,
+          "emitted_context_bytes": 1131,
+          "stdout_json_bytes": 1250,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354184.5485563,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "SessionStart",
+            "internal_elapsed_ns": 166839100,
+            "phases_ns": {
+              "startup_imports": 4752400,
+              "native_import": 148581100,
+              "stdin_parse": 35500,
+              "lock_wait": 638800,
+              "state_read": 1042800,
+              "state_prepare": 19300,
+              "goal_check": 6000,
+              "event_dispatch": 2507300,
+              "persist": 6376600,
+              "stdout_serialize": 30600,
+              "ledger_lock_wait": 1519900
+            },
+            "emitted_context_chars": 1129,
+            "emitted_context_bytes": 1131,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 1250,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        }
+      ]
+    },
+    {
+      "version": "A",
+      "diagnostics_requested": true,
+      "diagnostics_observed": true,
+      "scenario": "active_post_compact",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 297836200,
+          "p95": 329409600
+        },
+        "emitted_context_chars": {
+          "median": 0,
+          "p95": 0
+        },
+        "emitted_context_bytes": {
+          "median": 0,
+          "p95": 0
+        },
+        "stdout_json_bytes": {
+          "median": 4,
+          "p95": 4
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 329409600,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354204.9256618,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostCompact",
+            "internal_elapsed_ns": 173507800,
+            "phases_ns": {
+              "startup_imports": 4482400,
+              "native_import": 157387300,
+              "stdin_parse": 83900,
+              "lock_wait": 718000,
+              "state_read": 374100,
+              "state_prepare": 16800,
+              "goal_check": 900,
+              "event_dispatch": 2266600,
+              "persist": 5328900,
+              "stdout_serialize": 14700,
+              "ledger_lock_wait": 1123400
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 329262200,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354217.0932994,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostCompact",
+            "internal_elapsed_ns": 176407900,
+            "phases_ns": {
+              "startup_imports": 4653600,
+              "native_import": 162110800,
+              "stdin_parse": 79300,
+              "lock_wait": 806600,
+              "state_read": 322400,
+              "state_prepare": 15500,
+              "goal_check": 800,
+              "event_dispatch": 1242000,
+              "persist": 4696000,
+              "stdout_serialize": 14600,
+              "ledger_lock_wait": 1130900
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 284628200,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354225.9115803,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostCompact",
+            "internal_elapsed_ns": 150294600,
+            "phases_ns": {
+              "startup_imports": 4393400,
+              "native_import": 137157200,
+              "stdin_parse": 39600,
+              "lock_wait": 576900,
+              "state_read": 557800,
+              "state_prepare": 11100,
+              "goal_check": 800,
+              "event_dispatch": 1236000,
+              "persist": 4299800,
+              "stdout_serialize": 10900,
+              "ledger_lock_wait": 898400
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 297551800,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354237.4639184,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostCompact",
+            "internal_elapsed_ns": 164061500,
+            "phases_ns": {
+              "startup_imports": 4244800,
+              "native_import": 150705200,
+              "stdin_parse": 39200,
+              "lock_wait": 752200,
+              "state_read": 739600,
+              "state_prepare": 12900,
+              "goal_check": 600,
+              "event_dispatch": 1013500,
+              "persist": 4302700,
+              "stdout_serialize": 10500,
+              "ledger_lock_wait": 956600
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 297836200,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354245.516698,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostCompact",
+            "internal_elapsed_ns": 163696200,
+            "phases_ns": {
+              "startup_imports": 4274600,
+              "native_import": 150587300,
+              "stdin_parse": 41800,
+              "lock_wait": 675300,
+              "state_read": 273200,
+              "state_prepare": 12800,
+              "goal_check": 600,
+              "event_dispatch": 1150300,
+              "persist": 4724200,
+              "stdout_serialize": 10400,
+              "ledger_lock_wait": 779300
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        }
+      ]
+    },
+    {
+      "version": "B",
+      "diagnostics_requested": false,
+      "diagnostics_observed": false,
+      "scenario": "idle_prompt",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 347446500,
+          "p95": 420822700
+        },
+        "emitted_context_chars": {
+          "median": 0,
+          "p95": 0
+        },
+        "emitted_context_bytes": {
+          "median": 0,
+          "p95": 0
+        },
+        "stdout_json_bytes": {
+          "median": 4,
+          "p95": 4
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 420822700,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 297868700,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 418629500,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 347446500,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 332259900,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        }
+      ]
+    },
+    {
+      "version": "B",
+      "diagnostics_requested": false,
+      "diagnostics_observed": false,
+      "scenario": "idle_cli_begin",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 500112800,
+          "p95": 780750000
+        },
+        "emitted_context_chars": {
+          "median": 261,
+          "p95": 261
+        },
+        "emitted_context_bytes": {
+          "median": 261,
+          "p95": 261
+        },
+        "stdout_json_bytes": {
+          "median": 355,
+          "p95": 355
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 778119200,
+          "emitted_context_chars": 261,
+          "emitted_context_bytes": 261,
+          "stdout_json_bytes": 355,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 500112800,
+          "emitted_context_chars": 261,
+          "emitted_context_bytes": 261,
+          "stdout_json_bytes": 355,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 780750000,
+          "emitted_context_chars": 261,
+          "emitted_context_bytes": 261,
+          "stdout_json_bytes": 355,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 456359900,
+          "emitted_context_chars": 261,
+          "emitted_context_bytes": 261,
+          "stdout_json_bytes": 355,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 359318100,
+          "emitted_context_chars": 261,
+          "emitted_context_bytes": 261,
+          "stdout_json_bytes": 355,
+          "processing_verified": true,
+          "diagnostic": null
+        }
+      ]
+    },
+    {
+      "version": "B",
+      "diagnostics_requested": false,
+      "diagnostics_observed": false,
+      "scenario": "idle_post_tool",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 288820200,
+          "p95": 334758400
+        },
+        "emitted_context_chars": {
+          "median": 0,
+          "p95": 0
+        },
+        "emitted_context_bytes": {
+          "median": 0,
+          "p95": 0
+        },
+        "stdout_json_bytes": {
+          "median": 4,
+          "p95": 4
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 288820200,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 334758400,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 263509400,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 325229500,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 281206100,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        }
+      ]
+    },
+    {
+      "version": "B",
+      "diagnostics_requested": false,
+      "diagnostics_observed": false,
+      "scenario": "active_prompt",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 289234500,
+          "p95": 317708600
+        },
+        "emitted_context_chars": {
+          "median": 515,
+          "p95": 515
+        },
+        "emitted_context_bytes": {
+          "median": 515,
+          "p95": 515
+        },
+        "stdout_json_bytes": {
+          "median": 620,
+          "p95": 620
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 278171500,
+          "emitted_context_chars": 515,
+          "emitted_context_bytes": 515,
+          "stdout_json_bytes": 620,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 303378500,
+          "emitted_context_chars": 515,
+          "emitted_context_bytes": 515,
+          "stdout_json_bytes": 620,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 284021400,
+          "emitted_context_chars": 515,
+          "emitted_context_bytes": 515,
+          "stdout_json_bytes": 620,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 317708600,
+          "emitted_context_chars": 515,
+          "emitted_context_bytes": 515,
+          "stdout_json_bytes": 620,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 289234500,
+          "emitted_context_chars": 515,
+          "emitted_context_bytes": 515,
+          "stdout_json_bytes": 620,
+          "processing_verified": true,
+          "diagnostic": null
+        }
+      ]
+    },
+    {
+      "version": "B",
+      "diagnostics_requested": false,
+      "diagnostics_observed": false,
+      "scenario": "active_stop",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 272198500,
+          "p95": 289617000
+        },
+        "emitted_context_chars": {
+          "median": 277,
+          "p95": 277
+        },
+        "emitted_context_bytes": {
+          "median": 277,
+          "p95": 277
+        },
+        "stdout_json_bytes": {
+          "median": 326,
+          "p95": 326
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 257299000,
+          "emitted_context_chars": 277,
+          "emitted_context_bytes": 277,
+          "stdout_json_bytes": 326,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 277757900,
+          "emitted_context_chars": 277,
+          "emitted_context_bytes": 277,
+          "stdout_json_bytes": 326,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 272198500,
+          "emitted_context_chars": 277,
+          "emitted_context_bytes": 277,
+          "stdout_json_bytes": 326,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 289617000,
+          "emitted_context_chars": 277,
+          "emitted_context_bytes": 277,
+          "stdout_json_bytes": 326,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 231650200,
+          "emitted_context_chars": 277,
+          "emitted_context_bytes": 277,
+          "stdout_json_bytes": 326,
+          "processing_verified": true,
+          "diagnostic": null
+        }
+      ]
+    },
+    {
+      "version": "B",
+      "diagnostics_requested": false,
+      "diagnostics_observed": false,
+      "scenario": "active_compact_start",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 259337000,
+          "p95": 291841700
+        },
+        "emitted_context_chars": {
+          "median": 690,
+          "p95": 690
+        },
+        "emitted_context_bytes": {
+          "median": 690,
+          "p95": 690
+        },
+        "stdout_json_bytes": {
+          "median": 802,
+          "p95": 802
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 259337000,
+          "emitted_context_chars": 690,
+          "emitted_context_bytes": 690,
+          "stdout_json_bytes": 802,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 234934800,
+          "emitted_context_chars": 690,
+          "emitted_context_bytes": 690,
+          "stdout_json_bytes": 802,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 255903700,
+          "emitted_context_chars": 690,
+          "emitted_context_bytes": 690,
+          "stdout_json_bytes": 802,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 291841700,
+          "emitted_context_chars": 690,
+          "emitted_context_bytes": 690,
+          "stdout_json_bytes": 802,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 286708500,
+          "emitted_context_chars": 690,
+          "emitted_context_bytes": 690,
+          "stdout_json_bytes": 802,
+          "processing_verified": true,
+          "diagnostic": null
+        }
+      ]
+    },
+    {
+      "version": "B",
+      "diagnostics_requested": false,
+      "diagnostics_observed": false,
+      "scenario": "active_resume_start",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 294109400,
+          "p95": 340628000
+        },
+        "emitted_context_chars": {
+          "median": 690,
+          "p95": 690
+        },
+        "emitted_context_bytes": {
+          "median": 690,
+          "p95": 690
+        },
+        "stdout_json_bytes": {
+          "median": 802,
+          "p95": 802
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 258741200,
+          "emitted_context_chars": 690,
+          "emitted_context_bytes": 690,
+          "stdout_json_bytes": 802,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 294109400,
+          "emitted_context_chars": 690,
+          "emitted_context_bytes": 690,
+          "stdout_json_bytes": 802,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 245803500,
+          "emitted_context_chars": 690,
+          "emitted_context_bytes": 690,
+          "stdout_json_bytes": 802,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 340628000,
+          "emitted_context_chars": 690,
+          "emitted_context_bytes": 690,
+          "stdout_json_bytes": 802,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 304999000,
+          "emitted_context_chars": 690,
+          "emitted_context_bytes": 690,
+          "stdout_json_bytes": 802,
+          "processing_verified": true,
+          "diagnostic": null
+        }
+      ]
+    },
+    {
+      "version": "B",
+      "diagnostics_requested": false,
+      "diagnostics_observed": false,
+      "scenario": "active_post_compact",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 273989700,
+          "p95": 474727400
+        },
+        "emitted_context_chars": {
+          "median": 0,
+          "p95": 0
+        },
+        "emitted_context_bytes": {
+          "median": 0,
+          "p95": 0
+        },
+        "stdout_json_bytes": {
+          "median": 4,
+          "p95": 4
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 294755500,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 270797100,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 474727400,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 271194400,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        },
+        {
+          "process_elapsed_ns": 273989700,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": null
+        }
+      ]
+    },
+    {
+      "version": "B",
+      "diagnostics_requested": true,
+      "diagnostics_observed": true,
+      "scenario": "idle_prompt",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 340607800,
+          "p95": 594472100
+        },
+        "emitted_context_chars": {
+          "median": 0,
+          "p95": 0
+        },
+        "emitted_context_bytes": {
+          "median": 0,
+          "p95": 0
+        },
+        "stdout_json_bytes": {
+          "median": 4,
+          "p95": 4
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 594472100,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353807.8611104,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "UserPromptSubmit",
+            "internal_elapsed_ns": 366410100,
+            "phases_ns": {
+              "startup_imports": 8033600,
+              "native_import": 343545400,
+              "stdin_parse": 76800,
+              "lock_wait": 1355200,
+              "state_read": 853200,
+              "state_prepare": 24700,
+              "goal_check": 6700,
+              "event_dispatch": 1267800,
+              "persist": 8386600,
+              "stdout_serialize": 11200,
+              "ledger_lock_wait": 1018300
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 306584500,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353821.391848,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "UserPromptSubmit",
+            "internal_elapsed_ns": 154770000,
+            "phases_ns": {
+              "startup_imports": 4842800,
+              "native_import": 141308400,
+              "stdin_parse": 44400,
+              "lock_wait": 689500,
+              "state_read": 598700,
+              "state_prepare": 14400,
+              "goal_check": 3900,
+              "event_dispatch": 635100,
+              "persist": 4397400,
+              "stdout_serialize": 11700,
+              "ledger_lock_wait": 1032600
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 316735600,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353822.429801,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "UserPromptSubmit",
+            "internal_elapsed_ns": 176593400,
+            "phases_ns": {
+              "startup_imports": 7786900,
+              "native_import": 158700400,
+              "stdin_parse": 52000,
+              "lock_wait": 671200,
+              "state_read": 668800,
+              "state_prepare": 12600,
+              "goal_check": 3500,
+              "event_dispatch": 669900,
+              "persist": 4986300,
+              "stdout_serialize": 14300,
+              "ledger_lock_wait": 1594600
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 340607800,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353835.5614305,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "UserPromptSubmit",
+            "internal_elapsed_ns": 184174000,
+            "phases_ns": {
+              "startup_imports": 5135300,
+              "native_import": 169224300,
+              "stdin_parse": 82600,
+              "lock_wait": 787100,
+              "state_read": 585100,
+              "state_prepare": 14200,
+              "goal_check": 3900,
+              "event_dispatch": 716100,
+              "persist": 5184200,
+              "stdout_serialize": 12100,
+              "ledger_lock_wait": 1079400
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 427161100,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353837.0645428,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "UserPromptSubmit",
+            "internal_elapsed_ns": 277179700,
+            "phases_ns": {
+              "startup_imports": 4730500,
+              "native_import": 242037100,
+              "stdin_parse": 45400,
+              "lock_wait": 4766600,
+              "state_read": 1455900,
+              "state_prepare": 38000,
+              "goal_check": 10700,
+              "event_dispatch": 4135400,
+              "persist": 13439100,
+              "stdout_serialize": 12600,
+              "ledger_lock_wait": 1065600
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        }
+      ]
+    },
+    {
+      "version": "B",
+      "diagnostics_requested": true,
+      "diagnostics_observed": true,
+      "scenario": "idle_cli_begin",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 777302100,
+          "p95": 959221200
+        },
+        "emitted_context_chars": {
+          "median": 261,
+          "p95": 261
+        },
+        "emitted_context_bytes": {
+          "median": 261,
+          "p95": 261
+        },
+        "stdout_json_bytes": {
+          "median": 355,
+          "p95": 355
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 777302100,
+          "emitted_context_chars": 261,
+          "emitted_context_bytes": 261,
+          "stdout_json_bytes": 355,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353860.6085985,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostToolUse",
+            "internal_elapsed_ns": 585876800,
+            "phases_ns": {
+              "startup_imports": 7071400,
+              "native_import": 332859000,
+              "stdin_parse": 58700,
+              "lock_wait": 1120100,
+              "state_read": 972600,
+              "state_prepare": 17400,
+              "goal_check": 5100,
+              "inbox": 228347100,
+              "event_dispatch": 228401000,
+              "persist": 12075500,
+              "stdout_serialize": 21600,
+              "ledger_lock_wait": 1417200
+            },
+            "emitted_context_chars": 261,
+            "emitted_context_bytes": 261,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 355,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 959221200,
+          "emitted_context_chars": 261,
+          "emitted_context_bytes": 261,
+          "stdout_json_bytes": 355,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353895.766255,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostToolUse",
+            "internal_elapsed_ns": 682429900,
+            "phases_ns": {
+              "startup_imports": 5398500,
+              "native_import": 441282100,
+              "stdin_parse": 42900,
+              "lock_wait": 2309600,
+              "state_read": 3001700,
+              "state_prepare": 99100,
+              "goal_check": 21600,
+              "inbox": 219000600,
+              "event_dispatch": 219029600,
+              "persist": 7204900,
+              "stdout_serialize": 24800,
+              "ledger_lock_wait": 2534700
+            },
+            "emitted_context_chars": 261,
+            "emitted_context_bytes": 261,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 355,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 576014700,
+          "emitted_context_chars": 261,
+          "emitted_context_bytes": 261,
+          "stdout_json_bytes": 355,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353897.7277088,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostToolUse",
+            "internal_elapsed_ns": 364240500,
+            "phases_ns": {
+              "startup_imports": 5670900,
+              "native_import": 190134800,
+              "stdin_parse": 46700,
+              "lock_wait": 750000,
+              "state_read": 282400,
+              "state_prepare": 17100,
+              "goal_check": 5000,
+              "inbox": 160718600,
+              "event_dispatch": 160732800,
+              "persist": 4299200,
+              "stdout_serialize": 15900,
+              "ledger_lock_wait": 958800
+            },
+            "emitted_context_chars": 261,
+            "emitted_context_bytes": 261,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 355,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 809578900,
+          "emitted_context_chars": 261,
+          "emitted_context_bytes": 261,
+          "stdout_json_bytes": 355,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353917.834699,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostToolUse",
+            "internal_elapsed_ns": 672469300,
+            "phases_ns": {
+              "startup_imports": 5498400,
+              "native_import": 157381600,
+              "stdin_parse": 82900,
+              "lock_wait": 576100,
+              "state_read": 505100,
+              "state_prepare": 12000,
+              "goal_check": 3200,
+              "inbox": 501792700,
+              "event_dispatch": 501806100,
+              "persist": 4203800,
+              "stdout_serialize": 14700,
+              "ledger_lock_wait": 864300
+            },
+            "emitted_context_chars": 261,
+            "emitted_context_bytes": 261,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 355,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 462739600,
+          "emitted_context_chars": 261,
+          "emitted_context_bytes": 261,
+          "stdout_json_bytes": 355,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353919.3637614,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostToolUse",
+            "internal_elapsed_ns": 307646100,
+            "phases_ns": {
+              "startup_imports": 4890600,
+              "native_import": 175386700,
+              "stdin_parse": 54700,
+              "lock_wait": 781100,
+              "state_read": 640700,
+              "state_prepare": 17500,
+              "goal_check": 4300,
+              "inbox": 118625900,
+              "event_dispatch": 118640900,
+              "persist": 4676500,
+              "stdout_serialize": 24000,
+              "ledger_lock_wait": 1197900
+            },
+            "emitted_context_chars": 261,
+            "emitted_context_bytes": 261,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 355,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        }
+      ]
+    },
+    {
+      "version": "B",
+      "diagnostics_requested": true,
+      "diagnostics_observed": true,
+      "scenario": "idle_post_tool",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 306599900,
+          "p95": 318098700
+        },
+        "emitted_context_chars": {
+          "median": 0,
+          "p95": 0
+        },
+        "emitted_context_bytes": {
+          "median": 0,
+          "p95": 0
+        },
+        "stdout_json_bytes": {
+          "median": 4,
+          "p95": 4
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 288853700,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353932.2718515,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostToolUse",
+            "internal_elapsed_ns": 159932300,
+            "phases_ns": {
+              "startup_imports": 4697500,
+              "native_import": 146310600,
+              "stdin_parse": 38700,
+              "lock_wait": 697600,
+              "state_read": 541500,
+              "state_prepare": 12700,
+              "goal_check": 3900,
+              "inbox": 1076100,
+              "event_dispatch": 1082700,
+              "persist": 4106800,
+              "stdout_serialize": 10100,
+              "ledger_lock_wait": 957900
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 288003200,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353942.965874,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostToolUse",
+            "internal_elapsed_ns": 152058700,
+            "phases_ns": {
+              "startup_imports": 4323100,
+              "native_import": 139780500,
+              "stdin_parse": 38700,
+              "lock_wait": 767400,
+              "state_read": 626800,
+              "state_prepare": 12200,
+              "goal_check": 3500,
+              "inbox": 972300,
+              "event_dispatch": 978500,
+              "persist": 3717000,
+              "stdout_serialize": 8300,
+              "ledger_lock_wait": 753900
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 318098700,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353943.8625064,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostToolUse",
+            "internal_elapsed_ns": 171852400,
+            "phases_ns": {
+              "startup_imports": 6290300,
+              "native_import": 156737500,
+              "stdin_parse": 42200,
+              "lock_wait": 670200,
+              "state_read": 481100,
+              "state_prepare": 12000,
+              "goal_check": 3400,
+              "inbox": 1041200,
+              "event_dispatch": 1046700,
+              "persist": 4366200,
+              "stdout_serialize": 9100,
+              "ledger_lock_wait": 885800
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 306599900,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353954.5727155,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostToolUse",
+            "internal_elapsed_ns": 160887500,
+            "phases_ns": {
+              "startup_imports": 5625400,
+              "native_import": 145470700,
+              "stdin_parse": 42900,
+              "lock_wait": 715100,
+              "state_read": 506600,
+              "state_prepare": 12400,
+              "goal_check": 3400,
+              "inbox": 993400,
+              "event_dispatch": 999100,
+              "persist": 5064600,
+              "stdout_serialize": 13400,
+              "ledger_lock_wait": 1226900
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 314546400,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353955.541787,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostToolUse",
+            "internal_elapsed_ns": 175278200,
+            "phases_ns": {
+              "startup_imports": 5815500,
+              "native_import": 160669900,
+              "stdin_parse": 39900,
+              "lock_wait": 745800,
+              "state_read": 903600,
+              "state_prepare": 14100,
+              "goal_check": 3700,
+              "inbox": 1146300,
+              "event_dispatch": 1152500,
+              "persist": 3957500,
+              "stdout_serialize": 9300,
+              "ledger_lock_wait": 832200
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        }
+      ]
+    },
+    {
+      "version": "B",
+      "diagnostics_requested": true,
+      "diagnostics_observed": true,
+      "scenario": "active_prompt",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 290892200,
+          "p95": 372651200
+        },
+        "emitted_context_chars": {
+          "median": 515,
+          "p95": 515
+        },
+        "emitted_context_bytes": {
+          "median": 515,
+          "p95": 515
+        },
+        "stdout_json_bytes": {
+          "median": 620,
+          "p95": 620
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 266580000,
+          "emitted_context_chars": 515,
+          "emitted_context_bytes": 515,
+          "stdout_json_bytes": 620,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353971.419245,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "UserPromptSubmit",
+            "internal_elapsed_ns": 143285900,
+            "phases_ns": {
+              "startup_imports": 4830800,
+              "native_import": 129935000,
+              "stdin_parse": 33400,
+              "lock_wait": 540900,
+              "state_read": 514700,
+              "state_prepare": 11300,
+              "goal_check": 3400,
+              "event_dispatch": 1887500,
+              "persist": 3765000,
+              "stdout_serialize": 15200,
+              "ledger_lock_wait": 791600
+            },
+            "emitted_context_chars": 515,
+            "emitted_context_bytes": 515,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 620,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 372651200,
+          "emitted_context_chars": 515,
+          "emitted_context_bytes": 515,
+          "stdout_json_bytes": 620,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353989.4020815,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "UserPromptSubmit",
+            "internal_elapsed_ns": 220075600,
+            "phases_ns": {
+              "startup_imports": 5424100,
+              "native_import": 201451800,
+              "stdin_parse": 52800,
+              "lock_wait": 729300,
+              "state_read": 677800,
+              "state_prepare": 19300,
+              "goal_check": 5600,
+              "event_dispatch": 2670600,
+              "persist": 6376300,
+              "stdout_serialize": 25300,
+              "ledger_lock_wait": 1224600
+            },
+            "emitted_context_chars": 515,
+            "emitted_context_bytes": 515,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 620,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 293823900,
+          "emitted_context_chars": 515,
+          "emitted_context_bytes": 515,
+          "stdout_json_bytes": 620,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791353991.1255832,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "UserPromptSubmit",
+            "internal_elapsed_ns": 154813100,
+            "phases_ns": {
+              "startup_imports": 4336100,
+              "native_import": 140760700,
+              "stdin_parse": 85300,
+              "lock_wait": 623300,
+              "state_read": 582800,
+              "state_prepare": 11600,
+              "goal_check": 3000,
+              "event_dispatch": 1741400,
+              "persist": 4558300,
+              "stdout_serialize": 19200,
+              "ledger_lock_wait": 891200
+            },
+            "emitted_context_chars": 515,
+            "emitted_context_bytes": 515,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 620,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 290892200,
+          "emitted_context_chars": 515,
+          "emitted_context_bytes": 515,
+          "stdout_json_bytes": 620,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354009.4804585,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "UserPromptSubmit",
+            "internal_elapsed_ns": 173737700,
+            "phases_ns": {
+              "startup_imports": 4264900,
+              "native_import": 158440800,
+              "stdin_parse": 43000,
+              "lock_wait": 780200,
+              "state_read": 659000,
+              "state_prepare": 14800,
+              "goal_check": 3900,
+              "event_dispatch": 2057100,
+              "persist": 4759100,
+              "stdout_serialize": 20200,
+              "ledger_lock_wait": 1036700
+            },
+            "emitted_context_chars": 515,
+            "emitted_context_bytes": 515,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 620,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 290490100,
+          "emitted_context_chars": 515,
+          "emitted_context_bytes": 515,
+          "stdout_json_bytes": 620,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354011.141584,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "UserPromptSubmit",
+            "internal_elapsed_ns": 155544000,
+            "phases_ns": {
+              "startup_imports": 5205600,
+              "native_import": 139582000,
+              "stdin_parse": 77500,
+              "lock_wait": 697900,
+              "state_read": 303500,
+              "state_prepare": 11200,
+              "goal_check": 3300,
+              "event_dispatch": 2193400,
+              "persist": 5231200,
+              "stdout_serialize": 50700,
+              "ledger_lock_wait": 967200
+            },
+            "emitted_context_chars": 515,
+            "emitted_context_bytes": 515,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 620,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        }
+      ]
+    },
+    {
+      "version": "B",
+      "diagnostics_requested": true,
+      "diagnostics_observed": true,
+      "scenario": "active_stop",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 302044900,
+          "p95": 351974000
+        },
+        "emitted_context_chars": {
+          "median": 277,
+          "p95": 277
+        },
+        "emitted_context_bytes": {
+          "median": 277,
+          "p95": 277
+        },
+        "stdout_json_bytes": {
+          "median": 326,
+          "p95": 326
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 271962000,
+          "emitted_context_chars": 277,
+          "emitted_context_bytes": 277,
+          "stdout_json_bytes": 326,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354030.1121006,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "Stop",
+            "internal_elapsed_ns": 153708800,
+            "phases_ns": {
+              "startup_imports": 4267900,
+              "native_import": 137618500,
+              "stdin_parse": 41000,
+              "lock_wait": 703600,
+              "state_read": 612700,
+              "state_prepare": 13100,
+              "goal_check": 3900,
+              "inbox": 2331200,
+              "event_dispatch": 4008900,
+              "persist": 4104000,
+              "stdout_serialize": 15800,
+              "ledger_lock_wait": 1056600
+            },
+            "emitted_context_chars": 277,
+            "emitted_context_bytes": 277,
+            "emitted_fields": [
+              "reason"
+            ],
+            "stdout_json_bytes": 326,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 351974000,
+          "emitted_context_chars": 277,
+          "emitted_context_bytes": 277,
+          "stdout_json_bytes": 326,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354047.6919155,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "Stop",
+            "internal_elapsed_ns": 204044600,
+            "phases_ns": {
+              "startup_imports": 6935500,
+              "native_import": 180948600,
+              "stdin_parse": 45600,
+              "lock_wait": 911900,
+              "state_read": 635700,
+              "state_prepare": 15300,
+              "goal_check": 4100,
+              "inbox": 2736900,
+              "event_dispatch": 5687700,
+              "persist": 6088300,
+              "stdout_serialize": 20300,
+              "ledger_lock_wait": 1132200
+            },
+            "emitted_context_chars": 277,
+            "emitted_context_bytes": 277,
+            "emitted_fields": [
+              "reason"
+            ],
+            "stdout_json_bytes": 326,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 328177400,
+          "emitted_context_chars": 277,
+          "emitted_context_bytes": 277,
+          "stdout_json_bytes": 326,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354049.4990377,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "Stop",
+            "internal_elapsed_ns": 200838200,
+            "phases_ns": {
+              "startup_imports": 5008000,
+              "native_import": 183971000,
+              "stdin_parse": 48600,
+              "lock_wait": 617800,
+              "state_read": 636900,
+              "state_prepare": 13400,
+              "goal_check": 3800,
+              "inbox": 2106700,
+              "event_dispatch": 3709700,
+              "persist": 4451600,
+              "stdout_serialize": 21200,
+              "ledger_lock_wait": 1043500
+            },
+            "emitted_context_chars": 277,
+            "emitted_context_bytes": 277,
+            "emitted_fields": [
+              "reason"
+            ],
+            "stdout_json_bytes": 326,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 302044900,
+          "emitted_context_chars": 277,
+          "emitted_context_bytes": 277,
+          "stdout_json_bytes": 326,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354069.0970473,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "Stop",
+            "internal_elapsed_ns": 163189600,
+            "phases_ns": {
+              "startup_imports": 4139200,
+              "native_import": 144318400,
+              "stdin_parse": 41200,
+              "lock_wait": 887400,
+              "state_read": 383100,
+              "state_prepare": 13800,
+              "goal_check": 4200,
+              "inbox": 3028200,
+              "event_dispatch": 4870400,
+              "persist": 4950600,
+              "stdout_serialize": 22900,
+              "ledger_lock_wait": 2180400
+            },
+            "emitted_context_chars": 277,
+            "emitted_context_bytes": 277,
+            "emitted_fields": [
+              "reason"
+            ],
+            "stdout_json_bytes": 326,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 263735100,
+          "emitted_context_chars": 277,
+          "emitted_context_bytes": 277,
+          "stdout_json_bytes": 326,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354070.5422502,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "Stop",
+            "internal_elapsed_ns": 143593400,
+            "phases_ns": {
+              "startup_imports": 4302900,
+              "native_import": 128954200,
+              "stdin_parse": 38500,
+              "lock_wait": 576600,
+              "state_read": 267200,
+              "state_prepare": 12100,
+              "goal_check": 3600,
+              "inbox": 2167900,
+              "event_dispatch": 3777600,
+              "persist": 3823900,
+              "stdout_serialize": 11700,
+              "ledger_lock_wait": 818200
+            },
+            "emitted_context_chars": 277,
+            "emitted_context_bytes": 277,
+            "emitted_fields": [
+              "reason"
+            ],
+            "stdout_json_bytes": 326,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        }
+      ]
+    },
+    {
+      "version": "B",
+      "diagnostics_requested": true,
+      "diagnostics_observed": true,
+      "scenario": "active_compact_start",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 278595400,
+          "p95": 297496900
+        },
+        "emitted_context_chars": {
+          "median": 690,
+          "p95": 690
+        },
+        "emitted_context_bytes": {
+          "median": 690,
+          "p95": 690
+        },
+        "stdout_json_bytes": {
+          "median": 802,
+          "p95": 802
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 269214500,
+          "emitted_context_chars": 690,
+          "emitted_context_bytes": 690,
+          "stdout_json_bytes": 802,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354088.950996,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "SessionStart",
+            "internal_elapsed_ns": 142823900,
+            "phases_ns": {
+              "startup_imports": 7149200,
+              "native_import": 127098800,
+              "stdin_parse": 36600,
+              "lock_wait": 539900,
+              "state_read": 229800,
+              "state_prepare": 9100,
+              "goal_check": 2600,
+              "event_dispatch": 1391000,
+              "persist": 4536100,
+              "stdout_serialize": 15000,
+              "ledger_lock_wait": 824600
+            },
+            "emitted_context_chars": 690,
+            "emitted_context_bytes": 690,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 802,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 278595400,
+          "emitted_context_chars": 690,
+          "emitted_context_bytes": 690,
+          "stdout_json_bytes": 802,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354104.2560768,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "SessionStart",
+            "internal_elapsed_ns": 151562100,
+            "phases_ns": {
+              "startup_imports": 4573300,
+              "native_import": 137492700,
+              "stdin_parse": 49200,
+              "lock_wait": 620600,
+              "state_read": 541200,
+              "state_prepare": 10900,
+              "goal_check": 3300,
+              "event_dispatch": 1694000,
+              "persist": 4174000,
+              "stdout_serialize": 39500,
+              "ledger_lock_wait": 1121400
+            },
+            "emitted_context_chars": 690,
+            "emitted_context_bytes": 690,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 802,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 282918400,
+          "emitted_context_chars": 690,
+          "emitted_context_bytes": 690,
+          "stdout_json_bytes": 802,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354105.6293077,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "SessionStart",
+            "internal_elapsed_ns": 159489400,
+            "phases_ns": {
+              "startup_imports": 4896000,
+              "native_import": 144103200,
+              "stdin_parse": 42400,
+              "lock_wait": 668000,
+              "state_read": 421600,
+              "state_prepare": 12800,
+              "goal_check": 3200,
+              "event_dispatch": 1587700,
+              "persist": 4669500,
+              "stdout_serialize": 34900,
+              "ledger_lock_wait": 1524000
+            },
+            "emitted_context_chars": 690,
+            "emitted_context_bytes": 690,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 802,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 297496900,
+          "emitted_context_chars": 690,
+          "emitted_context_bytes": 690,
+          "stdout_json_bytes": 802,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354122.5292728,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "SessionStart",
+            "internal_elapsed_ns": 163550700,
+            "phases_ns": {
+              "startup_imports": 4197500,
+              "native_import": 149966800,
+              "stdin_parse": 43800,
+              "lock_wait": 647700,
+              "state_read": 264200,
+              "state_prepare": 12400,
+              "goal_check": 3300,
+              "event_dispatch": 1489700,
+              "persist": 4805400,
+              "stdout_serialize": 16200,
+              "ledger_lock_wait": 896700
+            },
+            "emitted_context_chars": 690,
+            "emitted_context_bytes": 690,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 802,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 278416300,
+          "emitted_context_chars": 690,
+          "emitted_context_bytes": 690,
+          "stdout_json_bytes": 802,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354124.1423855,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "SessionStart",
+            "internal_elapsed_ns": 154340500,
+            "phases_ns": {
+              "startup_imports": 4745900,
+              "native_import": 140672700,
+              "stdin_parse": 83700,
+              "lock_wait": 707500,
+              "state_read": 562400,
+              "state_prepare": 12200,
+              "goal_check": 3500,
+              "event_dispatch": 1424800,
+              "persist": 3759100,
+              "stdout_serialize": 14900,
+              "ledger_lock_wait": 873400
+            },
+            "emitted_context_chars": 690,
+            "emitted_context_bytes": 690,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 802,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        }
+      ]
+    },
+    {
+      "version": "B",
+      "diagnostics_requested": true,
+      "diagnostics_observed": true,
+      "scenario": "active_resume_start",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 318394700,
+          "p95": 334560000
+        },
+        "emitted_context_chars": {
+          "median": 690,
+          "p95": 690
+        },
+        "emitted_context_bytes": {
+          "median": 690,
+          "p95": 690
+        },
+        "stdout_json_bytes": {
+          "median": 802,
+          "p95": 802
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 242397700,
+          "emitted_context_chars": 690,
+          "emitted_context_bytes": 690,
+          "stdout_json_bytes": 802,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354143.1472533,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "SessionStart",
+            "internal_elapsed_ns": 136574400,
+            "phases_ns": {
+              "startup_imports": 3695700,
+              "native_import": 123660000,
+              "stdin_parse": 40100,
+              "lock_wait": 595400,
+              "state_read": 499800,
+              "state_prepare": 11700,
+              "goal_check": 3400,
+              "event_dispatch": 1936600,
+              "persist": 4189100,
+              "stdout_serialize": 15400,
+              "ledger_lock_wait": 842700
+            },
+            "emitted_context_chars": 690,
+            "emitted_context_bytes": 690,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 802,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 318394700,
+          "emitted_context_chars": 690,
+          "emitted_context_bytes": 690,
+          "stdout_json_bytes": 802,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354159.0889077,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "SessionStart",
+            "internal_elapsed_ns": 184345100,
+            "phases_ns": {
+              "startup_imports": 5476300,
+              "native_import": 165263700,
+              "stdin_parse": 48400,
+              "lock_wait": 760900,
+              "state_read": 295800,
+              "state_prepare": 13600,
+              "goal_check": 4200,
+              "event_dispatch": 1668000,
+              "persist": 7334700,
+              "stdout_serialize": 70100,
+              "ledger_lock_wait": 1870700
+            },
+            "emitted_context_chars": 690,
+            "emitted_context_bytes": 690,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 802,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 297028900,
+          "emitted_context_chars": 690,
+          "emitted_context_bytes": 690,
+          "stdout_json_bytes": 802,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354160.581349,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "SessionStart",
+            "internal_elapsed_ns": 157818400,
+            "phases_ns": {
+              "startup_imports": 4419500,
+              "native_import": 145708700,
+              "stdin_parse": 70200,
+              "lock_wait": 600600,
+              "state_read": 256300,
+              "state_prepare": 12400,
+              "goal_check": 3500,
+              "event_dispatch": 1451800,
+              "persist": 3472300,
+              "stdout_serialize": 13700,
+              "ledger_lock_wait": 776800
+            },
+            "emitted_context_chars": 690,
+            "emitted_context_bytes": 690,
+            "emitted_fields": [
+              "hookSpecificOutput.additionalContext"
+            ],
+            "stdout_json_bytes": 802,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 334560000,
+          "emitted_context_chars": 690,
+          "emitted_context_bytes": 690,
+          "stdout_json_bytes": 802,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354179.287316,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "SessionStart",
+            "internal_elapsed_ns": 182309300,
+            "phases_ns": {
+              "startup_imports": 5733800,
+              "native_import": 164494000,
+              "stdin_parse": 49500,
+              "lock_wait": 857700,
+              "state_read": 763000,
               "state_prepare": 15900,
               "goal_check": 4500,
-              "inbox": 3053400,
-              "event_dispatch": 5342900,
-              "persist": 5631200,
-              "stdout_serialize": 20700,
-              "ledger_lock_wait": 1294300
+              "event_dispatch": 1913300,
+              "persist": 5973300,
+              "stdout_serialize": 23400,
+              "ledger_lock_wait": 919900
             },
-            "emitted_context_chars": 277,
-            "emitted_context_bytes": 277,
+            "emitted_context_chars": 690,
+            "emitted_context_bytes": 690,
             "emitted_fields": [
-              "reason"
+              "hookSpecificOutput.additionalContext"
             ],
-            "stdout_json_bytes": 326,
+            "stdout_json_bytes": 802,
             "host_usage_observed": false,
             "host_usage": null
           }
         },
         {
-          "process_elapsed_ns": 334310900,
-          "emitted_context_chars": 277,
-          "emitted_context_bytes": 277,
-          "stdout_json_bytes": 326,
+          "process_elapsed_ns": 325560700,
+          "emitted_context_chars": 690,
+          "emitted_context_bytes": 690,
+          "stdout_json_bytes": 802,
           "processing_verified": true,
           "diagnostic": {
-            "time": 1791351142.48607,
+            "time": 1791354181.0399177,
             "event": "hook_diagnostics",
             "schema_version": 1,
-            "event_name": "Stop",
-            "internal_elapsed_ns": 175401900,
+            "event_name": "SessionStart",
+            "internal_elapsed_ns": 182010300,
             "phases_ns": {
-              "startup_imports": 4656200,
-              "native_import": 151327400,
-              "stdin_parse": 146000,
-              "lock_wait": 1401800,
-              "state_read": 894000,
-              "state_prepare": 24400,
-              "goal_check": 6900,
-              "inbox": 5710500,
-              "event_dispatch": 9110300,
-              "persist": 4378300,
-              "stdout_serialize": 20200,
-              "ledger_lock_wait": 1066600
+              "startup_imports": 4489800,
+              "native_import": 166494000,
+              "stdin_parse": 42600,
+              "lock_wait": 806300,
+              "state_read": 588700,
+              "state_prepare": 14200,
+              "goal_check": 3900,
+              "event_dispatch": 2067000,
+              "persist": 4918200,
+              "stdout_serialize": 21900,
+              "ledger_lock_wait": 1089300
             },
-            "emitted_context_chars": 277,
-            "emitted_context_bytes": 277,
+            "emitted_context_chars": 690,
+            "emitted_context_bytes": 690,
             "emitted_fields": [
-              "reason"
+              "hookSpecificOutput.additionalContext"
             ],
-            "stdout_json_bytes": 326,
+            "stdout_json_bytes": 802,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        }
+      ]
+    },
+    {
+      "version": "B",
+      "diagnostics_requested": true,
+      "diagnostics_observed": true,
+      "scenario": "active_post_compact",
+      "metrics": {
+        "process_elapsed_ns": {
+          "median": 294187100,
+          "p95": 321136000
+        },
+        "emitted_context_chars": {
+          "median": 0,
+          "p95": 0
+        },
+        "emitted_context_bytes": {
+          "median": 0,
+          "p95": 0
+        },
+        "stdout_json_bytes": {
+          "median": 4,
+          "p95": 4
+        }
+      },
+      "samples": [
+        {
+          "process_elapsed_ns": 279658800,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354201.6237068,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostCompact",
+            "internal_elapsed_ns": 150465000,
+            "phases_ns": {
+              "startup_imports": 4800900,
+              "native_import": 135707700,
+              "stdin_parse": 111200,
+              "lock_wait": 828100,
+              "state_read": 904100,
+              "state_prepare": 14700,
+              "goal_check": 800,
+              "event_dispatch": 1215600,
+              "persist": 4490800,
+              "stdout_serialize": 12000,
+              "ledger_lock_wait": 979400
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
             "host_usage_observed": false,
             "host_usage": null
           }
         },
         {
-          "process_elapsed_ns": 537150300,
-          "emitted_context_chars": 277,
-          "emitted_context_bytes": 277,
-          "stdout_json_bytes": 326,
+          "process_elapsed_ns": 298215600,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
           "processing_verified": true,
           "diagnostic": {
-            "time": 1791351144.6628246,
+            "time": 1791354220.5438044,
             "event": "hook_diagnostics",
             "schema_version": 1,
-            "event_name": "Stop",
-            "internal_elapsed_ns": 303162500,
+            "event_name": "PostCompact",
+            "internal_elapsed_ns": 150547200,
             "phases_ns": {
-              "startup_imports": 9706000,
-              "native_import": 266335200,
-              "stdin_parse": 105500,
-              "lock_wait": 1450400,
-              "state_read": 617200,
-              "state_prepare": 26600,
-              "goal_check": 7400,
-              "inbox": 5686300,
-              "event_dispatch": 9660900,
-              "persist": 10319900,
-              "stdout_serialize": 26300,
-              "ledger_lock_wait": 2347600
+              "startup_imports": 5567300,
+              "native_import": 136800200,
+              "stdin_parse": 39900,
+              "lock_wait": 565600,
+              "state_read": 519000,
+              "state_prepare": 11800,
+              "goal_check": 900,
+              "event_dispatch": 1070200,
+              "persist": 3826200,
+              "stdout_serialize": 10200,
+              "ledger_lock_wait": 869600
             },
-            "emitted_context_chars": 277,
-            "emitted_context_bytes": 277,
-            "emitted_fields": [
-              "reason"
-            ],
-            "stdout_json_bytes": 326,
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 277899900,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354222.2038853,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostCompact",
+            "internal_elapsed_ns": 146880600,
+            "phases_ns": {
+              "startup_imports": 4030300,
+              "native_import": 132232400,
+              "stdin_parse": 39600,
+              "lock_wait": 713300,
+              "state_read": 711500,
+              "state_prepare": 15500,
+              "goal_check": 900,
+              "event_dispatch": 2083400,
+              "persist": 4990100,
+              "stdout_serialize": 13600,
+              "ledger_lock_wait": 869600
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 321136000,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354240.7072313,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostCompact",
+            "internal_elapsed_ns": 171954700,
+            "phases_ns": {
+              "startup_imports": 5032400,
+              "native_import": 155803400,
+              "stdin_parse": 41500,
+              "lock_wait": 687900,
+              "state_read": 308100,
+              "state_prepare": 13800,
+              "goal_check": 800,
+              "event_dispatch": 1488600,
+              "persist": 6258600,
+              "stdout_serialize": 12400,
+              "ledger_lock_wait": 1019700
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
+            "host_usage_observed": false,
+            "host_usage": null
+          }
+        },
+        {
+          "process_elapsed_ns": 294187100,
+          "emitted_context_chars": 0,
+          "emitted_context_bytes": 0,
+          "stdout_json_bytes": 4,
+          "processing_verified": true,
+          "diagnostic": {
+            "time": 1791354242.3742106,
+            "event": "hook_diagnostics",
+            "schema_version": 1,
+            "event_name": "PostCompact",
+            "internal_elapsed_ns": 158870700,
+            "phases_ns": {
+              "startup_imports": 4485800,
+              "native_import": 145421100,
+              "stdin_parse": 41300,
+              "lock_wait": 612400,
+              "state_read": 253400,
+              "state_prepare": 10500,
+              "goal_check": 600,
+              "event_dispatch": 1475300,
+              "persist": 4511900,
+              "stdout_serialize": 10600,
+              "ledger_lock_wait": 924200
+            },
+            "emitted_context_chars": 0,
+            "emitted_context_bytes": 0,
+            "emitted_fields": [],
+            "stdout_json_bytes": 4,
             "host_usage_observed": false,
             "host_usage": null
           }
