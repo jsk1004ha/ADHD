@@ -8,7 +8,9 @@ ADHD v0.1.6는 Codex 앱과 CLI에서 실행하는 로컬 하네스입니다. Co
 
 ## 준비와 설치
 
-Python 3.11 이상과 기존 Codex 앱 또는 CLI가 필요합니다. 관리자 권한, 별도의 유료 서비스 가입, 설치 중 다운로드는 필요하지 않습니다. 이 저장소의 코드를 검토한 뒤 PowerShell에서 실행하세요.
+기존 Codex 앱 또는 CLI가 필요합니다. Windows x64에서는 Python이 포함된 `ADHD-Setup-v0.1.6-windows-x64.exe`를 열고 **Install**을 누르면 됩니다. 설치 중 다운로드나 관리자 권한이 필요하지 않습니다. 설치 후 Codex를 재시작하고 새 명령의 신뢰 여부를 직접 확인하세요. 실행 파일은 서명되지 않았으므로 열기 전에 SHA-256을 확인하세요. 별도 Codex 홈·검증·소스 빌드는 [설치 안내](docs/installation.md)에 있습니다.
+
+소스에서 설치할 때는 Python 3.11 이상이 필요합니다. 이 저장소의 코드를 검토한 뒤 PowerShell에서 실행하세요.
 
 ```powershell
 py -3 .\adhd.py doctor
@@ -45,6 +47,7 @@ py -3 .\adhd.py rollback-native
 
 예: `$adhd-shape 연구 기록을 정리하는 도구 아이디어를 구체화해 줘`.
 명확하고 작은 요청은 바로 처리하며, 구체화·비교·검토만 요청하면 파일을 바꾸지 않습니다.
+초기 [요청 경로](docs/request-routing.md)는 바로 답할 요청, 범위가 좁은 native 작업, 먼저 살펴볼 요청, 깊은 작업을 구분합니다. 바로 답할 때는 native 계획·독립 검증 루프를 시작하지 않습니다. `native begin`으로 시작한 간단한 작업은 독립 검증을 유지합니다. 명시한 프로필이 자동 제안보다 우선합니다.
 이미 구현을 요청했다면 필요한 보조 결과를 기존 실행에 넘겨 계속 진행합니다.
 [공통 인계 규칙](skills/adhd-native/references/skill-handoff.md)은 설명용 기록과 실제 native 명령을 구분합니다.
 `retro`의 교훈을 장기 메모리에 저장하려면 사용자의 명시적 요청이 필요합니다.

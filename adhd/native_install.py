@@ -27,9 +27,9 @@ START='<!-- ADHD-NATIVE:BEGIN -->'
 END='<!-- ADHD-NATIVE:END -->'
 NATIVE_SCHEMA_VERSION=3
 INSTALL_SUBDIR='adhd'
-RELEASE_DIRS=('adhd','skills','native','schemas','third_party','tests','config','bundled')
+RELEASE_DIRS=('adhd','skills','native','schemas','third_party','tests','config','bundled','runtime')
 RELEASE_FILES=('adhd.py','hook.py','LICENSE','LICENSE-RAIBIT-MIT','THIRD_PARTY_NOTICES.md','requirements-documents.txt','README.md','README.ko.md','ADHD_PROVENANCE.md',
-               'docs/large-tasks.md','docs/obsidian.md','docs/releases/0.1.4.md','docs/releases/0.1.5.md','docs/releases/0.1.6.md',
+               'docs/installation.md','docs/request-routing.md','docs/large-tasks.md','docs/obsidian.md','docs/releases/0.1.4.md','docs/releases/0.1.5.md','docs/releases/0.1.6.md',
                'examples/large-task.json','examples/large-limits.json','examples/batch-checks.json',
                'examples/obsidian/config.json','examples/obsidian/feedback.json','scripts/benchmark_obsidian.py')
 WORKFLOW_SKILLS=('adhd-goal','adhd-shape','adhd-challenge','adhd-decide','adhd-steer',
@@ -67,6 +67,12 @@ def _copy_release(source:Path,dest:Path)->None:
     for p in _release_files(source):
         out=dest/p.relative_to(source);out.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p,out)
 
+def _release_python(release:Path)->Path:
+    """Use the copied embedded interpreter when this source carries one."""
+    bundled=release/'runtime'/'python.exe'
+    return bundled if bundled.is_file() else Path(sys.executable)
+
+
 def _render_release(release:Path,final_release:Path,source_root:Path)->None:
     """Expand install-time placeholders before the release identity is recorded."""
     for capability in NATIVE_CAPABILITIES:
@@ -75,7 +81,9 @@ def _render_release(release:Path,final_release:Path,source_root:Path)->None:
         for source in sorted(base.rglob('*')):
             if not source.is_file():continue
             content=source.read_text(encoding='utf-8')
-            content=content.replace('ADHD_ROOT',str(final_release)).replace('ADHD_PYTHON',str(sys.executable))
+            python=(final_release/'runtime'/'python.exe' if (release/'runtime'/'python.exe').is_file()
+                    else Path(sys.executable))
+            content=content.replace('ADHD_ROOT',str(final_release)).replace('ADHD_PYTHON',str(python))
             # A release can invoke its own upgrade command. Rewrite references
             # embedded by that prior installation to the new immutable release.
             content=content.replace(str(source_root),str(final_release))
@@ -299,7 +307,7 @@ def _install_native(target: Path, agents_home: Path|None=None, compact: bool=Fal
                 if staging.exists():shutil.rmtree(staging)
                 raise
         identity=_compute_release_identity(release)
-        cmd=command_line([sys.executable,str(release/'hook.py')]);hook_additions=[]
+        cmd=command_line([str(_release_python(release)),str(release/'hook.py')]);hook_additions=[]
         for event in ['SessionStart','UserPromptSubmit','Stop','SubagentStart','SubagentStop','PostCompact','SessionEnd']:
             group={'hooks':[{'type':'command','command':cmd,'commandWindows':cmd,
                              'timeout':3 if event=='SessionEnd' else 20,
@@ -447,7 +455,7 @@ def audit_native(target: Path) -> dict:
     record=managed[2] if managed else {}
     report['native_installation']=managed is not None
     report['default_models']=MODELS
-    report['warnings'].append('Native App path does not require a separate CLI, but Python and trusted supported hooks are required. Existing chats may retain their previous model selection.')
+    report['warnings'].append('Native App path does not require a separate CLI, but a working Python runtime and trusted supported hooks are required. Existing chats may retain their previous model selection.')
     try:
         if record:_validate_release_record(record)
     except (ValueError,OSError,json.JSONDecodeError):

@@ -53,6 +53,7 @@ adhd/obsidian_assets/views/ADHD 절차.base
 adhd/obsidian_index.py
 adhd/provenance.py
 adhd/recovery.py
+adhd/request_routing.py
 adhd/runner.py
 adhd/skill_router.py
 adhd/snapshots.py
@@ -61,8 +62,11 @@ adhd/validation_batch.py
 adhd/vendor/__init__.py
 adhd/vendor/smolagents_context.py
 adhd/wiki.py
+adhd/windows_setup.py
+build/build_windows_installer.py
 build/package_adhd.py
 build/public-files.txt
+build/windows/launcher.cs
 bundled/skills/aspnet-core/LICENSE.txt
 bundled/skills/aspnet-core/SKILL.md
 bundled/skills/aspnet-core/agents/openai.yaml
@@ -641,11 +645,13 @@ config/builtin-skills.json
 config/mcp-selection.json
 config/native-policy.example.json
 config/profiles.example.json
+docs/installation.md
 docs/large-tasks.md
 docs/obsidian.md
 docs/releases/0.1.4.md
 docs/releases/0.1.5.md
 docs/releases/0.1.6.md
+docs/request-routing.md
 examples/agent-task-card.md
 examples/astra-brief.md
 examples/batch-checks.json
@@ -752,6 +758,7 @@ tests/test_personal_eval.py
 tests/test_public_package.py
 tests/test_release_assets.py
 tests/test_release_smoke.py
+tests/test_request_routing.py
 tests/test_skill_discovery.py
 tests/test_snapshot_bundles.py
 tests/test_storage.py
@@ -759,6 +766,7 @@ tests/test_v012.py
 tests/test_v012_install_integrity.py
 tests/test_v12.py
 tests/test_validation_batch.py
+tests/test_windows_setup.py
 tests/test_workflow_skills.py
 third_party/Apache-2.0.txt
 third_party/DISTRIBUTIONS.json

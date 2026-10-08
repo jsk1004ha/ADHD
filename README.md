@@ -15,11 +15,13 @@ This repository contains source code and generic defaults. It contains no accoun
 
 ## Requirements
 
-- Python 3.11 or later and an existing Codex App or CLI installation.
+- An existing Codex App or CLI installation. Source installation needs Python 3.11 or later; the Windows x64 setup file includes its own Python runtime.
 - Available models for the optional pinned helper roles: Sol and Luna at `max`, Astra at `low`. Check availability in your own account and router; configuration alone does not prove it.
 - Optional document features use separately installed tools listed in `requirements-documents.txt`. No paid service signup or download is performed by the installer.
 
 ## Install or upgrade
+
+On Windows x64, open `ADHD-Setup-v0.1.6-windows-x64.exe` and select **Install**. It detects the existing Codex home, includes Python, and installs offline without elevation. Restart Codex and review the new commands when prompted. The [installation guide](docs/installation.md) covers isolated homes, verification and source builds. The executable is unsigned; verify its SHA-256 before opening it.
 
 Review the source and hook commands before installing. From a PowerShell terminal in this checkout:
 
@@ -60,6 +62,7 @@ They do not impose a mandatory sequence or create another execution owner.
 For example: `$adhd-shape Make this research-record tool idea concrete`.
 Clear small requests take a direct path. Analysis-only requests stay read-only;
 already authorized implementation continues with the current owner.
+The [initial request route](docs/request-routing.md) distinguishes direct answers, bounded native work, uncertain requests requiring brief inspection, and deep work. Direct requests have no durable native plan or acceptance loop; once `native begin` starts, even a simple run retains independent acceptance. Explicit profile choices take precedence.
 The [shared handoff reference](skills/adhd-native/references/skill-handoff.md)
 distinguishes descriptive notes from actual native bridge commands. Long-term
 memory writes require an explicit user request.

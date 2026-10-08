@@ -24,6 +24,8 @@ from filelock import FileLock
 from .core import (ROOT, MODES, atomic_json, digest, file_hash, home, read_json, safe_path,
                    store, recipes, save_recipe, quarantine, select_mode)
 from .models import ROLES, route, execution_profile
+from .request_routing import (classify_request, is_brief_approval, is_status_followup,
+                              is_substantive_request_source)
 from .gates import (validate_plan, validate_document_contract, document_candidate,
                     review_documents, validate_learning_check)
 from .host_capabilities import (normalize_event, observe_event, completion_capability,
@@ -755,8 +757,10 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             if not isinstance(values,list) or len(values)>50 or any(not isinstance(v,str) or len(v)>4000 for v in values):
                 raise ValueError(field+' must be a bounded list of strings')
         criteria=criteria_valid(payload.get('criteria'))
-        profile=execution_profile(payload.get('execution_profile', 'standard'))
-        mode=payload.get('mode',select_mode(state['prompts'][-1]['text']))
+        routed=state.get('request_route') or {}
+        profile=execution_profile(payload.get('execution_profile', routed.get('suggested_profile', 'standard')))
+        effective_prompt=routed.get('effective_prompt') or state['prompts'][-1]['text']
+        mode=payload.get('mode',select_mode(effective_prompt))
         if mode not in MODES:
             raise ValueError('Invalid task mode')
         artifacts=payload.get('artifacts')
@@ -806,7 +810,7 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             state['plan']['sha256']=digest(state['plan']['content'])
         state['contract_hash']=digest(state['contract'])
         state['seen_target_digests']={rel:[sha] for rel,sha in target_manifest(state).items()}
-        state['recipes']=recipes(ws,mode,state['prompts'][-1]['text'],limit=2)
+        state['recipes']=recipes(ws,mode,effective_prompt,limit=2)
         claim_writer(state)
         atomic_json(d/('contract-'+state['run_id']+'-v'+str(state['intent_version'])+'.json'),state['contract'])
         if profile['plan_depth']=='optional':
@@ -1410,16 +1414,25 @@ def stop_child(state: dict, ev: dict, d: Path) -> dict:
 
 def guidance_signature(state: dict) -> str:
     """Output bookkeeping only; prompt collection and event handling always run."""
+    routed=state.get('request_route') or {}
+    default_profile=state.get('execution_profile', {}).get('name', 'standard')
     return digest([state['status'], state.get('execution_profile'), state.get('contract_hash'),
                    state.get('pending_turn_ids'), state.get('feedback'), state.get('goal_request'),
                    state.get('plan', {}).get('sha256') if state.get('plan') else None,
                    state.get('candidate', {}).get('digest') if state.get('candidate') else None,
-                   state.get('needs_replan'), state.get('host_goal_scan_pending')])
+                   state.get('needs_replan'), state.get('host_goal_scan_pending'),
+                   routed.get('path', 'inspect'),
+                   routed.get('suggested_profile', default_profile),
+                   routed.get('reason','').startswith('Brief approval')])
 
 
 def context(state: dict, *, bootstrap: bool = True, restore: bool = False) -> str:
     b=bridge(Path(state['workspace']),state['key'])
-    profile=execution_profile(state.get('execution_profile', {}).get('name', 'standard'))
+    routed=state.get('request_route') or {}
+    direct_turn=state['status']=='complete' and routed.get('path')=='direct' and not state.get('pending_turn_ids')
+    profile=execution_profile(routed.get('suggested_profile', state.get('execution_profile', {}).get('name', 'standard'))
+                              if state['status']=='idle' or direct_turn
+                              else state.get('execution_profile', {}).get('name', 'standard'))
     planning={'optional':'Plan is optional; execute directly or use limited delegation.',
               'brief':'Submit a brief requirement-covered plan before implementation.',
               'deep':'Submit a deep plan covering every requirement before implementation.'}
@@ -1431,24 +1444,45 @@ def context(state: dict, *, bootstrap: bool = True, restore: bool = False) -> st
         next_action='Independent adhd-verifier must review the current candidate digest.'
     elif state['status'] in ACTIVE:
         next_action='Implement/check the current requirements, then submit candidate and independent review.'
+    elif direct_turn:
+        next_action='Answer the new direct request with appropriate checking. The completed contract stays accepted.'
     elif state['status']=='complete':
         next_action='Report verified deliverables and limits.'
     elif state['status']=='idle':
-        next_action='For substantive work use native begin; small questions can be answered directly.'
+        path=routed.get('path','inspect')
+        if path=='direct':
+            next_action='Answer directly with appropriate checking. No native begin or durable acceptance loop is needed; escalate with begin if scope grows.'
+        elif path=='inspect':
+            next_action='Inspect the request and relevant context briefly; if substantive, use native begin with an appropriate profile.'
+        else:
+            next_action='Use native begin with suggested '+profile['name']+' profile; explicit profile choices take precedence.'
     else:
         next_action='Resolve the recorded blocker; resume only with real user/host authorization.'
     required=['ADHD Status='+state['status']+'; Profile='+profile['name']+'; plan='+profile['plan_depth']+'.',
               'SESSION='+state['key']+'; view='+str(b/'view.json'),
               'Next: '+next_action]
-    lines=[planning[profile['plan_depth']]]
+    lines=(['Direct reply: no native plan or acceptance loop.']
+           if (state['status']=='idle' or direct_turn) and routed.get('path')=='direct'
+           else [planning[profile['plan_depth']]])
+    if (state['status']=='idle' or direct_turn) and routed:
+        lines.insert(0,'Initial route='+routed['path']+'; '+routed['reason'])
+        if routed.get('effective_prompt') and routed['effective_prompt']!=state['prompts'][-1]['text']:
+            lines.append('Brief approval refers to: '+truncate_content(routed['effective_prompt'],100))
     if state.get('goal_request'):
         lines.append('Goal execution requested: '+truncate_content(state['goal_request']['outcome'],90)+
                      '. Continue until independent acceptance or explicit stop/limit/blocker.')
     if restore:
         contract=state.get('contract', {})
-        objective=(state.get('plan') or {}).get('content', {}).get('objective')
-        if not objective and state.get('prompts'):
-            objective=state['prompts'][0]['text']
+        if state['status']=='idle' or direct_turn:
+            objective=routed.get('effective_prompt') or (state['prompts'][-1]['text'] if state.get('prompts') else None)
+            if (state['status']=='idle' and state.get('prompts') and
+                    is_brief_approval(state['prompts'][-1]['text']) and
+                    objective==state['prompts'][-1]['text']):
+                objective=None
+        else:
+            objective=(state.get('plan') or {}).get('content', {}).get('objective')
+            if not objective and state.get('prompts'):
+                objective=state['prompts'][0]['text']
         if objective:
             lines.append('Objective: '+truncate_content(objective,140))
         unmet=[row['id'] for row in contract.get('criteria', [])] if state['status']!='complete' else []
@@ -1525,10 +1559,22 @@ def handle_event(ev: dict, *, diagnostics=None) -> dict:
                     outcome = goal_command(prompt)
                     if outcome is not None:
                         state['goal_request']={'source_turn_id':turn, 'outcome':outcome}
-                    if state.get('contract'):
+                    if state.get('contract') and state['status']!='complete':
                         state['pending_turn_ids'].append(turn)
                         state['feedback']='Classify the latest user turn as no_change, amend or new_task before final review.'
+                        state['request_route']=classify_request(prompt,active_contract=True)
+                    elif state.get('contract') and state['status']=='complete':
+                        # A standalone progress question refers to the completed
+                        # run until sync-intent says otherwise. Other direct
+                        # questions can be answered without reopening it.
+                        state['request_route']=classify_request(prompt, active_contract=is_status_followup(prompt))
+                        if state['request_route']['path']!='direct':
+                            state['pending_turn_ids'].append(turn)
+                            state['feedback']='Classify the latest user turn as new_task or no_change before beginning another run.'
                     else:
+                        previous=next((p['text'] for p in reversed(state['prompts'][:-1])
+                                       if is_substantive_request_source(p['text'])),None)
+                        state['request_route']=classify_request(prompt,previous=previous)
                         state['intent_version']+=1
                 append_event(d,'user_prompt',{'turn_id':turn,'intent_version':state['intent_version'],'status':state['status']})
             signature=guidance_signature(state)

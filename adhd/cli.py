@@ -86,6 +86,10 @@ def parser() -> argparse.ArgumentParser:
     q.add_argument('--workspace', type=Path, default=Path.cwd())
     q.add_argument('--payload-file', type=Path)
     q.add_argument('--profile', choices=['simple', 'standard', 'deep'], help='Explicit execution intensity for begin; preserves selected models and effort')
+    q = sub.add_parser('request-route', help='Inspect conservative first-pass routing without starting a run')
+    q.add_argument('prompt')
+    q.add_argument('--previous', help='Previous substantive request for a brief approval')
+    q.add_argument('--active-contract', action='store_true')
     q = sub.add_parser('check', help='Run an explicit argv check and emit a structured execution receipt')
     q.add_argument('--spec-file', required=True, type=Path)
     q.add_argument('--workspace', type=Path, default=Path.cwd())
@@ -177,6 +181,10 @@ def main(argv=None) -> int:
             output(install_native(args.codex_home, args.agents_home, args.compact, args.migrate_existing_roles))
         elif args.command == 'rollback-native':
             output(rollback_native(args.codex_home))
+        elif args.command == 'request-route':
+            from .request_routing import classify_request
+            output(classify_request(args.prompt, previous=args.previous,
+                                    active_contract=args.active_contract))
         elif args.command == 'native':
             payload=bounded_json(args.payload_file) if args.payload_file else {}
             if args.profile:
