@@ -31,9 +31,6 @@ from .host_capabilities import (normalize_event, observe_event, completion_capab
 from .intent import apply_intent_patch
 from .evidence import (validate_execution, observe_host_tool, validate_tool_observations,
                        receipt_test_failures)
-from .snapshots import build_snapshot, validate_snapshot
-from .coding_scope import validate_baseline, scope_repositories, native_evidence
-from .provenance import validate_provenance
 from .recovery import classify_failure, record_failure, verified_failure_signature
 from .memory import validate_procedure_bundle
 from . import leases
@@ -663,6 +660,7 @@ def is_fresh(state: dict) -> bool:
     try:
         ws=Path(state['workspace'])
         if c.get('snapshot_schema') == 1:
+            from .snapshots import validate_snapshot
             validate_snapshot(ws, c['files'])
         elif snapshot(ws, list(c['files'])) != c['files']:
             return False
@@ -674,6 +672,7 @@ def is_fresh(state: dict) -> bool:
         if any(current.get(row['id'])!=row for row in c.get('tool_observations',[])):
             return False
         if state['contract'].get('coding_scope'):
+            from .coding_scope import native_evidence
             proof, _ = native_evidence(state, c.get('coding_scope_evidence'), checked_path)
             if proof != c.get('coding_scope_proof'):
                 return False
@@ -767,6 +766,8 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             raise ValueError('Duplicate artifact')
         for p in artifacts: checked_path(ws,p)
         scope = None
+        if mode == 'coding':
+            from .coding_scope import validate_baseline, scope_repositories
         repositories = scope_repositories(ws, artifacts) if mode == 'coding' else set()
         if any(not repository.is_relative_to(ws.resolve()) for repository in repositories):
             raise ValueError('Git coding scope workspace must include the checkout root')
@@ -1015,6 +1016,7 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             large_proof, large_files = candidate_evidence(state, payload)
         scope_proof = None; scope_files = []
         if state['contract'].get('coding_scope'):
+            from .coding_scope import native_evidence
             scope_proof, scope_files = native_evidence(state, payload.get('coding_scope_evidence'), checked_path)
         sources=payload.get('sources',[]);source_files=source_check(state,sources)
         expected_provenance={r['id'] for r in state['contract']['criteria'] if r['kind']=='provenance'}
@@ -1031,6 +1033,7 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
                 raise ValueError('Unknown or duplicate provenance criterion')
             provenance_ids.add(cid)
             checked_path(ws,rel,existing=True)
+            from .provenance import validate_provenance
             record=validate_provenance(ws,rel)
             if not record['verified_claims']:
                 raise ValueError('Provenance criterion needs a verified measured/calculated claim')
@@ -1088,6 +1091,7 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         descriptors += [{'kind':'render_bundle','manifest':rel} for rel in render_manifests]
         if task_bundle:
             descriptors.append({'kind':'task_bundle','manifest':task_bundle})
+        from .snapshots import build_snapshot
         snap=build_snapshot(ws,descriptors)
         execution_refs={ref:file_hash(checked_path(ws,ref,existing=True))
                         for row in payload['criterion_results']
