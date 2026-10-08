@@ -210,3 +210,34 @@ class HookGuidanceTests(unittest.TestCase):
         for expected in ('Profile=deep', 'plan=deep', 'Goal execution requested', 'Objective:', 'Unmet acceptance:', 'Next:', 'view='):
             self.assertIn(expected, text)
         self.assertIn(str(self.ws / '.adhd/bridge' / self.key / 'view.json'), text)
+
+    def test_long_paths_and_goal_feedback_preserve_complete_recovery_fields(self):
+        self.begin('deep')
+        state = self.state()
+        workspace = self.ws.joinpath(*('workspace-component-' + str(i) for i in range(20)))
+        install = ROOT.joinpath(*('installed-release-component-' + str(i) for i in range(14)))
+        state['workspace'] = str(workspace)
+        state['plan']['content']['objective'] = 'Objective details ' * 200
+        state['feedback'] = 'Observed blocker details ' * 300
+        state['goal_request'] = {'outcome': 'Long original goal ' * 200}
+        view = str(workspace / '.adhd/bridge' / self.key / 'view.json')
+        next_action = 'Next: Implement/check the current requirements, then submit candidate and independent review.'
+        with patch('adhd.native.ROOT', install):
+            for bootstrap, restore in ((True, True), (False, True), (True, False)):
+                with self.subTest(bootstrap=bootstrap, restore=restore):
+                    text = context(state, bootstrap=bootstrap, restore=restore)
+                    self.assertLessEqual(len(text), 1200)
+                    for expected in ('SESSION=' + self.key, 'view=' + view,
+                                     'Profile=deep', 'plan=deep', next_action):
+                        self.assertIn(expected, text)
+
+    def test_context_does_not_cut_mandatory_path_that_exceeds_budget(self):
+        self.begin('deep')
+        state = self.state()
+        workspace = self.ws.joinpath(*('workspace-component-' + str(i) for i in range(65)))
+        state['workspace'] = str(workspace)
+        text = context(state, restore=True)
+        self.assertIn('SESSION=' + self.key, text)
+        self.assertIn('view=' + str(workspace / '.adhd/bridge' / self.key / 'view.json'), text)
+        self.assertIn('Profile=deep', text)
+        self.assertIn('Next: Implement/check the current requirements, then submit candidate and independent review.', text)

@@ -107,6 +107,12 @@ def sample(root, enabled, fixture, scenario, temporary):
             if scenario['initial'] == 'active':
                 invoke(root, environment, {**event, 'hook_event_name': 'PostToolUse',
                                           'turn_id': 'setup-begin', 'tool_name': 'exec_command'})
+        ledger_root = base / 'codex/adhd/native'
+        ledger_positions = {}
+        if enabled:
+            for path in ledger_root.glob('*/ledger.jsonl'):
+                info = path.stat()
+                ledger_positions[path] = (info.st_ino, info.st_size)
         elapsed, out, byte_count = invoke(root, environment,
                                          {**event, 'turn_id': 'measured', **scenario['event']})
         state_files = list((base / 'codex/adhd/native').glob('*/state.json'))
@@ -122,9 +128,15 @@ def sample(root, enabled, fixture, scenario, temporary):
                 raise AssertionError('CLI begin was not acknowledged successfully')
             if not state['processed'] or not list((workspace / '.adhd/bridge').glob('*/processed/*.json')):
                 raise AssertionError('CLI begin processing record missing')
-        ledgers = list((base / 'codex/adhd/native').glob('*/ledger.jsonl'))
-        observations = [json.loads(line) for path in ledgers
-                        for line in path.read_text(encoding='utf-8').splitlines()]
+        observations = []
+        if enabled:
+            for path in ledger_root.glob('*/ledger.jsonl'):
+                with path.open('rb') as ledger:
+                    previous = ledger_positions.get(path)
+                    # A rotated/replaced ledger contains new records from offset zero.
+                    if previous and os.fstat(ledger.fileno()).st_ino == previous[0]:
+                        ledger.seek(previous[1])
+                    observations.extend(json.loads(line) for line in ledger)
         diagnostic = next((row for row in reversed(observations)
                            if row['event'] == 'hook_diagnostics'), None) if enabled else None
         if diagnostic and diagnostic['stdout_json_bytes'] != byte_count:

@@ -1419,10 +1419,27 @@ def context(state: dict, *, bootstrap: bool = True, restore: bool = False) -> st
     planning={'optional':'Plan is optional; execute directly or use limited delegation.',
               'brief':'Submit a brief requirement-covered plan before implementation.',
               'deep':'Submit a deep plan covering every requirement before implementation.'}
-    lines=['ADHD Status='+state['status']+'; Profile='+profile['name']+'; plan='+profile['plan_depth']+'. '+planning[profile['plan_depth']]]
+    if state.get('pending_turn_ids'):
+        next_action='Classify '+str(len(state['pending_turn_ids']))+' pending user turn(s) via native sync-intent before review.'
+    elif state.get('plan_required') and (not state.get('plan') or state['plan']['intent_version']!=state['intent_version']):
+        next_action='Submit native plan for the current requirements.'
+    elif state['status']=='reviewing':
+        next_action='Independent adhd-verifier must review the current candidate digest.'
+    elif state['status'] in ACTIVE:
+        next_action='Implement/check the current requirements, then submit candidate and independent review.'
+    elif state['status']=='complete':
+        next_action='Report verified deliverables and limits.'
+    elif state['status']=='idle':
+        next_action='For substantive work use native begin; small questions can be answered directly.'
+    else:
+        next_action='Resolve the recorded blocker; resume only with real user/host authorization.'
+    required=['ADHD Status='+state['status']+'; Profile='+profile['name']+'; plan='+profile['plan_depth']+'.',
+              'SESSION='+state['key']+'; view='+str(b/'view.json'),
+              'Next: '+next_action]
+    lines=[planning[profile['plan_depth']]]
     if state.get('goal_request'):
         lines.append('Goal execution requested: '+truncate_content(state['goal_request']['outcome'],90)+
-                     '. Read '+str(ROOT/'skills/adhd-goal/SKILL.md')+'. Continue until independent acceptance or explicit stop/limit/blocker.')
+                     '. Continue until independent acceptance or explicit stop/limit/blocker.')
     if restore:
         contract=state.get('contract', {})
         objective=(state.get('plan') or {}).get('content', {}).get('objective')
@@ -1433,29 +1450,15 @@ def context(state: dict, *, bootstrap: bool = True, restore: bool = False) -> st
         unmet=[row['id'] for row in contract.get('criteria', [])] if state['status']!='complete' else []
         if unmet:
             lines.append('Unmet acceptance: '+truncate_content(', '.join(unmet),120)+'. Full contract: view.json.')
-        if state.get('pending_turn_ids'):
-            next_action='Classify '+str(len(state['pending_turn_ids']))+' pending user turn(s) via native sync-intent before review.'
-        elif state.get('plan_required') and (not state.get('plan') or state['plan']['intent_version']!=state['intent_version']):
-            next_action='Submit native plan for the current requirements.'
-        elif state['status']=='reviewing':
-            next_action='Independent adhd-verifier must review the current candidate digest.'
-        elif state['status'] in ACTIVE:
-            next_action='Implement/check the current requirements, then submit candidate and independent review.'
-        elif state['status']=='complete':
-            next_action='Report verified deliverables and limits.'
-        elif state['status']=='idle':
-            next_action='For substantive work use native begin; small questions can be answered directly.'
-        else:
-            next_action='Resolve the recorded blocker; resume only with real user/host authorization.'
-        lines.append('Next: '+next_action)
         if state.get('mode')=='study':
             lines.append('Study: explain and give a short self-check/answer key; full solution when explicitly requested.')
         elif state.get('mode')=='research':
             lines.append('Research: separate measured/calculated/interpreted/unverified claims and bind provenance.')
     if state.get('feedback'):
         lines.append('Feedback: '+truncate_content(state['feedback'],160))
+    if state.get('goal_request'):
+        lines.append('Read '+str(ROOT/'skills/adhd-goal/SKILL.md')+'.')
     if bootstrap:
-        lines.append('SESSION='+state['key']+'; view='+str(b/'view.json'))
         lines.append('ADHD v'+__version__+'. Read '+str(ROOT/'skills/adhd-native/SKILL.md')+'.')
         if state.get('contract'):
             lines.append('Preserve model/effort and original intent; verify independently. No competing owner. Tokens unknown.')
@@ -1463,12 +1466,17 @@ def context(state: dict, *, bootstrap: bool = True, restore: bool = False) -> st
             lines.append('Small questions: answer directly. For substantive work use '+str(ROOT/'adhd.py')+
                          ' native begin. Read inputs/skills/memory. Preserve parent model/effort and original intent; '
                          'verify independently. If another owner is active, do not begin ADHD. Native tokens are unknown.')
-    else:
-        lines.append('ADHD view='+str(b/'view.json'))
     # Our guidance budget is in characters; the host's additionalContextLimit
-    # is an approximate token threshold. Restore state before common reminders.
-    text='\n'.join(lines)
-    return text if len(text)<=1200 else text[:1197]+'...'
+    # is an approximate token threshold. Never cut mandatory recovery fields,
+    # even when an unusually long view path alone exceeds the character budget.
+    text='\n'.join(required)
+    remaining=1200-len(text)-1
+    if remaining>0:
+        explanation='\n'.join(lines)
+        if len(explanation)>remaining:
+            explanation=explanation[:max(0,remaining-3)]+'.'*min(3,remaining)
+        text+='\n'+explanation
+    return text
 
 
 def handle_event(ev: dict, *, diagnostics=None) -> dict:
