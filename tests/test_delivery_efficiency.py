@@ -335,6 +335,24 @@ class DeliveryEfficiencyTests(unittest.TestCase):
             run = subprocess.run(command, capture_output=True, text=True, timeout=15)
             self.assertEqual(run.returncode, 2)
 
+    def test_r8_benchmark_worker_loads_offline_dependencies_without_site_packages(self):
+        root = Path(__file__).resolve().parents[1]
+        driver = root / 'scripts' / 'benchmark_delivery_efficiency.py'
+        with tempfile.TemporaryDirectory() as tmp:
+            isolated = Path(tmp)
+            environment = {**os.environ, 'CODEX_HOME': str(isolated / 'codex'),
+                           'ADHD_HOME': str(isolated / 'codex/adhd'),
+                           'ADHD_EXEC_OWNER': '', 'PYTHONPATH': str(root),
+                           'PYTHONDONTWRITEBYTECODE': '1', 'PYTHONUTF8': '1'}
+            run = subprocess.run([sys.executable, '-S', str(driver), '--worker',
+                                  str(root), str(isolated)], cwd=root, env=environment,
+                                 capture_output=True, text=True, timeout=120)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            report = json.loads(run.stdout)
+            self.assertEqual(report['source_tree'], str(root))
+            self.assertEqual(report['observed_process_starts'], 1)
+            self.assertEqual(report['distinct_receipts'], 1)
+
     def test_r8_executable_failure_policy_benchmark_keeps_unknown_live_metrics(self):
         root = Path(__file__).resolve().parents[1]
         driver = root / 'scripts' / 'benchmark_delivery_efficiency.py'

@@ -27,6 +27,7 @@ def _encoded(value: object) -> bytes:
 
 def _worker(tree: Path, isolated: Path) -> dict:
     sys.path.insert(0, str(tree))
+    from adhd import dependencies as _dependencies  # Load the selected tree's shipped libraries.
     from adhd.core import digest
     from adhd.evidence import validate_execution
     from adhd.large_prompts import worker_prompt

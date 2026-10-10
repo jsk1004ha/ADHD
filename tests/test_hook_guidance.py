@@ -21,7 +21,7 @@ class HookGuidanceTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
-        self.ws = Path(temporary.name) / 'workspace'
+        self.ws = Path(temporary.name).resolve() / 'workspace'
         self.ws.mkdir()
         env = patch.dict(os.environ, {'CODEX_HOME': str(Path(temporary.name) / 'codex'),
                                      'ADHD_HOME': str(Path(temporary.name) / 'codex/adhd'),
