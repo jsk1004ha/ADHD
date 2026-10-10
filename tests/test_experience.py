@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -221,6 +222,34 @@ class ExperienceTests(unittest.TestCase):
         self.assertEqual(report["phases"]["curation"], 1)
         self.assertEqual(report["phases"]["candidate"], 1)
         self.assertEqual(report["retry_calls"], 1)
+
+    def test_usage_totals_and_public_cli_share_cumulative_parent_accounting(self):
+        common = {'task_id': 'task-accounting', 'phase': 'child', 'role': 'executor'}
+        events = [
+            {**common, 'call_id': 'z-parent-first', 'actor': 'parent', 'cumulative': True,
+             'input_tokens': 100, 'cached_input_tokens': 10, 'output_tokens': 20},
+            {**common, 'call_id': 'a-parent-second', 'actor': 'parent', 'cumulative': True,
+             'input_tokens': 150, 'cached_input_tokens': 15, 'output_tokens': 30},
+            {**common, 'call_id': 'child', 'actor': 'child-1', 'included_in_parent': True,
+             'input_tokens': 40, 'cached_input_tokens': 4, 'output_tokens': 8},
+            {**common, 'call_id': 'unknown', 'actor': 'child-2',
+             'input_tokens': None, 'cached_input_tokens': None, 'output_tokens': None},
+        ]
+        for event in events:
+            experience.record_usage(self.workspace, event)
+        report = experience.usage_report(self.workspace)
+        self.assertEqual(report['totals']['input_tokens']['known'], 150)
+        self.assertEqual(report['totals']['input_tokens']['missing_calls'], 1)
+        self.assertEqual(report['totals']['input_tokens']['known'],
+                         report['observed_accounting']['tokens']['input_tokens']['known'])
+        run = subprocess.run([sys.executable,
+            str(Path(__file__).resolve().parents[1] / 'adhd.py'),
+            'wiki', 'usage', '--workspace', str(self.workspace)],
+            capture_output=True, text=True, timeout=15)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        cli = json.loads(run.stdout)
+        self.assertEqual(cli['totals'], report['totals'])
+        self.assertEqual(cli['totals']['input_tokens']['known'], 150)
 
 
 if __name__ == "__main__":

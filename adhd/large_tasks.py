@@ -689,6 +689,7 @@ class LargeTaskStore:
                 'contract_hash': state['spec']['contract_hash'],
                 'contract_revision': state['spec']['contract_revision'],
                 'requirements': [r for r in state['spec']['requirements'] if r['id'] in refs],
+                'verbatim_excerpts': [r['text'] for r in state['spec'].get('original_turns', [])],
                 'write_paths': spec['write_paths'], 'shared_resources': spec.get('shared_resources', []),
                 'forbidden_paths': spec.get('forbidden_paths', []), 'depends_on': spec.get('depends_on', []),
                 'interfaces': copy.deepcopy(row['dependency_versions']),

@@ -38,6 +38,27 @@ failed/impacted/critical checks. Do not run the full suite after every edit or
 spawn an agent per test. Final review uses exact current receipts; reuse only
 provably unchanged inputs/environment with complete impact declarations. The
 `batch` CLI returns a nonzero code for failed/stale checks.
+
+Before execution, use `batch diagnose --spec-file checks.json` to flag blanket
+critical checks, shared input scopes and incomplete declarations. Mandatory
+passing evidence does not imply fresh execution on every round. Group related
+repairs, finish change review/cleanup before final freeze, then run required
+checks or reuse current evidence. Later fixes rerun affected and dependent checks;
+full suites need a repository requirement, broad change or unknown impact.
+Receipt/tool deduplication is local to each validation call; final approval
+still checks current bytes. Stop when sufficient evidence and independent
+acceptance exist. Read `ADHD_ROOT/docs/verification-efficiency.md` when needed.
+
+For a new delivery contract, include requirement-bound preservation, runtime,
+delivery target and explicit deadline fields only when the source turns support
+them. Reopen the managed session before using new fields. Attach a current
+passed batch to a new coding delivery contract before candidate. Keep scoped
+conversation approval separate from host permission and do not repeat an
+identical observed denial. Release/live delivery needs publish plus fresh
+verification evidence; a push alone is not completion. Read
+`ADHD_ROOT/docs/delivery-efficiency.md` for delivery policy and command examples at this
+transition. Native state remains v2 until guarded readers and managed entrypoints
+support a separate schema upgrade.
 ## Helpers at a specific transition
 Load only the helper that resolves the current need; they share this run's owner,
 not a separate execution loop. Use the shared [handoff and native command mapping](references/skill-handoff.md).

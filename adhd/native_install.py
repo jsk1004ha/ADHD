@@ -26,12 +26,14 @@ from .builtin import (skill_manifest, mcp_catalog, skill_changes, prepare_mcp_co
 START='<!-- ADHD-NATIVE:BEGIN -->'
 END='<!-- ADHD-NATIVE:END -->'
 NATIVE_SCHEMA_VERSION=3
+# Runtime state remains v2 until every managed reader can reject newer state.
+MAX_STATE_READER_VERSION=2
 INSTALL_SUBDIR='adhd'
 RELEASE_DIRS=('adhd','skills','native','schemas','third_party','tests','config','bundled','runtime')
 RELEASE_FILES=('adhd.py','hook.py','LICENSE','LICENSE-RAIBIT-MIT','THIRD_PARTY_NOTICES.md','requirements-documents.txt','README.md','README.ko.md','ADHD_PROVENANCE.md',
-               'docs/installation.md','docs/request-routing.md','docs/large-tasks.md','docs/obsidian.md','docs/releases/0.1.4.md','docs/releases/0.1.5.md','docs/releases/0.1.6.md',
+               'docs/installation.md','docs/request-routing.md','docs/large-tasks.md','docs/obsidian.md','docs/delivery-efficiency.md','docs/verification-efficiency.md','docs/releases/0.1.4.md','docs/releases/0.1.5.md','docs/releases/0.1.6.md',
                'examples/large-task.json','examples/large-limits.json','examples/batch-checks.json',
-               'examples/obsidian/config.json','examples/obsidian/feedback.json','scripts/benchmark_obsidian.py')
+               'examples/obsidian/config.json','examples/obsidian/feedback.json','scripts/benchmark_delivery_efficiency.py','scripts/benchmark_verification_efficiency.py','scripts/benchmark_obsidian.py','scripts/compare_delivery_efficiency.py')
 WORKFLOW_SKILLS=('adhd-goal','adhd-shape','adhd-challenge','adhd-decide','adhd-steer',
                  'adhd-unblock','adhd-retro','adhd-optimize')
 NATIVE_CAPABILITIES=('adhd-native','adhd-memory','adhd-documents','adhd-extensions')+WORKFLOW_SKILLS
@@ -431,6 +433,7 @@ def _rollback_native(target: Path, *, record_root:Path|None=None,
         if managed is None:raise ValueError('No native installation record')
         record_root=managed[0]
     parent=record_root.expanduser().resolve()
+    _assert_active_state_readable(parent, 0)
     with FileLock(str(parent/'install-native.lock'),timeout=5):
         p=parent/'native-installation.json';record=read_json(p)
         if not record: raise ValueError('No native installation record')
@@ -468,11 +471,35 @@ def audit_native(target: Path) -> dict:
     return report
 
 
+def _assert_active_state_readable(parent: Path, max_reader: int) -> None:
+    """Do not detach an active run from the reader required by its state."""
+    sessions=parent/'native'
+    if not sessions.is_dir() or sessions.is_symlink():
+        return
+    terminal={'idle','complete','paused','blocked','cancelled','budget_exhausted'}
+    for session in sessions.iterdir():
+        if not re.fullmatch(r'[0-9a-f]{24}',session.name) or not session.is_dir() or session.is_symlink():
+            continue
+        source=session/'state.json'
+        if not source.is_file() or source.is_symlink():
+            continue
+        if source.stat().st_size>2*1024*1024:
+            raise ValueError('Active native state is too large to inspect before installation change')
+        state=json.loads(source.read_text(encoding='utf-8-sig'))
+        if not isinstance(state,dict) or state.get('status') not in terminal:
+            version=state.get('schema_version') if isinstance(state,dict) else None
+            minimum=state.get('min_reader_version',1) if isinstance(state,dict) else None
+            if (max_reader==0 or type(version) is not int or type(minimum) is not int
+                    or version>max_reader or minimum>max_reader):
+                raise ValueError('Active native state requires a compatible reader; finish or pause its children before downgrade')
+
+
 # All managed installation changes share an outer operation lock. An upgrade is a
 # checked rollback + install, with recovery, not an OS-wide atomic transaction.
 def install_native(target:Path,agents_home:Path|None=None,compact:bool=False,migrate_models:bool=False,fixture_mode:bool=False)->dict:
     parent=target.expanduser().resolve()/INSTALL_SUBDIR;parent.mkdir(parents=True,exist_ok=True)
     with FileLock(str(parent/'native-operation.lock'),timeout=10):
+        _assert_active_state_readable(parent, MAX_STATE_READER_VERSION)
         return _install_native(target,agents_home,compact,migrate_models,fixture_mode)
 
 
@@ -498,6 +525,7 @@ def upgrade_native(target:Path,agents_home:Path|None=None,compact:bool=False,mig
         current=_find_managed_installation(target)
         if current is None or current[0]!=record_root:
             raise ValueError('Managed installation changed while waiting for its lock.')
+        _assert_active_state_readable(parent, MAX_STATE_READER_VERSION)
         rp=current[1]
         old=read_json(rp)
         if not old:return _install_native(target,agents_home,compact,migrate_models,fixture_mode)

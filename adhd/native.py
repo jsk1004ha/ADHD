@@ -31,6 +31,10 @@ from .gates import (validate_plan, validate_document_contract, document_candidat
 from .host_capabilities import (normalize_event, observe_event, completion_capability,
                                 observed_thread_goal)
 from .intent import apply_intent_patch
+from .delivery_policy import validate_contract_metadata, deadline_guidance, delivery_status
+from .execution_decisions import (register_action, authorize_action, action_decision,
+                                  classify_denial, record_action_outcome, next_wait,
+                                  matched_host_action, observe_action_host_result)
 from .evidence import (validate_execution, observe_host_tool, validate_tool_observations,
                        receipt_test_failures)
 from .recovery import classify_failure, record_failure, verified_failure_signature
@@ -103,7 +107,7 @@ GOAL_IMPLICIT_LIMITS = frozenset({'max_rounds', 'max_seconds', 'max_stagnation',
 
 def goal_command(prompt: str) -> str | None:
     """Only a leading human command selects persistence; mentions are ordinary text."""
-    match = re.match(r'^\s*(?:/goal|\$adhd-goal)(?=\s|$)\s*([\s\S]*)$', prompt)
+    match = re.match(r'^\s*(?:/goal|\$adhd-goal|\[\$adhd-goal\]\((?:skill://adhd-goal|[^\s)]*[\\/]adhd-goal(?:[\\/]SKILL\.md)?)\))(?=\s|$)\s*([\s\S]*)$', prompt)
     return match.group(1).strip() if match else None
 
 
@@ -332,6 +336,8 @@ def update_stagnation(state: dict) -> None:
     gained = markers - seen
     if gained:
         state['stagnation'] = 0
+        state['progress_last_gained_at']=time.time()
+        state.pop('stagnation_guidance_issued',None)
     elif state.get('progress_initialized'):
         state['stagnation'] = state.get('stagnation', 0) + 1
     else:
@@ -398,6 +404,26 @@ def checked_path(root: Path, relative: str, *, existing: bool = False) -> Path:
 def bridge(workspace: Path, key: str) -> Path:
     folder(key)  # validate key
     return checked_path(workspace, '.adhd/bridge/' + key)
+
+
+_NEW_CONTRACT_FIELDS = frozenset({'preserve_conditions', 'delivery_target',
+                                  'runtime_context', 'deadline'})
+
+
+def _request_needs_current_reader(op: str, payload: dict) -> bool:
+    if op == 'begin':
+        return bool(_NEW_CONTRACT_FIELDS & payload.keys())
+    if op == 'sync-intent':
+        return any(isinstance(row, dict) and str(row.get('target', '')).split('/')[0] in
+                   _NEW_CONTRACT_FIELDS for row in payload.get('operations', []))
+    return op == 'candidate' and 'delivery_evidence' in payload
+
+
+def _current_session_reader(state: dict) -> bool:
+    reader = state.get('session_reader') or {}
+    return (reader.get('release_root') == str(ROOT.resolve())
+            and reader.get('source_sha256') == file_hash(Path(__file__).resolve())
+            and reader.get('max_state_version') == 2)
 
 def bounded_json(path: Path, limit: int = MAX_MESSAGE) -> Any:
     if path.stat().st_size > limit:
@@ -477,8 +503,8 @@ def claim_writer(state: dict) -> None:
     state['lease_generation'] = leases.acquire(Path(state['workspace']), expected, owner='native')
 
 def release_writer(state: dict) -> None:
-    if any(child.get('status') == 'running' for child in state.get('children', {}).values()):
-        raise ValueError('Cannot release writer while a child is running')
+    if any(child.get('status') != 'finished' for child in state.get('children', {}).values()):
+        raise ValueError('Cannot release writer while a child has unconfirmed termination')
     leases.release(Path(state['workspace']),
                    'native:' + state['key'] + ':' + state.get('run_id', ''),
                    state.get('lease_generation'))
@@ -491,7 +517,7 @@ def end_after_children(state: dict, terminal: str, feedback: str | None = None) 
     state.pop('host_resume_pending', None)
     if feedback is not None:
         state['feedback'] = feedback
-    if any(child.get('status') == 'running' for child in state.get('children', {}).values()):
+    if any(child.get('status') != 'finished' for child in state.get('children', {}).values()):
         state['status'] = 'interrupt_pending'
         state['pending_terminal'] = terminal
     else:
@@ -502,9 +528,26 @@ def end_after_children(state: dict, terminal: str, feedback: str | None = None) 
 def export_view(state: dict) -> None:
     b = bridge(Path(state['workspace']), state['key']); b.mkdir(parents=True, exist_ok=True)
     # This is a model-readable copy; never trust it as authoritative state.
-    public = {k:v for k,v in state.items() if k not in {'processed','reservations','seen_stops','host_goal_cursor','guidance_signature'}}
+    public = {k:v for k,v in state.items() if k not in {'processed','request_acks','reservations','seen_stops','host_goal_cursor','guidance_signature','last_assistant_message'}}
     public['completion_capability']=completion_capability(state.get('host_capabilities',{}))
     public['pending_intent']=bool(state.get('pending_turn_ids'))
+    public['artifact_status']='candidate' if state.get('candidate') else 'in_progress' if state.get('contract') else 'unknown'
+    public['acceptance_status']='accepted' if state['status']=='complete' else 'pending'
+    target=(state.get('contract') or {}).get('delivery_target')
+    delivery=(state.get('candidate') or {}).get('delivery_evidence')
+    public['delivery_status']=(('complete' if state['status']=='complete' else 'pending')
+                               if not target or target['kind']=='local_artifact' else
+                               ('verified_candidate' if delivery and state['status'] in {'reviewing','complete'} else
+                                delivery_status(target,delivery)['status']))
+    from .run_metrics import summarize_run_metrics
+    usage_rows=[{'id':'parent-unobserved','kind':'usage','actor':'parent',
+                 'input_tokens':None,'cached_input_tokens':None,'output_tokens':None}]
+    for index, call in enumerate(state.get('model_calls', [])):
+        usage=call.get('usage') or {}
+        usage_rows.append({'id':'child:'+str(call.get('agent_id',index))+':'+str(index),
+            'kind':'usage','actor':'child:'+str(call.get('agent_id',index)),
+            **{name:usage.get(name) for name in ('input_tokens','cached_input_tokens','output_tokens')}})
+    public['observed_accounting']=summarize_run_metrics(usage_rows)
     p = checked_path(Path(state['workspace']), str((b/'view.json').relative_to(state['workspace'])))
     atomic_json(p, public)
 
@@ -536,6 +579,11 @@ def initial(key: str, ws: Path) -> dict:
 
 def migrate_state(state: dict, d: Path) -> None:
     """Preserve older state while requiring current evidence for completion."""
+    version = state.get('schema_version', 1)
+    minimum = state.get('min_reader_version', 1)
+    if (type(version) is not int or type(minimum) is not int or version < 1
+            or minimum < 1 or version > 2 or minimum > 2):
+        raise ValueError('Native state requires a newer compatible reader; preserve it without mutation')
     state.setdefault('loop_mode', 'bounded')
     state.setdefault('goal_request', None)
     state.setdefault('explicit_policy_keys', [])
@@ -551,6 +599,7 @@ def migrate_state(state: dict, d: Path) -> None:
         state.setdefault('needs_replan',False)
         state.setdefault('model_calls',[])
         state.setdefault('tool_observations',[])
+        state.setdefault('request_acks',{})
         return
     backup=d/'state-v0.1.0.backup.json'
     if not backup.exists():
@@ -613,6 +662,7 @@ def result_valid(state: dict, rows: Any, *, require_execution: bool = False) -> 
     criteria = {r['id']:r for r in state['contract']['criteria']}
     kinds = {key:r['kind'] for key,r in criteria.items()}
     seen=set()
+    validated_receipts=set()
     for row in rows:
         if not isinstance(row,dict) or row.get('id') in seen or row.get('id') not in expected:
             raise ValueError('Duplicate/unknown requirement result')
@@ -627,8 +677,10 @@ def result_valid(state: dict, rows: Any, *, require_execution: bool = False) -> 
             for ref in refs:
                 if not isinstance(ref, str):
                     raise ValueError('Invalid execution evidence path')
-                validate_execution(Path(state['workspace']), ref, run_id=state['run_id'],
-                                   revision=state['intent_version'])
+                if ref not in validated_receipts:
+                    validate_execution(Path(state['workspace']), ref, run_id=state['run_id'],
+                                       revision=state['intent_version'])
+                    validated_receipts.add(ref)
         if kinds[row['id']] in {'browser','mcp'}:
             observations=row.get('observation_ids')
             if not isinstance(observations,list):
@@ -681,6 +733,14 @@ def is_fresh(state: dict) -> bool:
         if state.get('large_task'):
             from .large_native import validate_admission
             validate_admission(state)
+        if c.get('batch_report'):
+            from .validation_batch import load_report
+            batch=load_report(ws,c['batch_report'])
+            if (batch['snapshot']['run_id']!=state['run_id'] or
+                    batch['snapshot']['contract_revision']!=state['intent_version'] or
+                    batch['snapshot']['contract_hash']!=state['contract_hash'] or
+                    c.get('batch_report_digest')!=batch['report_digest']):
+                return False
         return True
     except (ValueError,OSError):
         return False
@@ -709,7 +769,7 @@ def source_check(state: dict, rows: Any) -> list[str]:
 
 def archive_for_new_task(state: dict, d: Path, turn_id: str) -> None:
     """Keep the prior run inspectable and start no new writer before old children end."""
-    if any(child['status']=='running' for child in state.get('children',{}).values()):
+    if any(child.get('status')!='finished' for child in state.get('children',{}).values()):
         state['status']='handoff_pending'
         state['handoff_turn_id']=turn_id
         return
@@ -757,6 +817,13 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             if not isinstance(values,list) or len(values)>50 or any(not isinstance(v,str) or len(v)>4000 for v in values):
                 raise ValueError(field+' must be a bounded list of strings')
         criteria=criteria_valid(payload.get('criteria'))
+        metadata=validate_contract_metadata(payload,criteria)
+        if metadata and not _current_session_reader(state):
+            raise ValueError('New contract metadata requires a current SessionStart reader; reopen the managed session first')
+        if any(row['source_turn_id'] not in {p['turn_id'] for p in state['prompts']}
+               for row in [*metadata.get('preserve_conditions',[]),
+                           *(metadata[name] for name in ('delivery_target','runtime_context','deadline') if name in metadata)]):
+            raise ValueError('Contract metadata needs a recorded user source turn')
         routed=state.get('request_route') or {}
         profile=execution_profile(payload.get('execution_profile', routed.get('suggested_profile', 'standard')))
         effective_prompt=routed.get('effective_prompt') or state['prompts'][-1]['text']
@@ -801,7 +868,12 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         state['failure_history']=[];state['failure_counts']={};state['verified_failure_counts']={};state['needs_replan']=False
         state['contract']={'criteria':criteria,'artifacts':artifacts,
             'assumptions':payload.get('assumptions',[]), 'non_goals':payload.get('non_goals',[]),
-            'intent_version':state['intent_version'], 'documents':documents, 'protected_inputs':protected_hashes}
+            'intent_version':state['intent_version'], 'documents':documents, 'protected_inputs':protected_hashes,
+            **metadata}
+        state['efficiency_policy_version']=1
+        state['actions']={};state['check_decisions']=[];state['wait_observations']=[]
+        state['delivery_milestones']=[];state['context_refs']={}
+        state['batch_required']=bool(metadata) and mode=='coding'
         if scope:
             state['contract']['coding_scope'] = scope
         if 'plan' in payload:
@@ -817,6 +889,40 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             return 'Simple run armed. Execute directly or use one bounded child; verify before independent review.'
         return 'Run armed. Read relevant memory/skills, then submit a requirement-covered plan before implementation. Do not wait for user approval of reversible decisions.'
     if op=='status': return 'Status exported to view.json.'
+    if op=='record-action':
+        if state['status'] not in ACTIVE:
+            raise ValueError('Action needs an active run')
+        if payload.get('source_turn_id') not in {p['turn_id'] for p in state['prompts']}:
+            raise ValueError('Action needs an observed user turn')
+        row=register_action(state,payload)
+        return 'Action '+row['action_id']+' recorded; user authorization and host capability are separate.'
+    if op=='authorize-action':
+        turn=payload.get('source_turn_id')
+        prompt=next((p['text'] for p in reversed(state['prompts']) if p['turn_id']==turn),None)
+        row=authorize_action(state,payload.get('action_id'),turn_id=turn,prompt=prompt)
+        return 'Scoped user authorization recorded for '+row['action_id']+'; host permission remains unknown.'
+    if op=='action-decision':
+        row=state.get('actions',{}).get(payload.get('action_id'))
+        if not row:
+            raise ValueError('Unknown action')
+        decision=action_decision(state,row,state.get('host_policy_version'))
+        state['last_action_decision']=decision
+        return json.dumps(decision,ensure_ascii=False)
+    if op=='action-outcome':
+        row=state.get('actions',{}).get(payload.get('action_id'))
+        if not row:
+            raise ValueError('Unknown action')
+        ref=payload.get('evidence_id')
+        receipt=validate_execution(ws,ref,run_id=state['run_id'],revision=state['intent_version'],expect_failure=True)
+        stderr=checked_path(ws,str((Path(ref).parent/'check.stderr.log').as_posix()),existing=True)
+        stdout=checked_path(ws,str((Path(ref).parent/'check.stdout.jsonl').as_posix()),existing=True)
+        output=(stderr.read_text(encoding='utf-8',errors='replace')[-8192:]
+                + '\n' + stdout.read_text(encoding='utf-8',errors='replace')[-8192:])
+        observed=classify_denial(output)
+        if payload.get('outcome')!=observed:
+            raise ValueError('Action outcome differs from observed failure output')
+        record_action_outcome(state,row,observed,ref,None)
+        return 'Action outcome recorded from failed execution receipt; identical denied retry held.'
     if op=='goal':
         request = state.get('goal_request')
         if (not request or payload.get('source_turn_id') != request['source_turn_id']
@@ -849,6 +955,8 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         if not current:
             raise ValueError('No active contract to amend')
         updated,changed=apply_intent_patch(current,payload,state['pending_turn_ids'])
+        if _request_needs_current_reader(op,payload) and not _current_session_reader(state):
+            raise ValueError('New contract metadata needs a current SessionStart reader before amendment')
         turn=payload['source_turn_id']
         if changed==['new_task']:
             archive_for_new_task(state,d,turn)
@@ -857,6 +965,10 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         if not changed:
             return 'Status-only turn reconciled; contract, plan and candidate unchanged.'
         criteria_valid(updated['criteria'])
+        if any(row['source_turn_id'] not in {p['turn_id'] for p in state['prompts']}
+               for row in [*updated.get('preserve_conditions',[]),
+                           *(updated[name] for name in ('delivery_target','runtime_context','deadline') if name in updated)]):
+            raise ValueError('Amended metadata needs a recorded user source turn')
         if len(set(updated['artifacts']))!=len(updated['artifacts']):
             raise ValueError('Duplicate artifacts after amendment')
         for rel in updated['artifacts']:
@@ -873,6 +985,27 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         state['contract']=updated
         state['intent_version']=updated['intent_version']
         state['contract_hash']=digest(updated)
+        state.pop('batch_report',None)
+        state.pop('batch_report_digest',None)
+        state['check_decisions']=[]
+        from .large_prompts import apply_context_delta
+        deltas={}
+        for aid,child in state.get('children',{}).items():
+            ref=child.get('context_packet')
+            if child.get('status')!='running' or not ref:
+                continue
+            original=bounded_json(Path(ref),8*1024*1024)
+            amendment=next((p['text'] for p in state['prompts'] if p['turn_id']==turn),'')
+            delta={'base_revision':old_version,'revision':updated['intent_version'],
+                   'changed':{'requirement_ids':[row['id'] for row in updated['criteria']],
+                              'acceptance':[row['text'] for row in updated['criteria']],
+                              'append_verbatim_excerpts':[amendment]}}
+            revised=apply_context_delta(original,delta)
+            destination=Path(ref).with_name(Path(ref).stem+'-r'+str(updated['intent_version'])+'.json')
+            atomic_json(destination,revised)
+            child['context_packet']=str(destination)
+            deltas[aid]={'delta':delta,'recovery_packet':str(destination)}
+        state['pending_context_deltas']=deltas
         if state.get('large_task'):
             from .large_native import invalidate_intent
             invalidate_intent(state)
@@ -886,11 +1019,41 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         if state.get('lease_generation') is None:
             claim_writer(state)
         atomic_json(d/('contract-'+state['run_id']+'-v'+str(state['intent_version'])+'.json'),updated)
-        return 'User amendment applied as contract revision '+str(state['intent_version'])
+        return ('User amendment applied as contract revision '+str(state['intent_version'])+
+                ('; forward pending_context_deltas from view.json to running children.' if deltas else ''))
     if state['status'] not in ACTIVE:
         raise ValueError('No active native run')
     if digest(state['contract']) != state['contract_hash']:
         raise ValueError('Authoritative contract changed unexpectedly')
+    if op=='read-observation':
+        from .large_prompts import read_decision
+        if not isinstance(payload.get('sections'),list) or any(not isinstance(v,str) for v in payload['sections']):
+            raise ValueError('Read observation needs sections')
+        for key in ('question','scope','source_hash'):
+            if not isinstance(payload.get(key),str) or not payload[key] or len(payload[key])>500:
+                raise ValueError('Read observation needs bounded '+key)
+        refs=state.setdefault('context_refs',{})
+        decision=read_decision(refs,question=payload['question'],scope=payload['scope'],
+                               source_hash=payload['source_hash'],sections=payload['sections'],
+                               independent_review=payload.get('independent_review') is True)
+        if decision['read'] and len(refs)<100:
+            refs[decision['key']]={'revision':state['intent_version'],'scope':payload['scope']}
+        return json.dumps(decision,ensure_ascii=False)
+    if op=='wait-observation':
+        fingerprint=payload.get('status_digest')
+        if not isinstance(fingerprint,str) or not re.fullmatch(r'[0-9a-f]{64}',fingerprint):
+            raise ValueError('Wait observation needs a status digest')
+        previous=state.setdefault('wait_observations',[])
+        unchanged=0
+        for row in reversed(previous):
+            if row['status_digest']!=fingerprint:
+                break
+            unchanged+=1
+        decision=next_wait({'unchanged_count':unchanged,'changed':unchanged==0,
+                            'alive':payload.get('alive') is True})
+        state['wait_observations']=(previous+[{'status_digest':fingerprint,
+                                              'seconds':decision['seconds']}])[-30:]
+        return json.dumps(decision,ensure_ascii=False)
     if op == 'attach-large':
         if not state.get('plan') or state['plan']['intent_version'] != state['intent_version']:
             raise ValueError('Current deep plan is required before attaching large execution')
@@ -898,6 +1061,22 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         state['large_task'] = attach(state, payload)
         state['candidate'] = None
         return 'Large graph attached. Use isolated CLI workers; App multi-writer correlation remains unavailable.'
+    if op=='attach-batch':
+        from .validation_batch import load_report
+        ref=payload.get('report')
+        if not isinstance(ref,str):
+            raise ValueError('Batch attachment needs report path')
+        report=load_report(ws,ref)
+        batch_snapshot=report['snapshot']
+        if (batch_snapshot['run_id']!=state['run_id'] or batch_snapshot['contract_revision']!=state['intent_version']
+                or batch_snapshot['contract_hash']!=state['contract_hash']):
+            raise ValueError('Batch belongs to another run, revision or contract')
+        state['batch_report']=ref
+        state['batch_report_digest']=report['report_digest']
+        state['batch_plan_sha256']=(state.get('plan') or {}).get('sha256')
+        state['check_decisions']=[{'id':row['id'],'decision_class':row.get('decision_class','required_fresh'),
+                                   'receipt':row['receipt']} for row in report['results']][-200:]
+        return 'Current passed validation batch attached: '+ref
     if op=='plan':
         content=validate_profile_plan(payload,state['contract']['criteria'],
                                       state.get('execution_profile', execution_profile())['name'])
@@ -907,6 +1086,9 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         if new_sha != (state.get('plan') or {}).get('sha256'):
             state['completed_steps']=[]
         state['plan']={'content':content,'intent_version':state['intent_version'],'sha256':new_sha}
+        if new_sha!=state.get('batch_plan_sha256'):
+            state.pop('batch_report',None)
+            state.pop('batch_report_digest',None)
         state['needs_replan']=False
         atomic_json(d/('plan-'+state['run_id']+'.json'),state['plan'])
         state['candidate']=None;state['status']='working'
@@ -934,8 +1116,6 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
                 row for row in verified if (row['subject_digest'],row['stdout_sha256']) not in known])[-30:]
         failure=payload.get('failure')
         if failure is not None:
-            if state.get('needs_replan'):
-                raise ValueError('Change the plan before another failed-check retry')
             if not isinstance(failure,dict) or set(failure)-{'category','detail','evidence_id'}:
                 raise ValueError('Checkpoint failure must have category, detail and evidence_id')
             ref=failure.get('evidence_id')
@@ -1013,7 +1193,55 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             raise ValueError('Resolve the pending user message before final review')
         if state.get('needs_replan'):
             raise ValueError('Change the plan after repeated failed checks before submitting a candidate')
+        if state.get('batch_required'):
+            from .validation_batch import load_report
+            ref=state.get('batch_report')
+            if not ref:
+                raise ValueError('New coding delivery contract needs an attached current validation batch')
+            report=load_report(ws,ref)
+            batch_snapshot=report['snapshot']
+            if (batch_snapshot['run_id']!=state['run_id'] or batch_snapshot['contract_revision']!=state['intent_version']
+                    or batch_snapshot['contract_hash']!=state['contract_hash'] or
+                    report['report_digest']!=state.get('batch_report_digest') or
+                    state.get('batch_plan_sha256')!=(state.get('plan') or {}).get('sha256')):
+                raise ValueError('Validation batch no longer matches the current contract')
         result_valid(state,payload.get('criterion_results'),require_execution=True)
+        target=state['contract'].get('delivery_target')
+        if target and target['kind'] in {'release','live_deployment'}:
+            delivery=payload.get('delivery_evidence')
+            if not isinstance(delivery,dict) or delivery_status(target,delivery)['status']!='evidence_pending':
+                raise ValueError('Requested release/live delivery needs publish and verification evidence; push alone is insufficient')
+            if delivery['publish_ref']==delivery['verification_ref']:
+                raise ValueError('Publish and delivery verification need separate observations')
+            observed_delivery={}
+            for label,ref in (('publish',delivery['publish_ref']),('verification',delivery['verification_ref'])):
+                if not isinstance(ref,str) or current_receipt(state,ref) is None:
+                    raise ValueError('Delivery evidence needs current successful execution receipts')
+                observed_delivery[label]=current_receipt(state,ref)
+            publish_files=observed_delivery['publish']['subject_files']
+            verification_files=observed_delivery['verification']['subject_files']
+            verified_output=checked_path(ws,str((Path(delivery['verification_ref']).parent/'check.stdout.jsonl').as_posix()),existing=True).read_text(encoding='utf-8',errors='replace')
+            if target['kind']=='release':
+                asset_paths=[rel for rel,sha in target_manifest(state).items() if sha==delivery['asset_sha256']]
+                if (not re.fullmatch(r'[0-9a-f]{64}',delivery['asset_sha256']) or
+                        not asset_paths or not set(asset_paths)&set(publish_files) or
+                        not set(asset_paths)&set(verification_files) or
+                        delivery['asset_sha256'] not in verified_output):
+                    raise ValueError('Release publish must bind current asset bytes; verification must observe its hash')
+            else:
+                paths=delivery.get('source_paths')
+                if (not isinstance(paths,list) or not paths or any(not isinstance(p,str) for p in paths)
+                        or not set(paths)<=set(publish_files)
+                        or not set(paths)<=set(verification_files)):
+                    raise ValueError('Live publish and verification receipts must cover declared source paths')
+                expected=delivery.get('expected_sha')
+                if (not isinstance(expected,str) or not re.fullmatch(r'[0-9a-f]{7,64}',expected) or
+                        delivery.get('live_sha')!=expected or expected not in verified_output or
+                        'healthy' not in verified_output.lower()):
+                    raise ValueError('Live verification must observe matching SHA and healthy service')
+            state['delivery_milestones']=(state.get('delivery_milestones',[])+[{
+                'target':target['kind'],'publish_ref':delivery['publish_ref'],
+                'verification_ref':delivery['verification_ref'],'intent_version':state['intent_version']}])[-10:]
         large_proof, large_files = None, []
         if state.get('large_task'):
             from .large_native import candidate_evidence
@@ -1100,6 +1328,9 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         execution_refs={ref:file_hash(checked_path(ws,ref,existing=True))
                         for row in payload['criterion_results']
                         for ref in row.get('evidence_ids',[])}
+        if target and target['kind'] in {'release','live_deployment'}:
+            for ref in (delivery['publish_ref'],delivery['verification_ref']):
+                execution_refs[ref]=file_hash(checked_path(ws,ref,existing=True))
         deep_evidence=None
         if state.get('execution_profile', execution_profile())['review_depth']=='strengthened':
             required_targets=set(state['contract']['artifacts'])
@@ -1129,6 +1360,11 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             'tool_observations':[observation_by_id[ref] for ref in used_observations],
             'plan_sha256':(state.get('plan') or {}).get('sha256'),
             'execution_receipts':execution_refs,'evidence_schema':1}
+        if state.get('batch_report'):
+            c['batch_report']=state['batch_report']
+            c['batch_report_digest']=state['batch_report_digest']
+        if target and target['kind'] in {'release','live_deployment'}:
+            c['delivery_evidence']=delivery
         if deep_evidence is not None:
             c['deep_evidence']=deep_evidence
         if scope_proof:
@@ -1148,7 +1384,18 @@ def process_inbox(state: dict, d: Path) -> list[str]:
     for p in sorted(inbox.glob('*.json'))[:8]:
         checked_path(ws,str(p.relative_to(ws)),existing=True)
         if not re.fullmatch('[0-9a-f]{32}.json',p.name): continue
-        if p.stem in state['processed']: continue
+        if p.stem in state['processed']:
+            out=checked_path(ws,str((b/'outbox'/(p.stem+'.json')).relative_to(ws)))
+            cached=state.get('request_acks',{}).get(p.stem)
+            if not out.is_file():
+                atomic_json(out,cached or {'ok':False,'status':state['status'],
+                    'message':'Prior request state was committed but its result is unavailable; inspect view.json.'})
+            archive=checked_path(ws,str((b/'processed'/p.name).relative_to(ws)))
+            archive.parent.mkdir(parents=True,exist_ok=True)
+            if not archive.exists():os.replace(p,archive)
+            else:p.unlink()
+            reports.append(json.dumps(read_json(out),ensure_ascii=False))
+            continue
         before=json.loads(json.dumps(state)); obj=None
         try:
             obj=bounded_json(p)
@@ -1163,6 +1410,14 @@ def process_inbox(state: dict, d: Path) -> list[str]:
             state.clear();state.update(before)
             ack={'ok':False,'message':str(e),'status':state['status']}
         state['processed']=(state['processed']+[p.stem])[-200:]
+        acks=state.setdefault('request_acks',{})
+        acks[p.stem]=ack
+        if len(acks)>200:
+            keep=set(state['processed'])
+            state['request_acks']={key:value for key,value in acks.items() if key in keep}
+        # Commit the transition and its response together before exporting the
+        # acknowledgment. A missing ack can then be reconstructed on replay.
+        persist(d,state)
         out=checked_path(ws,str((b/'outbox'/(p.stem+'.json')).relative_to(ws)))
         atomic_json(out,ack)
         archive=checked_path(ws,str((b/'processed'/p.name).relative_to(ws)))
@@ -1298,6 +1553,22 @@ def start_child(state: dict, ev: dict) -> dict:
        'selection_reason':reservation.get('selection_reason') if matched and reservation is not None else route(role)['description'],
        'digest':state['candidate']['digest'] if role=='adhd-verifier' and state.get('candidate') else None}
     instruction='Do not spawn children. Return concise findings with exact file/source pointers. Never claim unexecuted checks.'
+    if state.get('contract'):
+        from .large_prompts import plan_context_packet
+        contract=state['contract'];ws=Path(state['workspace'])
+        packet=plan_context_packet({'task_id':str(aid),'revision':state['intent_version'],
+            'requirement_ids':[row['id'] for row in contract['criteria']],
+            'verbatim_excerpts':[row['text'] for row in state['prompts']],
+            'owned_paths':contract['artifacts'],
+            'dependencies':[], 'acceptance':[row['text'] for row in contract['criteria']],
+            'evidence_refs':[row['id'] for row in state.get('checkpoint_evidence',[])]},
+            {'contract_hash':state['contract_hash'],
+             'contract_ref':str(folder(state['key'])/('contract-'+state['run_id']+'-v'+str(state['intent_version'])+'.json'))})
+        packets=bridge(ws,state['key'])/'packets';packets.mkdir(parents=True,exist_ok=True)
+        packet_path=checked_path(ws,str((packets/(digest(str(aid))+'.json')).relative_to(ws)))
+        atomic_json(packet_path,packet)
+        state['children'][str(aid)]['context_packet']=str(packet_path)
+        instruction+=' Read exact task packet '+str(packet_path)+'; original excerpts and source pointers are preserved there.'
     if role=='adhd-architect': instruction+=' Provide a decision brief <=1800 output tokens (soft instruction). No coding, browsing sweep or implementation. Resolve hard choices and exit.'
     if role=='adhd-verifier': instruction+=' Compare every observed user prompt with the current contract, then read view.json and real files. Return the strict verifier JSON described in adhd-native/SKILL.md.'
     return message('SubagentStart',instruction)
@@ -1310,7 +1581,7 @@ def stop_child(state: dict, ev: dict, d: Path) -> dict:
     usage=ev.get('usage')
     measured=usage if isinstance(usage,dict) and usage and all(
         type(value) is int and value>=0 for value in usage.values()) else None
-    call={'role':child['role'],'selected_model':child.get('selected_model'),
+    call={'agent_id':str(ev.get('agent_id')),'role':child['role'],'selected_model':child.get('selected_model'),
           'selected_effort':child.get('selected_effort'),
           'selection_reason':child.get('selection_reason'),
            'observed_model':child.get('model'),'observed_effort':child.get('observed_effort'),
@@ -1320,10 +1591,10 @@ def stop_child(state: dict, ev: dict, d: Path) -> dict:
           'retry':sum(c['role']==child['role'] for c in state.get('model_calls',[])),
           'outcome':'completion_unverified','finished_at':time.time()}
     state['model_calls']=(state.get('model_calls',[])+[call])[-100:]
-    if state['status']=='handoff_pending' and not any(c['status']=='running' for c in state['children'].values()):
+    if state['status']=='handoff_pending' and all(c.get('status')=='finished' for c in state['children'].values()):
         archive_for_new_task(state,d,state['handoff_turn_id'])
         return message('SubagentStop','Previous run archived; a new begin contract may be submitted.')
-    if state['status']=='interrupt_pending' and not any(c['status']=='running' for c in state['children'].values()):
+    if state['status']=='interrupt_pending' and all(c.get('status')=='finished' for c in state['children'].values()):
         resume = state.pop('host_resume_pending', False) and state.get('pending_terminal') == 'paused'
         end_after_children(state, state.get('pending_terminal','paused'))
         if resume:
@@ -1494,6 +1765,12 @@ def context(state: dict, *, bootstrap: bool = True, restore: bool = False) -> st
             lines.append('Research: separate measured/calculated/interpreted/unverified claims and bind provenance.')
     if state.get('feedback'):
         lines.append('Feedback: '+truncate_content(state['feedback'],160))
+    deadline=(state.get('contract') or {}).get('deadline')
+    if deadline:
+        risk=deadline_guidance(deadline,datetime.now(timezone.utc).isoformat())
+        if risk['level']!='normal':
+            lines.append('Explicit deadline '+risk['level']+'; '+str(risk['remaining_seconds'])+
+                         ' seconds remain. Preserve every mandatory requirement and report delivery evidence.')
     if state.get('goal_request'):
         lines.append('Read '+str(ROOT/'skills/adhd-goal/SKILL.md')+'.')
     if bootstrap:
@@ -1588,16 +1865,30 @@ def handle_event(ev: dict, *, diagnostics=None) -> dict:
             # a hot upgrade cannot attest what an already-running session loaded.
             state['session_verifier_profile']={'release_root':str(ROOT.resolve()),
                 'profile_hash':verifier_profile_hash()}
+            state['session_reader']={'release_root':str(ROOT.resolve()),
+                'source_sha256':file_hash(Path(__file__).resolve()),
+                'max_state_version':2,'observed_at':time.time()}
             out=message(name,context(state,restore=True))
             state['guidance_signature']=guidance_signature(state)
         elif name=='PostCompact':
             out=message(name,context(state))
         elif name=='PostToolUse':
+            observe_action_host_result(state,ev)
             observe_host_tool(state,ev)
             with diagnostics.phase('inbox'):
                 reports=process_inbox(state,d)
             if reports: out=message(name,'\n'.join(reports)+'\nRead bridge/view.json for authoritative exported status.')
-        elif name=='PreToolUse': out=spawn_guard(state,ev)
+        elif name=='PreToolUse':
+            matched=matched_host_action(state,ev)
+            if matched:
+                if isinstance(ev.get('policy_version'),str) and ev['policy_version']:
+                    state['host_policy_version']=ev['policy_version']
+                decision=action_decision(state,matched,state.get('host_policy_version'))
+                if not decision['retry_allowed']:
+                    out=deny('ADHD scoped action held: '+decision['reason']+'; evidence '+
+                             ', '.join(decision['evidence_refs']))
+            if not out:
+                out=spawn_guard(state,ev)
         elif name=='SubagentStart': out=start_child(state,ev)
         elif name=='SubagentStop':
             child=state.get('children',{}).get(str(ev.get('agent_id','')))
@@ -1615,6 +1906,10 @@ def handle_event(ev: dict, *, diagnostics=None) -> dict:
                 end_after_children(state, 'paused',
                                    'Waiting for running children to stop before releasing ownership.')
         elif name=='Stop':
+            last_message=ev.get('last_assistant_message')
+            if isinstance(last_message,str) and last_message:
+                state['last_assistant_message']={'text':last_message[-4000:],
+                    'sha256':digest(last_message),'observed_at':time.time()}
             with diagnostics.phase('inbox'):
                 reports=process_inbox(state,d)
             if state['status']=='complete' and not state.get('pending_turn_ids') and not is_fresh(state):
@@ -1627,6 +1922,20 @@ def handle_event(ev: dict, *, diagnostics=None) -> dict:
                     state['seen_stops']=(state['seen_stops']+[turn])[-100:]
                     state['rounds']+=1;state['lifetime_rounds']=state.get('lifetime_rounds',0)+1
                     update_stagnation(state)
+                    deadline=(state.get('contract') or {}).get('deadline')
+                    if deadline:
+                        risk=deadline_guidance(deadline,datetime.now(timezone.utc).isoformat(),
+                                               last_level=state.get('deadline_alert_level'))
+                        if risk['changed']:
+                            state['deadline_alert_level']=risk['level']
+                            if risk['level']!='normal':
+                                state['feedback']=('Explicit deadline '+risk['level']+': '+str(risk['remaining_seconds'])+
+                                    ' seconds left. Check remaining mandatory work, blockers and delivery evidence.')
+                    if (time.time()-state.get('progress_last_gained_at',state['started'])>=600 and
+                            not state.get('stagnation_guidance_issued') and
+                            not any(child.get('status')!='finished' for child in state.get('children',{}).values())):
+                        state['stagnation_guidance_issued']=True
+                        state['feedback']='Progress check: no fresh requirement/test/artifact progress for 10 minutes. Identify delay, remaining mandatory work, current execution value, and one changed next action.'
                     exceeded=(limit_reached(state, 'max_rounds', state['rounds'], inclusive=False) or
                               limit_reached(state, 'max_lifetime_rounds', state['lifetime_rounds'], inclusive=False) or
                               limit_reached(state, 'max_seconds', time.time()-state['started']) or
@@ -1657,13 +1966,38 @@ def handle_event(ev: dict, *, diagnostics=None) -> dict:
         return out
 
 
-def submit_request(key: str, workspace: Path, op: str, payload: dict) -> dict:
+def submit_request(key: str, workspace: Path, op: str, payload: dict,
+                   request_id: str | None = None) -> dict:
     """Sandbox-side transport only. A trusted host PostToolUse/Stop hook applies it."""
     workspace=workspace.expanduser().resolve(); b=bridge(workspace,key)
-    rid=uuid.uuid4().hex
+    view_path=b/'view.json'
+    view=bounded_json(view_path, 8*1024*1024) if view_path.is_file() else {}
+    if not isinstance(view,dict):
+        raise ValueError('Native bridge view is invalid')
+    contract=view.get('contract') or {}
+    if not isinstance(contract,dict):
+        raise ValueError('Native contract view is invalid')
+    required_reader = (_request_needs_current_reader(op,payload)
+                       or (op != 'status' and bool(_NEW_CONTRACT_FIELDS & contract.keys())))
+    if required_reader:
+        from .native_install import _find_managed_installation
+        managed=_find_managed_installation(home())
+        if (not _current_session_reader(view)
+                or not managed or Path(managed[2].get('release','')).resolve()!=ROOT.resolve()):
+            raise ValueError('Required contract semantics need the current managed hook and SessionStart reader; request was not queued')
+    rid=request_id or uuid.uuid4().hex
+    if not re.fullmatch(r'[0-9a-f]{32}',rid):
+        raise ValueError('Request ID must be 32 lowercase hexadecimal characters')
     value={'id':rid,'session':key,'op':op,'payload':payload}
     if len(json.dumps(value,ensure_ascii=False).encode())>MAX_MESSAGE: raise ValueError('Request too large')
     p=checked_path(workspace,str((b/'inbox'/(rid+'.json')).relative_to(workspace)))
+    processed=checked_path(workspace,str((b/'processed'/(rid+'.json')).relative_to(workspace)))
+    prior=p if p.exists() else processed if processed.exists() else None
+    if prior:
+        if bounded_json(prior)!=value:
+            raise ValueError('Request ID was used for different content')
+        return {'queued':rid,'receipt':str(b/'outbox'/(rid+'.json')),
+                'note':'Existing request reused; inspect ack or wait for host processing.'}
     atomic_json(p,value)
     return {'queued':rid,'receipt':str(b/'outbox'/(rid+'.json')),
             'note':'The native Codex hook must process this request; queued is not success.'}

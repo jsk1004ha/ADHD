@@ -81,8 +81,10 @@ def parser() -> argparse.ArgumentParser:
     q.add_argument('--workspace', type=Path, default=Path.cwd())
     q.add_argument('--mode', choices=MODES, default='coding')
     q = sub.add_parser('native', help='Sandbox-side requests to the native App/CLI controller')
-    q.add_argument('operation', choices=['begin','goal','plan','checkpoint','candidate','sync-intent','attach-large','pause','blocked','status'])
+    q.add_argument('operation', choices=['begin','goal','plan','checkpoint','candidate','sync-intent','attach-large','attach-batch','pause','blocked','status',
+                                         'record-action','authorize-action','action-decision','action-outcome','read-observation','wait-observation'])
     q.add_argument('--session', required=True)
+    q.add_argument('--request-id', help='Reuse a 32-hex request ID after a lost acknowledgment')
     q.add_argument('--workspace', type=Path, default=Path.cwd())
     q.add_argument('--payload-file', type=Path)
     q.add_argument('--profile', choices=['simple', 'standard', 'deep'], help='Explicit execution intensity for begin; preserves selected models and effort')
@@ -90,6 +92,9 @@ def parser() -> argparse.ArgumentParser:
     q.add_argument('prompt')
     q.add_argument('--previous', help='Previous substantive request for a brief approval')
     q.add_argument('--active-contract', action='store_true')
+    q = sub.add_parser('metrics', help='Summarize observed usage or compare fixed paired experiments')
+    q.add_argument('action', choices=['summarize', 'compare'])
+    q.add_argument('--input-file', required=True, type=Path)
     q = sub.add_parser('check', help='Run an explicit argv check and emit a structured execution receipt')
     q.add_argument('--spec-file', required=True, type=Path)
     q.add_argument('--workspace', type=Path, default=Path.cwd())
@@ -185,6 +190,10 @@ def main(argv=None) -> int:
             from .request_routing import classify_request
             output(classify_request(args.prompt, previous=args.previous,
                                     active_contract=args.active_contract))
+        elif args.command == 'metrics':
+            from .run_metrics import summarize_run_metrics, compare_paired_runs
+            rows = bounded_json(args.input_file, 2 * 1024 * 1024)
+            output(summarize_run_metrics(rows) if args.action == 'summarize' else compare_paired_runs(rows))
         elif args.command == 'native':
             payload=bounded_json(args.payload_file) if args.payload_file else {}
             if args.profile:
@@ -193,7 +202,7 @@ def main(argv=None) -> int:
                 if payload.get('execution_profile', args.profile) != args.profile:
                     raise ValueError('CLI and payload execution profiles differ')
                 payload['execution_profile'] = args.profile
-            output(submit_request(args.session,args.workspace,args.operation,payload))
+            output(submit_request(args.session,args.workspace,args.operation,payload,args.request_id))
         elif args.command == 'uninstall':
             native_record = _find_managed_installation(args.codex_home) is not None
             output(rollback_native(args.codex_home) if native_record else uninstall(args.codex_home))

@@ -58,7 +58,10 @@ class BatchTests(unittest.TestCase):
             load_report(self.ws, result['report'])
 
     def test_repair_reuses_only_proven_unaffected_inputs_and_reruns_critical(self):
-        checks = [self.check('a', impact_complete=True), self.check('b', paths=['b.txt'], impact_complete=True),
+        complete = {'impact_complete': True, 'environment_complete': True,
+                    'dependency_paths': [], 'fixture_paths': [], 'environment_vars': []}
+        checks = [self.check('a', **complete),
+                  self.check('b', paths=['b.txt'], **complete),
                   self.check('critical', paths=['b.txt'], critical=True)]
         spec = self.spec(checks)
         first = run_batch(spec, self.ws)
@@ -76,6 +79,29 @@ class BatchTests(unittest.TestCase):
         spec['previous_report'] = first['report']
         second = run_batch(spec, self.ws)
         self.assertNotIn('reused', second['counts'])
+
+    def test_unchanged_inputs_still_rerun_when_impact_scope_is_unknown(self):
+        spec = self.spec([self.check('a', environment_complete=True)])
+        first = run_batch(spec, self.ws)
+        first_row = load_report(self.ws, first['report'])['results'][0]
+        spec['previous_report'] = first['report']
+        second = run_batch(spec, self.ws)
+        report = load_report(self.ws, second['report'])
+        self.assertEqual(report['results'][0]['status'], 'passed')
+        self.assertNotEqual(report['results'][0]['receipt'], first_row['receipt'])
+        self.assertEqual(report['usage']['check_processes'], 1)
+
+    def test_failed_check_is_not_held_when_impact_scope_is_unknown(self):
+        spec = self.spec([self.check('failure', 'import sys;sys.exit(1)',
+                                     environment_complete=True)])
+        first = run_batch(spec, self.ws)
+        first_row = load_report(self.ws, first['report'], require_current=False)['results'][0]
+        spec['previous_report'] = first['report']
+        second = run_batch(spec, self.ws)
+        report = load_report(self.ws, second['report'], require_current=False)
+        self.assertEqual(report['results'][0]['status'], 'failed')
+        self.assertNotEqual(report['results'][0]['receipt'], first_row['receipt'])
+        self.assertEqual(report['usage']['check_processes'], 1)
 
     def test_repair_cannot_drop_or_weaken_existing_checks(self):
         spec = self.spec([self.check('a'), self.check('b', paths=['b.txt'])])

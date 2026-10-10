@@ -11,6 +11,16 @@ from adhd import __version__
 
 
 class PublicPackageTests(unittest.TestCase):
+    def test_delivery_runtime_and_checks_are_in_public_allowlist(self):
+        names = {path.relative_to(package_adhd.ROOT).as_posix()
+                 for path in package_adhd.public_files()}
+        required = {'adhd/delivery_policy.py', 'adhd/execution_decisions.py',
+                    'adhd/run_metrics.py', 'docs/delivery-efficiency.md',
+                    'schemas/native-delivery.json', 'scripts/benchmark_delivery_efficiency.py',
+                    'scripts/compare_delivery_efficiency.py',
+                    'tests/test_delivery_efficiency.py'}
+        self.assertTrue(required <= names)
+
     def test_ignored_private_files_never_enter_archive(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / 'source'

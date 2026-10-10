@@ -76,9 +76,9 @@ def record_failure(state: dict, category: str, detail: str, evidence_ref: str,
     if category in {'auth_required', 'permission_denied', 'tool_unavailable', 'budget_exhausted'}:
         retry_allowed = False
     else:
-        retry_allowed = retry_attempt < 3
+        retry_allowed = retry_attempt < 2
         if not retry_allowed:
-            next_action = 'Preserve the failure evidence and change the hypothesis before a further attempt.'
+            next_action = 'Revisit the assumption and change the hypothesis before another attempt; preserve the failure evidence.'
     row = {'category': category, 'attempt': attempt,
            'verified_attempt': verified_attempt, 'verified_signature': verified_signature,
            'detail': detail[:2000],

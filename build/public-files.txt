@@ -14,10 +14,12 @@ adhd/change_journal.py
 adhd/cli.py
 adhd/coding_scope.py
 adhd/core.py
+adhd/delivery_policy.py
 adhd/dependencies.py
 adhd/documents.py
 adhd/evaluation.py
 adhd/evidence.py
+adhd/execution_decisions.py
 adhd/experience.py
 adhd/experience_procedures.py
 adhd/experience_storage.py
@@ -54,6 +56,7 @@ adhd/obsidian_index.py
 adhd/provenance.py
 adhd/recovery.py
 adhd/request_routing.py
+adhd/run_metrics.py
 adhd/runner.py
 adhd/skill_router.py
 adhd/snapshots.py
@@ -645,6 +648,7 @@ config/builtin-skills.json
 config/mcp-selection.json
 config/native-policy.example.json
 config/profiles.example.json
+docs/delivery-efficiency.md
 docs/installation.md
 docs/large-tasks.md
 docs/obsidian.md
@@ -652,6 +656,7 @@ docs/releases/0.1.4.md
 docs/releases/0.1.5.md
 docs/releases/0.1.6.md
 docs/request-routing.md
+docs/verification-efficiency.md
 examples/agent-task-card.md
 examples/astra-brief.md
 examples/batch-checks.json
@@ -682,13 +687,17 @@ native/agents/adhd-verifier.toml
 requirements-documents.txt
 research/REUSE_MANIFEST.json
 schemas/large-task.json
+schemas/native-delivery.json
 schemas/plan.json
 schemas/review.json
 schemas/wiki-packet.json
 schemas/work.json
 scripts/audit_local_install.py
+scripts/benchmark_delivery_efficiency.py
 scripts/benchmark_obsidian.py
 scripts/benchmark_scope_inventory.py
+scripts/benchmark_verification_efficiency.py
+scripts/compare_delivery_efficiency.py
 scripts/test_audit_local_install.py
 skills/adhd-challenge/SKILL.md
 skills/adhd-challenge/agents/openai.yaml
@@ -731,6 +740,7 @@ tests/test_change_journal.py
 tests/test_cli_branding.py
 tests/test_coding_scope.py
 tests/test_coding_scope_inventory.py
+tests/test_delivery_efficiency.py
 tests/test_document_evidence.py
 tests/test_editable_elements.py
 tests/test_execution_profiles.py
@@ -766,6 +776,7 @@ tests/test_v012.py
 tests/test_v012_install_integrity.py
 tests/test_v12.py
 tests/test_validation_batch.py
+tests/test_verification_efficiency.py
 tests/test_windows_setup.py
 tests/test_workflow_skills.py
 third_party/Apache-2.0.txt

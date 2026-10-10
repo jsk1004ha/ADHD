@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ADHD native delivery fields (v2 state, optional)",
+  "description": "Structural reference; native.py and delivery_policy.py perform authoritative validation. New state versions remain disabled until compatible managed readers are deployed.",
+  "$defs": {
+    "source": {
+      "type": "object",
+      "required": ["requirement_id", "source_turn_id", "basis"],
+      "properties": {
+        "requirement_id": {"type": "string", "pattern": "^R[1-9][0-9]{0,2}$"},
+        "source_turn_id": {"type": "string", "minLength": 1},
+        "basis": {"enum": ["user", "observed", "assumed"]},
+        "evidence_ref": {"type": "string", "maxLength": 1000}
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "preserve_conditions": {"type": "array", "maxItems": 50, "items": {
+      "allOf": [{"$ref": "#/$defs/source"}],
+      "required": ["id", "text"],
+      "properties": {"id": {"type": "string"}, "text": {"type": "string", "minLength": 1}}
+    }},
+    "delivery_target": {"allOf": [{"$ref": "#/$defs/source"}], "required": ["kind"],
+      "properties": {"kind": {"enum": ["local_artifact", "release", "live_deployment"]}}},
+    "runtime_context": {"allOf": [{"$ref": "#/$defs/source"}], "properties": {
+      "os": {"type": "string"}, "entrypoint": {"type": "string"},
+      "branch": {"type": "string"}, "environment_evidence": {"type": "string"}}},
+    "deadline": {"allOf": [{"$ref": "#/$defs/source"}],
+      "required": ["due_at", "observed_at", "timezone"],
+      "properties": {"due_at": {"type": "string", "format": "date-time"},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "timezone": {"type": "string"}}}
+  }
+}

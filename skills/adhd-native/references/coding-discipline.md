@@ -66,8 +66,12 @@ services. Report scope conflicts before changing a shared resource.
 
 Prepare sufficient checks while implementing. Reuse existing tests when they
 prove the requested behavior; add tests for important uncovered outcomes and
-failure paths. Defer full test suites and routine review to the central batch
-after assembly. Narrow early diagnostics are appropriate only for shared
+failure paths. Collect related repairs before another check round. Finish change
+review and cleanup before the final assembly freeze, then run the required
+central batch. Reserve full suites for repository requirements, broad changes
+or unknown impact; do not run them per edited file. Mandatory passing evidence
+can use provably current receipts, while critical checks need fresh execution.
+Narrow early diagnostics are appropriate only for shared
 interface errors, blocked build/tool prerequisites or irreversible-risk gates.
 Never disable a failing test or weaken an assertion to produce success.
 
@@ -75,4 +79,6 @@ Submission is provisional. Report task ID, lease generation, contract/interface
 versions, actual files/commit, known limitations and test status (NOT_RUN until
 observed). Do not declare the whole task complete. The director integrates,
 runs the batch, groups repairs and obtains independent acceptance of the exact
-current snapshot. Stop after sufficient evidence; avoid speculative cleanup.
+current snapshot. A later repair reruns affected/dependent/critical checks.
+Stop after sufficient evidence and independent acceptance; avoid another cleanup
+or full-suite pass solely to refresh timestamps.

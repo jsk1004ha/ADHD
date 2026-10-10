@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from typing import Any
+from .delivery_policy import merge_deadline, validate_contract_metadata
 
 
 def apply_intent_patch(contract: dict, patch: dict, pending_turns: list[str]) -> tuple[dict, list[str]]:
@@ -39,7 +40,8 @@ def apply_intent_patch(contract: dict, patch: dict, pending_turns: list[str]) ->
         if '/' not in target:
             raise ValueError('Intent target needs an allowlisted collection and key')
         group, key = target.split('/', 1)
-        if group not in {'criteria', 'artifacts', 'documents', 'protected_inputs'} or not key:
+        if group not in {'criteria', 'artifacts', 'documents', 'protected_inputs',
+                         'preserve_conditions', 'delivery_target', 'runtime_context', 'deadline'} or not key:
             raise ValueError('Intent target is not allowlisted')
         value: Any = row.get('value')
         if group == 'criteria':
@@ -102,7 +104,7 @@ def apply_intent_patch(contract: dict, patch: dict, pending_turns: list[str]) ->
                     rows[index] = value
                 else:
                     rows.pop(index)
-        else:
+        elif group == 'protected_inputs':
             rows = updated['protected_inputs']
             exists = key in rows
             if action == 'add':
@@ -117,8 +119,45 @@ def apply_intent_patch(contract: dict, patch: dict, pending_turns: list[str]) ->
                 rows[key] = value
             else:
                 del rows[key]
+        elif group == 'preserve_conditions':
+            rows = updated.setdefault('preserve_conditions', [])
+            index = next((i for i, item in enumerate(rows) if item['id'] == key), None)
+            if action == 'add':
+                if index is not None or not isinstance(value, dict) or value.get('id') != key:
+                    raise ValueError('Invalid or duplicate preservation condition')
+                rows.append(value)
+            elif index is None:
+                raise ValueError('Unknown preservation condition')
+            elif action == 'replace':
+                if not isinstance(value, dict) or value.get('id') != key:
+                    raise ValueError('Preservation ID cannot change by replacement')
+                rows[index] = value
+            else:
+                rows.pop(index)
+        else:
+            if key != 'value':
+                raise ValueError('Singleton intent target must end in /value')
+            existing = updated.get(group)
+            if action == 'add' and existing is not None:
+                if group == 'deadline' and isinstance(value, dict) and existing.get('due_at') == value.get('due_at'):
+                    # Repeated wording never starts a new clock.
+                    continue
+                raise ValueError('Intent field already exists; use explicit replacement')
+            if action == 'replace' and existing is None:
+                raise ValueError('Unknown intent field')
+            if action == 'retract':
+                if existing is None:
+                    raise ValueError('Unknown intent field')
+                updated.pop(group)
+            elif group == 'deadline':
+                updated[group] = merge_deadline(existing, value, explicit_change=action == 'replace')
+            else:
+                updated[group] = value
         changed.append(target)
     if not updated['criteria'] or not updated['artifacts']:
         raise ValueError('Active contract needs criteria and artifacts')
+    validate_contract_metadata(updated, updated['criteria'])
+    if not changed:
+        return updated, changed
     updated['intent_version'] = contract['intent_version'] + 1
     return updated, changed

@@ -22,6 +22,8 @@ class ReleaseAssetsTests(unittest.TestCase):
             'schemas/wiki-packet.json', 'docs/obsidian.md', 'docs/releases/0.1.6.md',
             'examples/obsidian/config.json', 'examples/obsidian/feedback.json',
             'scripts/benchmark_obsidian.py', 'tests/fixtures/obsidian/evaluation.json',
+            'docs/verification-efficiency.md', 'scripts/benchmark_verification_efficiency.py',
+            'tests/test_verification_efficiency.py',
         }
         required.update('adhd/obsidian_assets/templates/' + name + '.md'
                         for name in ('common', 'decision', 'incident', 'success', 'procedure'))

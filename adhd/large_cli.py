@@ -26,10 +26,11 @@ def add_parsers(sub):
     q.add_argument('--max-seconds', type=int, default=3600)
     q.add_argument('--out', help='New workspace-relative JSON output path')
     q = sub.add_parser('batch', help='One shared post-assembly validation batch for ordinary/large tasks')
-    q.add_argument('action', choices=['run', 'verify', 'repairs'])
+    q.add_argument('action', choices=['run', 'diagnose', 'verify', 'repairs', 'build-decision'])
     q.add_argument('--workspace', type=Path, default=Path.cwd())
     q.add_argument('--spec-file', type=Path)
     q.add_argument('--report')
+    q.add_argument('--previous-build', type=Path)
 
 
 def _payload(args):
@@ -65,13 +66,19 @@ def _native_spec(args, spec):
 
 
 def execute(args):
-    from .validation_batch import run_batch, load_report, repair_plan
+    from .validation_batch import run_batch, load_report, repair_plan, build_decision, diagnose_plan
     workspace = args.workspace.resolve()
     if args.command == 'batch':
-        if args.action == 'run':
+        if args.action == 'build-decision':
+            if not args.spec_file:
+                raise ValueError('Build decision needs --spec-file')
+            previous = bounded_json(args.previous_build, 200000) if args.previous_build else None
+            return build_decision(workspace, bounded_json(args.spec_file, 200000), previous)
+        if args.action in {'run', 'diagnose'}:
             if not args.spec_file:
                 raise ValueError('Batch needs --spec-file')
-            return run_batch(bounded_json(args.spec_file, 2 * 1024 * 1024), workspace)
+            spec = bounded_json(args.spec_file, 2 * 1024 * 1024)
+            return diagnose_plan(spec) if args.action == 'diagnose' else run_batch(spec, workspace)
         if not args.report:
             raise ValueError('Batch requires --report')
         if args.action == 'repairs':

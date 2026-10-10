@@ -625,6 +625,12 @@ def record_usage(workspace: Path | str, event: dict) -> dict:
     retry = event.get("retry", 0)
     if type(retry) is not int or retry < 0:
         raise ValueError("retry must be a nonnegative integer")
+    actor = event.get('actor', 'call:' + call_id)
+    if not isinstance(actor, str) or not actor or len(actor) > 160:
+        raise ValueError('Usage actor must be a bounded parent/child identifier')
+    for flag in ('cumulative', 'included_in_parent'):
+        if flag in event and type(event[flag]) is not bool:
+            raise ValueError(flag + ' must be boolean')
     fields = {}
     for field in ("input_tokens", "output_tokens", "cached_input_tokens"):
         value = event.get(field)
@@ -632,16 +638,21 @@ def record_usage(workspace: Path | str, event: dict) -> dict:
             raise ValueError(f"{field} must be a nonnegative integer or null")
         fields[field] = value
     row = {"call_id": call_id, "task_id": task_id, "phase": phase, "role": role,
-           "retry": retry, **fields}
+           "retry": retry, "actor": actor, "cumulative": event.get('cumulative', False),
+           "included_in_parent": event.get('included_in_parent', False), **fields}
     directory = _ledger_dir(_root(workspace))
     with FileLock(str(directory / "ledger.lock"), timeout=10):
         state = _load(directory)
         prior = state["usage"].get(call_id)
         if prior:
-            if prior != row:
+            normalized = {**prior, 'actor': prior.get('actor', 'call:' + call_id),
+                          'cumulative': prior.get('cumulative', False),
+                          'included_in_parent': prior.get('included_in_parent', False)}
+            normalized.pop('sequence', None)
+            if normalized != row:
                 raise ValueError("Conflicting usage event for call_id")
             return {"status": "duplicate", "call_id": call_id}
-        state["usage"][call_id] = row
+        state["usage"][call_id] = {**row, 'sequence': len(state['usage'])}
         _save(directory, state)
     return {"status": "recorded", "call_id": call_id,
             "measurement": ("observed" if all(value is not None for value in fields.values())
@@ -653,15 +664,19 @@ def usage_report(workspace: Path | str) -> dict:
     directory = _ledger_dir(_root(workspace))
     with FileLock(str(directory / "ledger.lock"), timeout=10):
         state = _load(directory)
-    rows = list(state["usage"].values())
+    rows = sorted(state["usage"].values(), key=lambda row: row.get('sequence', -1))
+    from .run_metrics import summarize_run_metrics
+    accounting = summarize_run_metrics([{'id': row['call_id'], 'kind': 'usage',
+        'actor': row.get('actor', 'call:' + row['call_id']),
+        'cumulative': row.get('cumulative', False),
+        'included_in_parent': row.get('included_in_parent', False),
+        **{field: row.get(field) for field in ('input_tokens','cached_input_tokens','output_tokens')}}
+        for row in rows])
     fields = ("input_tokens", "output_tokens", "cached_input_tokens")
-    totals = {field: {"known": sum(row[field] for row in rows if row[field] is not None),
-                      "missing_calls": sum(row[field] is None for row in rows),
-                      "observed_calls": sum(row[field] is not None for row in rows)}
+    totals = {field: {"known": accounting["tokens"][field]["known"],
+                      "missing_calls": accounting["tokens"][field]["missing_events"],
+                      "observed_calls": accounting["tokens"][field]["observed_events"]}
               for field in fields}
-    for value in totals.values():
-        if value["observed_calls"] == 0:
-            value["known"] = None
     observed = sum(all(row[field] is not None for field in fields) for row in rows)
     partial = sum(any(row[field] is not None for field in fields)
                   and not all(row[field] is not None for field in fields) for row in rows)
@@ -675,5 +690,6 @@ def usage_report(workspace: Path | str) -> dict:
             "roles": {role: sum(row["role"] == role for row in rows)
                       for role in sorted({row["role"] for row in rows})},
             "retry_calls": sum(row["retry"] > 0 for row in rows),
+            "observed_accounting": accounting,
             "candidate_counts": {status: sum(row["selection"] == status for row in state["traces"].values())
                                  for status in ("selected", "skipped")}}
