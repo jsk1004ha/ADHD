@@ -25,6 +25,14 @@ intensity; they do not rewrite role model or effort pins. Explicit fields in
 `adhd/native-policy.json` take precedence over profile defaults. Time and round
 limits still apply, and a durable deliverable always needs independent acceptance.
 
+Optional helper effort: by default every role keeps its pinned effort. To cut cost on
+the two narrow read-only Luna helpers only, add
+`{"role_effort": {"adhd-scout": "low", "adhd-light": "low"}}` to `native-policy.json`
+(values `low` or `max`; no other role may be changed, so planning, implementation and
+review keep their pins). The installed agent files are rendered from this policy, so run
+`upgrade` and start a new session afterwards; `doctor` reports `role_effort_drift` when
+the policy and the installed files disagree.
+
 `builtin probe KEY --consent --probe-file FILE` runs one reviewed read with the
 optional official MCP SDK. Its JSON uses the extension `tool`, `arguments`,
 `read_only`, and `purpose` schema. `--oauth-token-env NAME` names an already

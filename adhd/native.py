@@ -23,7 +23,7 @@ from . import dependencies as _dependencies
 from filelock import FileLock
 from .core import (ROOT, MODES, atomic_json, digest, file_hash, home, read_json, safe_path,
                    store, recipes, save_recipe, quarantine, select_mode)
-from .models import ROLES, route, execution_profile
+from .models import ROLES, route, execution_profile, validate_role_effort, EFFORT_OVERRIDABLE
 from .request_routing import (classify_request, is_brief_approval, is_status_followup,
                               is_substantive_request_source)
 from .gates import (validate_plan, validate_document_contract, document_candidate,
@@ -38,6 +38,8 @@ from .execution_decisions import (register_action, authorize_action, action_deci
 from .evidence import (validate_execution, observe_host_tool, validate_tool_observations,
                        receipt_test_failures)
 from .recovery import classify_failure, record_failure, verified_failure_signature
+from .loop_guard import (CHURN_GRACE, observe_tool_loop, repeated_review_rejection,
+                         reset_loop, steer_if_stuck)
 from .memory import validate_procedure_bundle
 from . import leases
 from .vendor.smolagents_context import truncate_content
@@ -182,6 +184,7 @@ def resume_native(state: dict, feedback: str) -> None:
     state['started'] = time.time()
     state['rounds'] = 0
     state['stagnation'] = 0
+    reset_loop(state)
     state['total_children'] = 0
     state['review_children'] = 0
     state['feedback'] = feedback
@@ -320,6 +323,9 @@ def progress_markers(state: dict) -> set[str]:
 
 
 def update_stagnation(state: dict) -> None:
+    if (state.get('status') == 'reviewing' or
+            any(child.get('status') != 'finished' for child in state.get('children', {}).values())):
+        return
     markers = progress_markers(state)
     seen = set(state.setdefault('seen_progress', []))
     try:
@@ -334,14 +340,29 @@ def update_stagnation(state: dict) -> None:
             history.append(sha)
             prior_targets[rel] = history[-30:]
     gained = markers - seen
-    if gained:
+    # Changed artifact bytes alone are weak progress: after a short grace they stop
+    # resetting the counter, so edit churn cannot hide a loop. A repeated identical
+    # failure seen inside the turn (loop_guard) counts as one extra no-progress round.
+    real = {marker for marker in gained if not marker.startswith('target_change:')}
+    loop_hit = min(state.pop('loop_hits', 0), 1)
+    if real:
+        state['churn'] = 0
+        state['ladder_stage'] = 0
+    elif gained:
+        state['churn'] = state.get('churn', 0) + 1
+    grace = bool(gained) and state['churn'] <= CHURN_GRACE
+    if real or (grace and not loop_hit):
         state['stagnation'] = 0
         state['progress_last_gained_at']=time.time()
         state.pop('stagnation_guidance_issued',None)
-    elif state.get('progress_initialized'):
-        state['stagnation'] = state.get('stagnation', 0) + 1
+    elif grace:
+        # Weak artifact progress cannot erase an observed repeated failure.
+        state['stagnation'] = state.get('stagnation', 0) + loop_hit
+    elif gained or state.get('progress_initialized'):
+        state['stagnation'] = state.get('stagnation', 0) + 1 + loop_hit
     else:
-        state['stagnation'] = 0
+        # Baseline collection grants no ordinary stagnation, but a warning is real.
+        state['stagnation'] = loop_hit
     state['progress_initialized'] = True
     state['seen_progress'] = sorted(seen | markers)[-200:]
     state['last_progress'] = digest(sorted(markers))
@@ -443,8 +464,9 @@ def deny(reason: str) -> dict:
     return {'hookSpecificOutput': {'hookEventName': 'PreToolUse',
                                   'permissionDecision': 'deny', 'permissionDecisionReason': reason}}
 
-def load_policy(profile_name: str = 'standard') -> dict:
-    overrides = read_json(store() / 'native-policy.json', {})
+def load_policy(profile_name: str = 'standard', *, overrides: dict | None = None) -> dict:
+    if overrides is None:
+        overrides = read_json(store() / 'native-policy.json', {})
     if not isinstance(overrides, dict):
         raise ValueError('native-policy.json must be an object')
     result = dict(DEFAULTS)
@@ -456,6 +478,9 @@ def load_policy(profile_name: str = 'standard') -> dict:
               'max_review_children':(1,20), 'max_epochs':(1,20),
               'max_lifetime_children':(1,500), 'max_lifetime_rounds':(1,500)}
     for k, value in overrides.items():
+        if k == 'role_effort':
+            result[k] = validate_role_effort(value)
+            continue
         if k not in ranges or type(value) is not int or not ranges[k][0] <= value <= ranges[k][1]:
             raise ValueError('Invalid local policy field: ' + k)
         result[k] = value
@@ -528,7 +553,8 @@ def end_after_children(state: dict, terminal: str, feedback: str | None = None) 
 def export_view(state: dict) -> None:
     b = bridge(Path(state['workspace']), state['key']); b.mkdir(parents=True, exist_ok=True)
     # This is a model-readable copy; never trust it as authoritative state.
-    public = {k:v for k,v in state.items() if k not in {'processed','request_acks','reservations','seen_stops','host_goal_cursor','guidance_signature','last_assistant_message'}}
+    public = {k:v for k,v in state.items() if k not in {'processed','request_acks','reservations','seen_stops','host_goal_cursor','guidance_signature','last_assistant_message',
+                                         'fp_ring','loop_warned','loop_seen_ids','loop_sessions','review_findings','view_hint_sig'}}
     public['completion_capability']=completion_capability(state.get('host_capabilities',{}))
     public['pending_intent']=bool(state.get('pending_turn_ids'))
     public['artifact_status']='candidate' if state.get('candidate') else 'in_progress' if state.get('contract') else 'unknown'
@@ -655,7 +681,8 @@ def criteria_valid(rows: Any) -> list[dict]:
         ids.add(row['id'])
     return rows
 
-def result_valid(state: dict, rows: Any, *, require_execution: bool = False) -> None:
+def result_valid(state: dict, rows: Any, *, require_execution: bool = False,
+                 allow_failure: bool = False) -> None:
     if not isinstance(rows,list):
         raise ValueError('criterion_results must be an array')
     expected = {r['id'] for r in state['contract']['criteria']}
@@ -666,7 +693,8 @@ def result_valid(state: dict, rows: Any, *, require_execution: bool = False) -> 
     for row in rows:
         if not isinstance(row,dict) or row.get('id') in seen or row.get('id') not in expected:
             raise ValueError('Duplicate/unknown requirement result')
-        if row.get('pass') is not True or not isinstance(row.get('evidence'),str) or not row['evidence'].strip():
+        passed = row.get('pass') is True or (allow_failure and row.get('pass') is False)
+        if not passed or not isinstance(row.get('evidence'),str) or not row['evidence'].strip():
             raise ValueError('Every requirement must pass with concrete evidence')
         if len(row['evidence']) > 6000:
             raise ValueError('Evidence too long; reference a local file instead')
@@ -857,15 +885,22 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         protected=payload.get('protected_inputs',[])
         if not isinstance(protected,list) or len(protected)>40: raise ValueError('At most 40 protected input files')
         protected_hashes=snapshot(ws,protected) if protected else {}
+        local_policy = read_json(store() / 'native-policy.json', {})
+        policy = load_policy(profile['name'], overrides=local_policy)
+        for role in policy.get('role_effort', {}):
+            error = role_profile_error(role, policy['role_effort'], state)
+            if error:
+                raise ValueError(error)
         state.update(run_id=uuid.uuid4().hex, status='working', started=time.time(),
             mode=mode, rounds=0, astra_calls=0,total_children=0,children={},reservations={},
             seen_stops=[],halt_emitted=False,last_stop_decision={},feedback='',candidate=None,stagnation=0,last_progress=None,checkpoints=[],
             progress_initialized=False,seen_progress=[],verified_progress=[],test_outcomes={},
-            policy=load_policy(profile['name']), loop_mode=loop_mode,
-            explicit_policy_keys=sorted(read_json(store() / 'native-policy.json', {})), plan=None,
+            policy=policy, loop_mode=loop_mode,
+            explicit_policy_keys=sorted(local_policy), plan=None,
             plan_required=profile['plan_depth']!='optional', execution_profile=profile,
             pending_turn_ids=[],epoch=1,review_children=0,lifetime_children=0,lifetime_rounds=0)
         state['failure_history']=[];state['failure_counts']={};state['verified_failure_counts']={};state['needs_replan']=False
+        reset_loop(state, reviews=True)
         state['contract']={'criteria':criteria,'artifacts':artifacts,
             'assumptions':payload.get('assumptions',[]), 'non_goals':payload.get('non_goals',[]),
             'intent_version':state['intent_version'], 'documents':documents, 'protected_inputs':protected_hashes,
@@ -1015,6 +1050,7 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         state['status']='working'
         state['completed_steps']=[]
         state['test_outcomes']={}
+        reset_loop(state, reviews=True)
         state['feedback']='User contract updated. Recheck affected evidence and plan coverage.'
         if state.get('lease_generation') is None:
             claim_writer(state)
@@ -1427,6 +1463,29 @@ def process_inbox(state: dict, d: Path) -> list[str]:
     return reports
 
 
+def role_profile_error(role: str, overrides: dict, state: dict | None = None) -> str | None:
+    """An opt-in helper must have a matching installed model/effort profile."""
+    if role not in EFFORT_OVERRIDABLE:
+        return None
+    path = home() / 'agents' / (role + '.toml')
+    # Uninstalled/default fixture runs retain the existing base-pin behavior.
+    if not path.exists() and role not in overrides:
+        return None
+    try:
+        if path.is_symlink():
+            raise ValueError('profile is a symlink')
+        profile = tomllib.loads(path.read_text(encoding='utf-8-sig'))
+        expected = route(role, overrides)
+        if profile.get('model') == expected['model'] and profile.get('model_reasoning_effort') == expected['effort']:
+            if role in overrides and state is not None and (
+                    state.get('session_helper_profiles', {}).get(role) != file_hash(path)):
+                return 'Role profile changed since SessionStart for ' + role + '; start a new session after upgrade.'
+            return None
+    except (OSError, ValueError, UnicodeError):
+        pass
+    return 'Role effort/profile drift for ' + role + '; run upgrade and start a new session.'
+
+
 def spawn_guard(state: dict, ev: dict) -> dict:
     if state['status'] not in ACTIVE: return {}
     tool=ev.get('tool_name','')
@@ -1437,7 +1496,11 @@ def spawn_guard(state: dict, ev: dict) -> dict:
     if not isinstance(role,str) or role not in ROLES: return deny('Use a ADHD role during this run, or pause the native owner before using another harness.')
     if role=='adhd-implementer' and state.get('plan_required') and (not state.get('plan') or state['plan']['intent_version']!=state['intent_version']):
         return deny('Profile plan and prerequisite inspection required before implementation. Use scout/planner or the Sol director first.')
-    choice=route(role)
+    overrides = state['policy'].get('role_effort', {})
+    choice=route(role, overrides)
+    error = role_profile_error(role, overrides, state)
+    if error:
+        return deny(error)
     requested=args.get('model')
     if requested and requested != choice['model']:
         return deny('Role/model mismatch: '+role+' uses '+choice['model'])
@@ -1516,6 +1579,7 @@ def start_child(state: dict, ev: dict) -> dict:
         state['children'][str(aid)]['correlated']=False
         state['feedback']='Duplicate subagent ID observed; review cannot attest this child.'
         return {}
+    choice=route(role, state['policy'].get('role_effort', {}))
     tool_use_id=ev.get('tool_use_id')
     reservation=state['reservations'].get(str(tool_use_id)) if tool_use_id else None
     matched=bool(reservation and reservation['role']==role)
@@ -1525,8 +1589,8 @@ def start_child(state: dict, ev: dict) -> dict:
     lifecycle_bound=bool(role=='adhd-verifier' and not tool_use_id and profile_hash and
         attestation.get('release_root')==str(ROOT.resolve()) and
         attestation.get('profile_hash')==profile_hash and
-        ev.get('model')==route(role)['model'] and
-        ev.get('reasoning_effort') in {None,route(role)['effort']} and
+        ev.get('model')==choice['model'] and
+        ev.get('reasoning_effort') in {None,choice['effort']} and
         is_fresh(state) and
         active_children<state['policy']['max_children'] and
         not limit_reached(state, 'max_total_children', state['total_children']) and
@@ -1544,13 +1608,13 @@ def start_child(state: dict, ev: dict) -> dict:
             state['feedback']='A subagent started without an admissible spawn reservation or verified lifecycle profile.'
     state['children'][str(aid)]={'role':role,'status':'running',
        'model':ev.get('model'),'observed_effort':ev.get('reasoning_effort'),
-       'configured_effort':route(role)['effort'],
+       'configured_effort':choice['effort'],
        'effort_source':'pinned_role_profile' if lifecycle_bound else 'spawn_reservation' if matched else 'unverified',
        'tool_use_id':tool_use_id,'correlated':matched or lifecycle_bound,
        'correlation':'tool_use_id' if matched else 'host_agent_lifecycle' if lifecycle_bound else 'unverified',
        'profile_hash':profile_hash,
-       'selected_model':route(role)['model'],'selected_effort':route(role)['effort'],
-       'selection_reason':reservation.get('selection_reason') if matched and reservation is not None else route(role)['description'],
+       'selected_model':choice['model'],'selected_effort':choice['effort'],
+       'selection_reason':reservation.get('selection_reason') if matched and reservation is not None else choice['description'],
        'digest':state['candidate']['digest'] if role=='adhd-verifier' and state.get('candidate') else None}
     instruction='Do not spawn children. Return concise findings with exact file/source pointers. Never claim unexecuted checks.'
     if state.get('contract'):
@@ -1570,7 +1634,7 @@ def start_child(state: dict, ev: dict) -> dict:
         state['children'][str(aid)]['context_packet']=str(packet_path)
         instruction+=' Read exact task packet '+str(packet_path)+'; original excerpts and source pointers are preserved there.'
     if role=='adhd-architect': instruction+=' Provide a decision brief <=1800 output tokens (soft instruction). No coding, browsing sweep or implementation. Resolve hard choices and exit.'
-    if role=='adhd-verifier': instruction+=' Compare every observed user prompt with the current contract, then read view.json and real files. Return the strict verifier JSON described in adhd-native/SKILL.md.'
+    if role=='adhd-verifier': instruction+=' Compare every observed user prompt with the current contract, then read view.json and real files. Return the strict verifier JSON described in '+str(ROOT/'skills'/'adhd-native'/'references'/'verifier-card.md')+'.'
     return message('SubagentStart',instruction)
 
 
@@ -1602,6 +1666,7 @@ def stop_child(state: dict, ev: dict, d: Path) -> dict:
             return message('SubagentStop','Host goal resume processed after all old children finished.')
         return message('SubagentStop','Run stopped after all running children finished; writer lease released.')
     if child['role'] != 'adhd-verifier' or state['status'] not in ACTIVE: return {}
+    repeated_finding = False
     try:
         if not child.get('correlated') or child.get('correlation') not in {'tool_use_id','host_agent_lifecycle'}:
             raise ValueError('Verifier lacked an observed host agent lifecycle or exact spawn correlation')
@@ -1634,15 +1699,25 @@ def stop_child(state: dict, ev: dict, d: Path) -> dict:
                 verdict.get('reviewed_turn_ids') != [p['turn_id'] for p in state['prompts']] or
                 verdict.get('intent_alignment') is not True):
             raise ValueError('Verifier did not attest the current contract against every original user turn')
-        if verdict.get('verdict')!='approve':
-            raise ValueError('Independent reviewer rejected candidate: '+truncate_content(str(verdict.get('findings','No reason provided')),2000))
-        result_valid(state,verdict.get('criterion_results'))
+        result_valid(state,verdict.get('criterion_results'),allow_failure=verdict.get('verdict') == 'reject')
         candidate_results={row['id']:row for row in state['candidate']['criterion_results']}
         for row in verdict['criterion_results']:
             if row.get('evidence_ids',[]) != candidate_results[row['id']].get('evidence_ids',[]):
                 raise ValueError('Reviewer changed the candidate execution evidence references')
             if row.get('observation_ids',[]) != candidate_results[row['id']].get('observation_ids',[]):
                 raise ValueError('Reviewer changed the observed host tool references')
+        if verdict.get('verdict') == 'reject':
+            findings = verdict.get('findings')
+            if not isinstance(findings, list) or not findings or any(
+                    not isinstance(item, str) or not item.strip() or len(item) > 2000 for item in findings):
+                raise ValueError('Reviewer rejection needs concrete bounded findings')
+            keys = sorted(row['id'] for row in verdict.get('criterion_results', [])
+                          if isinstance(row, dict) and row.get('pass') is False and isinstance(row.get('id'), str))
+            if repeated_review_rejection(state, '\n'.join(findings), keys=keys):
+                repeated_finding = True
+                state['needs_replan'] = True
+        if verdict.get('verdict')!='approve':
+            raise ValueError('Independent reviewer rejected candidate: '+truncate_content(str(verdict.get('findings','No reason provided')),2000))
         if state['candidate'].get('deep_evidence'):
             review=verdict.get('evidence_review')
             if (not isinstance(review,dict) or
@@ -1679,6 +1754,8 @@ def stop_child(state: dict, ev: dict, d: Path) -> dict:
         failure=record_failure(state,classify_failure(str(e)),str(e),
                                'hook:SubagentStop/'+str(ev.get('agent_id','')))
         state['status']='revising'; state['feedback']=failure['next_action']+' '+str(e)
+        if repeated_finding:
+            state['feedback']='The reviewer repeated its previous finding; patching it again is not a new hypothesis. Submit a changed plan. '+str(e)
         quarantine([r['id'] for r in state.get('recipes',[])])
         return message('SubagentStop',state['feedback'])
 
@@ -1695,6 +1772,15 @@ def guidance_signature(state: dict) -> str:
                    routed.get('path', 'inspect'),
                    routed.get('suggested_profile', default_profile),
                    routed.get('reason','').startswith('Brief approval')])
+
+
+def view_read_signature(state: dict) -> str:
+    """Decision-relevant state, excluding volatile accounting and hint bookkeeping."""
+    fields = ('status', 'execution_profile', 'contract_hash', 'pending_turn_ids', 'feedback',
+              'goal_request', 'plan', 'candidate', 'needs_replan', 'children', 'checkpoints',
+              'checkpoint_evidence', 'tool_observations', 'pending_context_deltas',
+              'reusable_evidence', 'host_goal_scan_pending')
+    return digest({key: state.get(key) for key in fields})
 
 
 def context(state: dict, *, bootstrap: bool = True, restore: bool = False) -> str:
@@ -1861,6 +1947,9 @@ def handle_event(ev: dict, *, diagnostics=None) -> dict:
                 out=message(name,context(state,bootstrap=False,restore=True))
             state['guidance_signature']=signature
         elif name=='SessionStart':
+            state.pop('view_hint_sig', None)
+            state['session_helper_profiles'] = {role: file_hash(home() / 'agents' / (role + '.toml'))
+                if (home() / 'agents' / (role + '.toml')).is_file() else None for role in EFFORT_OVERRIDABLE}
             # Codex loads custom agent roles with the session. Disk changes during
             # a hot upgrade cannot attest what an already-running session loaded.
             state['session_verifier_profile']={'release_root':str(ROOT.resolve()),
@@ -1871,13 +1960,16 @@ def handle_event(ev: dict, *, diagnostics=None) -> dict:
             out=message(name,context(state,restore=True))
             state['guidance_signature']=guidance_signature(state)
         elif name=='PostCompact':
+            state.pop('view_hint_sig', None)
             out=message(name,context(state))
         elif name=='PostToolUse':
             observe_action_host_result(state,ev)
             observe_host_tool(state,ev)
             with diagnostics.phase('inbox'):
                 reports=process_inbox(state,d)
-            if reports: out=message(name,'\n'.join(reports)+'\nRead bridge/view.json for authoritative exported status.')
+            loop_note=observe_tool_loop(state,ev)
+            if reports: out=message(name,'\n'.join(reports+([loop_note] if loop_note else []))+'\nRead bridge/view.json for authoritative exported status.')
+            elif loop_note: out=message(name,loop_note)
         elif name=='PreToolUse':
             matched=matched_host_action(state,ev)
             if matched:
@@ -1946,13 +2038,22 @@ def handle_event(ev: dict, *, diagnostics=None) -> dict:
                         end_after_children(state, 'budget_exhausted', failure['next_action'])
                         out={'continue':False,'stopReason':state['feedback']}
                     else:
+                        if (not limit_enabled(state, 'max_stagnation') and state['status'] in {'working','revising'}
+                                and not any(child.get('status')!='finished' for child in state.get('children',{}).values())):
+                            steer=steer_if_stuck(state,bridge(ws,key))
+                            if steer: state['feedback']=steer
                         action='Resolve feedback, perform the work, then submit a fresh candidate and independently review it.'
                         if state.get('loop_mode') == 'goal':
                             action='Continue toward the original goal: implement, check, repair, submit a fresh candidate and independently review it.'
                             if state['stagnation'] >= state['policy']['max_stagnation']:
                                 action+=' No verified progress: change the hypothesis or approach using concrete failure evidence; report blocked if no viable path remains.'
                         if state['status']=='reviewing': action='Wait for the verifier, or spawn adhd-verifier on the candidate digest. Do not self-approve.'
-                        out={'decision':'block','reason':PREFIX+key+'] '+action+' Read '+str(bridge(ws,key)/'view.json')+'. '+truncate_content(state.get('feedback',''),800)}
+                        # Rereading an unchanged view.json every round costs tokens and adds nothing.
+                        view_sig=view_read_signature(state)
+                        view_hint=(' Read '+str(bridge(ws,key)/'view.json')+'.' if view_sig!=state.get('view_hint_sig')
+                                   else ' Main guidance unchanged; do not reread view.json unless new evidence or a user request arrives.')
+                        state['view_hint_sig']=view_sig
+                        out={'decision':'block','reason':PREFIX+key+'] '+action+view_hint+' '+truncate_content(state.get('feedback',''),800)}
             elif state['status']=='complete' and not state.get('halt_emitted'):
                 out={'continue':False,'stopReason':'ADHD task completed with a fresh independent review. Do not run another automatic loop for this task.'}
             elif state['status'] in {'cancelled','paused','budget_exhausted','blocked','handoff_pending','interrupt_pending'} and not state.get('halt_emitted'):

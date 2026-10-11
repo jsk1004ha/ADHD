@@ -1,5 +1,6 @@
 """Transactional overlay; preserve user providers, plugins, skills and permission policy."""
 from __future__ import annotations
+import hashlib
 import json
 import os
 from contextlib import ExitStack
@@ -10,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import time
+import tomllib
 import uuid
 from pathlib import PurePosixPath
 from typing import Any
@@ -17,8 +19,9 @@ from . import DISPLAY_NAME, __version__
 from . import dependencies as _dependencies
 import tomlkit
 from filelock import FileLock
-from .core import ROOT, atomic_json, atomic_text, file_hash, read_json, home
-from .models import MODELS, migrate_role
+from .core import ROOT, atomic_json, atomic_text, file_hash, read_json, home, store
+from .models import (MODELS, EFFORT_OVERRIDABLE, migrate_role, apply_role_effort,
+                     read_role_effort, route, validate_role_effort)
 from .install import audit as legacy_audit
 from .builtin import (skill_manifest, mcp_catalog, skill_changes, prepare_mcp_config,
                       validate_mcp_entries, restore_mcp_entries, prune_empty_skill_dirs)
@@ -31,12 +34,18 @@ MAX_STATE_READER_VERSION=2
 INSTALL_SUBDIR='adhd'
 RELEASE_DIRS=('adhd','skills','native','schemas','third_party','tests','config','bundled','runtime')
 RELEASE_FILES=('adhd.py','hook.py','LICENSE','LICENSE-RAIBIT-MIT','THIRD_PARTY_NOTICES.md','requirements-documents.txt','README.md','README.ko.md','ADHD_PROVENANCE.md',
-               'docs/installation.md','docs/request-routing.md','docs/large-tasks.md','docs/obsidian.md','docs/delivery-efficiency.md','docs/verification-efficiency.md','docs/releases/0.1.4.md','docs/releases/0.1.5.md','docs/releases/0.1.6.md',
+               'docs/installation.md','docs/request-routing.md','docs/large-tasks.md','docs/obsidian.md','docs/delivery-efficiency.md','docs/verification-efficiency.md','docs/loop-steering.md','docs/releases/0.1.4.md','docs/releases/0.1.5.md','docs/releases/0.1.6.md',
                'examples/large-task.json','examples/large-limits.json','examples/batch-checks.json',
                'examples/obsidian/config.json','examples/obsidian/feedback.json','scripts/benchmark_delivery_efficiency.py','scripts/benchmark_verification_efficiency.py','scripts/benchmark_obsidian.py','scripts/compare_delivery_efficiency.py')
 WORKFLOW_SKILLS=('adhd-goal','adhd-shape','adhd-challenge','adhd-decide','adhd-steer',
                  'adhd-unblock','adhd-retro','adhd-optimize')
 NATIVE_CAPABILITIES=('adhd-native','adhd-memory','adhd-documents','adhd-extensions')+WORKFLOW_SKILLS
+
+
+def _role_effort_fingerprint(overrides:dict[str,str])->str:
+    """Hash the effective install pins, so an explicit default is a no-op."""
+    pins={role:route(role,overrides)['effort'] for role in sorted(EFFORT_OVERRIDABLE)}
+    return hashlib.sha256(json.dumps(pins,sort_keys=True,separators=(',',':')).encode()).hexdigest()
 
 def _release_files(root:Path):
     for name in RELEASE_FILES:
@@ -242,8 +251,12 @@ def _validate_install_record(record:dict, *, legacy_migration:bool=False,
 
 def _install_native(target: Path, agents_home: Path|None=None, compact: bool=False,
                    migrate_models: bool=True, fixture_mode: bool=False, *,
-                   managed_workflows: frozenset[str]=frozenset()) -> dict:
+                   managed_workflows: frozenset[str]=frozenset(),
+                   role_effort:dict[str,str]|None=None) -> dict:
     target=target.expanduser().resolve()
+    role_effort=(read_role_effort(store(target)/'native-policy.json') if role_effort is None
+                 else validate_role_effort(role_effort))
+    effort_fingerprint=_role_effort_fingerprint(role_effort)
     # This host discovers user skills from CODEX_HOME/skills. Keep an explicit
     # agents_home override for isolated tests and custom installations.
     agents_home=(agents_home or target).expanduser().resolve()
@@ -345,7 +358,7 @@ def _install_native(target: Path, agents_home: Path|None=None, compact: bool=Fal
             changes[cfg_path]=bundled_cfg
         for p in (release/'native'/'agents').glob('*.toml'):
             target_agent=target/'agents'/p.name
-            text=p.read_text(encoding='utf-8').replace('ADHD_ROOT',str(release))
+            text=apply_role_effort(p.stem,p.read_text(encoding='utf-8').replace('ADHD_ROOT',str(release)),role_effort)
             tomlkit.parse(text)
             changes[target_agent]=text.encode()
         migrated=[]
@@ -405,6 +418,7 @@ def _install_native(target: Path, agents_home: Path|None=None, compact: bool=Fal
                 row['installed_sha256']=file_hash(p);changed.append(row)
             result={'version':__version__,'display_version':DISPLAY_NAME+' v'+__version__,'release_identity':identity,
                 'source_identity':source_identity,
+                'role_effort_fingerprint':effort_fingerprint,
                 'target':str(target),'agents_home':str(agents_home),
                 'release':str(release),'backup':str(backup),'files':rows,'migrated_roles':migrated,
                 'builtin_skills':bundled_skills,'workflow_skills':workflow_skills,
@@ -447,6 +461,7 @@ def _rollback_native(target: Path, *, record_root:Path|None=None,
         return {'restored_files':len(record['files']),'memory_and_backups_preserved':str(parent)}
 
 def audit_native(target: Path) -> dict:
+    target=target.expanduser().resolve()
     report=legacy_audit(target)
     drift=[]
     try:
@@ -466,6 +481,46 @@ def audit_native(target: Path) -> dict:
     for row in record.get('files',[]):
         try:_validate_managed_row(row)
         except (ValueError,OSError,json.JSONDecodeError):drift.append(row['path'])
+    # Keep policy, profile integrity and mismatched pins separate in doctor output.
+    policy_error=None
+    try:
+        role_effort=read_role_effort(store(target)/'native-policy.json')
+    except ValueError as error:
+        policy_error=str(error)
+        role_effort={}
+    report['role_effort_policy_error']=policy_error
+    report['role_effort_fingerprint']=None if policy_error else _role_effort_fingerprint(role_effort)
+    if policy_error:
+        report['warnings'].append('Invalid native-policy.json role_effort: '+policy_error)
+    missing_profiles=[];invalid_profiles=[];effort_drift=[]
+    if managed:
+        for role in sorted(EFFORT_OVERRIDABLE):
+            path=target/'agents'/(role+'.toml')
+            if not path.exists() and not path.is_symlink():
+                missing_profiles.append(role)
+                continue
+            try:
+                if path.is_symlink() or not path.is_file() or path.stat().st_size>2*1024*1024:
+                    raise ValueError('unsafe role profile')
+                profile=tomllib.loads(path.read_text(encoding='utf-8-sig'))
+                if (profile.get('name')!=role or not isinstance(profile.get('model'),str)
+                        or not isinstance(profile.get('model_reasoning_effort'),str)
+                        or profile.get('model_reasoning_effort') not in {'low','max'}):
+                    raise ValueError('incomplete or unsupported role profile')
+            except (OSError,ValueError,UnicodeError):
+                invalid_profiles.append(role)
+                continue
+            if not policy_error:
+                expected=route(role,role_effort)
+                if (profile['model']!=expected['model']
+                        or profile['model_reasoning_effort']!=expected['effort']):
+                    effort_drift.append(role)
+    report['role_effort_missing_profiles']=missing_profiles
+    report['role_effort_invalid_profiles']=invalid_profiles
+    report['role_effort_drift']=effort_drift
+    if missing_profiles:report['warnings'].append('Missing ADHD role profiles: '+', '.join(missing_profiles))
+    if invalid_profiles:report['warnings'].append('Invalid ADHD role profiles: '+', '.join(invalid_profiles))
+    if effort_drift:report['warnings'].append('native-policy.json role_effort differs from the installed agent files for '+', '.join(effort_drift)+'; run upgrade and start a new session.')
     report['installation_drift']=drift
     report['native_limits']='Native continuation/spawn limits are enforced only on observed hook paths; total token usage is unmeasured.'
     return report
@@ -534,13 +589,18 @@ def upgrade_native(target:Path,agents_home:Path|None=None,compact:bool=False,mig
         legacy_migration=not isinstance((old.get('release_identity') or {}).get('files'),list)
         _validate_install_record(old,legacy_migration=legacy_migration,record_root=record_root)
         wanted=release_identity(ROOT);installed_source=old.get('source_identity',{})
+        role_effort=read_role_effort(store(target)/'native-policy.json')
+        effort_fingerprint=_role_effort_fingerprint(role_effort)
         running_installed_release=ROOT.resolve()==Path(old['release']).resolve()
         if running_installed_release and legacy_migration:
             raise ValueError('Legacy release cannot self-upgrade without an exact file manifest; run upgrade from a reviewed source copy')
-        if record_root==parent and (running_installed_release or (not legacy_migration and installed_source.get('code_digest')==wanted['code_digest'] and int(installed_source.get('native_schema_version',0))>=NATIVE_SCHEMA_VERSION)):
+        if (record_root==parent and not legacy_migration
+                and old.get('role_effort_fingerprint')==effort_fingerprint
+                and (running_installed_release or (installed_source.get('code_digest')==wanted['code_digest']
+                    and int(installed_source.get('native_schema_version',0))>=NATIVE_SCHEMA_VERSION))):
             return {'status':'already_installed','version':__version__,'release_identity':old['release_identity'],
                     'source_identity':wanted,
-                    'next':'Installed content digest and native schema already match'}
+                    'next':'Installed release and role effort already match'}
         # Check every managed byte and original backup before restoring anything.
         current={}
         for row in old['files']:
@@ -555,7 +615,7 @@ def upgrade_native(target:Path,agents_home:Path|None=None,compact:bool=False,mig
         rolled_back={str(Path(row['path'])):read_bytes(Path(row['path'])) for row in old['files']}
         try:
             result=_install_native(target,destination_agents,compact,migrate_models,fixture_mode,
-                                   managed_workflows=managed_workflows)
+                                   managed_workflows=managed_workflows,role_effort=role_effort)
             result['upgraded_from']=old['version'];return result
         except BaseException:
             # _install_native already rolls back its partial writes. Restore v1.1 only

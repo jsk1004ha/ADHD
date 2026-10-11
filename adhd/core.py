@@ -46,18 +46,20 @@ def _has_native_state(root: Path) -> bool:
     return False
 
 
-def store() -> Path:
-    configured = os.environ.get('ADHD_HOME')
+def store(codex_home: Path | None = None) -> Path:
+    actual_home = home()
+    target = codex_home.expanduser().resolve() if codex_home is not None else actual_home
+    configured = os.environ.get('ADHD_HOME') if target == actual_home else None
     if configured:
         return Path(configured).expanduser().resolve()
-    preferred = home() / 'adhd'
+    preferred = target / 'adhd'
     if _has_native_state(preferred):
         return preferred.resolve()
 
     # Keep using a prior state directory only when its session records match the
     # native state schema. This avoids guessing a renamed path or moving user data.
     candidates: set[Path] = set()
-    codex_home = home()
+    codex_home = target
     try:
         for child in codex_home.iterdir():
             if child.is_symlink() or (hasattr(child, 'is_junction') and child.is_junction()):
@@ -71,6 +73,8 @@ def store() -> Path:
     except (OSError, RuntimeError):
         pass
     for name, value in os.environ.items():
+        if target != actual_home:
+            break  # Foreign installs must not consult ambient state directories.
         if name.endswith('_HOME') and value:
             candidate = Path(value).expanduser()
             try:
