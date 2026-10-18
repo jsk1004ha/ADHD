@@ -13,7 +13,7 @@ class SnapshotTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()
         self.ws = self.root / 'repo'
         self.ws.mkdir()
         self.scratch = self.root / 'scratch'

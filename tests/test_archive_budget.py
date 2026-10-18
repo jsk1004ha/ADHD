@@ -11,7 +11,7 @@ from tests import test_native as native_fixture
 class ArchiveBudgetTests(unittest.TestCase):
     def test_hash_budget_exhaustion_preserves_original(self):
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             raw = root / 'stdout.log'
             raw.write_bytes(b'x' * 4096)
             with self.assertRaises(BudgetExhausted):
@@ -21,7 +21,7 @@ class ArchiveBudgetTests(unittest.TestCase):
 
     def test_compression_budget_exhaustion_never_publishes_partial_gzip(self):
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             raw = root / 'stdout.log'
             payload = b'x' * 4096
             raw.write_bytes(payload)
@@ -32,7 +32,7 @@ class ArchiveBudgetTests(unittest.TestCase):
 
     def test_codec_keeps_exact_existing_descriptor_and_roundtrip(self):
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             raw = root / 'stdout.log'
             payload = b'exact log\r\n' * 4096
             raw.write_bytes(payload)
