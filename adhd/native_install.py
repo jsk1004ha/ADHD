@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
 import time
@@ -34,9 +35,15 @@ MAX_STATE_READER_VERSION=2
 INSTALL_SUBDIR='adhd'
 RELEASE_DIRS=('adhd','skills','native','schemas','third_party','tests','config','bundled','runtime')
 RELEASE_FILES=('adhd.py','hook.py','LICENSE','LICENSE-RAIBIT-MIT','THIRD_PARTY_NOTICES.md','requirements-documents.txt','README.md','README.ko.md','ADHD_PROVENANCE.md',
-               'docs/installation.md','docs/request-routing.md','docs/large-tasks.md','docs/obsidian.md','docs/delivery-efficiency.md','docs/verification-efficiency.md','docs/loop-steering.md','docs/releases/0.1.4.md','docs/releases/0.1.5.md','docs/releases/0.1.6.md',
+               'docs/installation.md','docs/request-routing.md','docs/large-tasks.md','docs/obsidian.md','docs/delivery-efficiency.md','docs/verification-efficiency.md','docs/optimization.md','docs/loop-steering.md','docs/releases/0.1.4.md','docs/releases/0.1.5.md','docs/releases/0.1.6.md','docs/releases/0.1.7.md',
                'examples/large-task.json','examples/large-limits.json','examples/batch-checks.json',
-               'examples/obsidian/config.json','examples/obsidian/feedback.json','scripts/benchmark_delivery_efficiency.py','scripts/benchmark_verification_efficiency.py','scripts/benchmark_obsidian.py','scripts/compare_delivery_efficiency.py')
+               'examples/obsidian/config.json','examples/obsidian/feedback.json','scripts/benchmark_delivery_efficiency.py','scripts/benchmark_verification_efficiency.py','scripts/benchmark_obsidian.py','scripts/compare_delivery_efficiency.py','scripts/evaluate_context_components.py')
+RELEASE_EXCLUDED_COMPONENTS=frozenset({'.git','.adhd','.omx','.venv','__pycache__',
+    '.pytest_cache','.mypy_cache','.ruff_cache','node_modules','.tox','.nox',
+    'cache','.cache','tmp','temp','scratch'})
+RELEASE_EXCLUDED_NAMES=frozenset({'.env','auth.json','credentials.json','secrets.json',
+    'id_rsa','id_ed25519'})
+RELEASE_EXCLUDED_SUFFIXES=frozenset({'.pyc','.pyo','.pem','.key','.p12','.sqlite','.sqlite3','.db'})
 WORKFLOW_SKILLS=('adhd-goal','adhd-shape','adhd-challenge','adhd-decide','adhd-steer',
                  'adhd-unblock','adhd-retro','adhd-optimize')
 NATIVE_CAPABILITIES=('adhd-native','adhd-memory','adhd-documents','adhd-extensions')+WORKFLOW_SKILLS
@@ -48,15 +55,56 @@ def _role_effort_fingerprint(overrides:dict[str,str])->str:
     return hashlib.sha256(json.dumps(pins,sort_keys=True,separators=(',',':')).encode()).hexdigest()
 
 def _release_files(root:Path):
+    def linked(path:Path)->bool:
+        info=path.lstat()
+        return (stat.S_ISLNK(info.st_mode) or bool(
+            getattr(info,'st_file_attributes',0)&getattr(stat,'FILE_ATTRIBUTE_REPARSE_POINT',0)))
+    def allowed(path:Path)->bool:
+        parts=tuple(part.casefold() for part in path.relative_to(root).parts)
+        return (not any(part in RELEASE_EXCLUDED_COMPONENTS for part in parts)
+                and parts[-1] not in RELEASE_EXCLUDED_NAMES
+                and not parts[-1].startswith('.env.')
+                and path.suffix.casefold() not in RELEASE_EXCLUDED_SUFFIXES
+                and not any(linked(component)
+                    for component in (path,*path.parents) if component.is_relative_to(root)))
     for name in RELEASE_FILES:
         p=root/name
-        if p.is_file():yield p
+        if p.is_file() and allowed(p):yield p
     for name in RELEASE_DIRS:
         base=root/name
-        if not base.is_dir():continue
-        for p in sorted(base.rglob('*')):
-            if p.is_file() and not p.is_symlink() and '__pycache__' not in p.parts and p.suffix not in {'.pyc','.pyo'}:
-                yield p
+        if not base.is_dir() or not allowed(base):continue
+        candidates=[]
+        for directory,dirs,files in os.walk(base,followlinks=False):
+            parent=Path(directory)
+            # Prune before descent: Python 3.11 has no Path.is_junction(), and
+            # merely filtering files still traverses excluded trees.
+            dirs[:]=sorted(name for name in dirs if allowed(parent/name))
+            for name in files:
+                path=parent/name
+                if allowed(path) and path.is_file():candidates.append(path)
+        yield from sorted(candidates)
+
+def _publish_release(staging:Path,release:Path)->None:
+    """Bound Windows sharing-denial retries; never replace another publisher."""
+    for attempt in range(5):
+        try:
+            release.lstat()
+        except FileNotFoundError:
+            pass
+        else:
+            raise FileExistsError('Release publication destination already exists')
+        info=staging.lstat()
+        if (not stat.S_ISDIR(info.st_mode) or bool(getattr(info,'st_file_attributes',0)
+                &getattr(stat,'FILE_ATTRIBUTE_REPARSE_POINT',0))):
+            raise ValueError('Release staging must remain an ordinary directory')
+        try:
+            os.replace(staging,release)
+            return
+        except OSError as error:
+            if getattr(error,'winerror',None) not in {5,32,33} or attempt==4:
+                raise
+            time.sleep(.05*(2**attempt))
+
 
 def _release_manifest(root:Path)->list[dict]:
     return [{'path':p.relative_to(root).as_posix(),'sha256':file_hash(p),'bytes':p.stat().st_size}
@@ -196,6 +244,111 @@ def read_bytes(p: Path):
         raise ValueError('Refusing to replace a symlink/junction: '+str(p))
     return p.read_bytes() if p.exists() else None
 
+def _rollback_file_hash(path:Path)->str:
+    """Verify a moved regular file without depending on the failing install hash call."""
+    before=path.lstat()
+    if (not stat.S_ISREG(before.st_mode)
+            or getattr(before,'st_file_attributes',0)&getattr(stat,'FILE_ATTRIBUTE_REPARSE_POINT',0)):
+        raise ValueError('Rollback object is not a regular file: '+str(path))
+    flags=os.O_RDONLY|getattr(os,'O_BINARY',0)|getattr(os,'O_NOFOLLOW',0)
+    fd=os.open(path,flags)
+    with os.fdopen(fd,'rb') as source:
+        opened=os.fstat(source.fileno())
+        if (opened.st_dev,opened.st_ino)!=(before.st_dev,before.st_ino):
+            raise ValueError('Rollback object changed during open: '+str(path))
+        digest=hashlib.sha256()
+        for chunk in iter(lambda:source.read(64*1024),b''):
+            digest.update(chunk)
+        finished=os.fstat(source.fileno())
+    after=path.lstat()
+    fields=('st_dev','st_ino','st_size','st_mtime_ns')
+    if any(getattr(before,key)!=getattr(finished,key) or getattr(before,key)!=getattr(after,key)
+           for key in fields):
+        raise ValueError('Rollback object changed during verification: '+str(path))
+    return digest.hexdigest()
+
+def _restore_moved_edit(quarantine:Path,path:Path,observed_hash:str|None)->None:
+    """Best-effort exclusive replacement of a moved edit, without linking its target."""
+    moved=quarantine.lstat()
+    if hasattr(quarantine,'is_junction') and quarantine.is_junction():
+        return  # Junction recreation has no safe portable exclusive primitive.
+    if stat.S_ISLNK(moved.st_mode):
+        raw_target=os.readlink(quarantine)
+        after=quarantine.lstat()
+        fields=('st_dev','st_ino','st_size','st_mtime_ns')
+        if (any(getattr(after,key)!=getattr(moved,key) for key in fields)
+                or os.readlink(quarantine)!=raw_target):
+            return
+        os.symlink(raw_target,path,target_is_directory=bool(
+            getattr(moved,'st_file_attributes',0)&getattr(stat,'FILE_ATTRIBUTE_DIRECTORY',0)))
+        return
+    if observed_hash is None or not stat.S_ISREG(moved.st_mode):
+        return
+    staged=path.with_name('.'+path.name+'.adhd-edited-'+uuid.uuid4().hex)
+    try:
+        flags=os.O_RDONLY|getattr(os,'O_BINARY',0)|getattr(os,'O_NOFOLLOW',0)
+        fd=os.open(quarantine,flags)
+        with os.fdopen(fd,'rb') as source:
+            opened=os.fstat(source.fileno())
+            if (opened.st_dev,opened.st_ino)!=(moved.st_dev,moved.st_ino):
+                raise ValueError('Moved edit changed during open: '+str(quarantine))
+            staged_fd=os.open(staged,os.O_WRONLY|os.O_CREAT|os.O_EXCL|getattr(os,'O_BINARY',0),0o600)
+            with os.fdopen(staged_fd,'wb') as output:
+                for chunk in iter(lambda:source.read(64*1024),b''):
+                    output.write(chunk)
+                output.flush()
+                if os.name=='posix':
+                    os.fchmod(output.fileno(),stat.S_IMODE(moved.st_mode))
+                os.fsync(output.fileno())
+        if (_rollback_file_hash(quarantine)!=observed_hash
+                or _rollback_file_hash(staged)!=observed_hash):
+            raise ValueError('Moved edit changed during copy: '+str(quarantine))
+        os.link(staged,path)  # The source is our own regular temporary file.
+    finally:
+        staged.unlink(missing_ok=True)
+
+def _rollback_published_row(row:dict,quarantine:Path)->None:
+    """Move the actual destination before checking it; never write through that path."""
+    path=Path(row['path'])
+    os.replace(path,quarantine)
+    try:
+        observed_hash=_rollback_file_hash(quarantine)
+    except (OSError,ValueError):
+        observed_hash=None
+    if observed_hash!=row['installed_sha256']:
+        # Keep the quarantine and recovery marker even if the edit/link is
+        # restored. Exclusive publication refuses a newly occupied path.
+        try:
+            _restore_moved_edit(quarantine,path,observed_hash)
+        except (OSError,ValueError,NotImplementedError):
+            pass
+        raise ValueError('Concurrent edit during installation rollback: '+str(path))
+    if row['existed']:
+        backup=Path(row['backup'])
+        if _rollback_file_hash(backup)!=row['old_sha256']:
+            raise ValueError('Original backup changed during rollback: '+str(backup))
+        staged=path.with_name('.'+path.name+'.adhd-restore-'+uuid.uuid4().hex)
+        try:
+            with backup.open('rb') as source, staged.open('xb') as output:
+                for chunk in iter(lambda:source.read(64*1024),b''):
+                    output.write(chunk)
+                output.flush();os.fsync(output.fileno())
+            if _rollback_file_hash(staged)!=row['old_sha256']:
+                raise ValueError('Staged original changed during rollback: '+str(staged))
+            # Exclusive publication fails if an edit or link appeared after our check.
+            os.link(staged,path)
+        finally:
+            staged.unlink(missing_ok=True)
+        if _rollback_file_hash(path)!=row['old_sha256']:
+            raise ValueError('Restored original changed during rollback: '+str(path))
+    elif path.exists() or path.is_symlink():
+        raise ValueError('New destination appeared during rollback: '+str(path))
+    if _rollback_file_hash(quarantine)!=row['installed_sha256']:
+        raise ValueError('Quarantined installation changed during rollback: '+str(quarantine))
+    # A noncooperating writer can still race the final check/unlink of a random
+    # quarantine name; the installer lock only serializes cooperating installers.
+    quarantine.unlink()
+
 def _hook_group_present(hooks:dict,event:str,group:dict)->bool:
     return sum(1 for item in hooks.get('hooks',{}).get(event,[]) if item==group)==1
 
@@ -262,6 +415,9 @@ def _install_native(target: Path, agents_home: Path|None=None, compact: bool=Fal
     agents_home=(agents_home or target).expanduser().resolve()
     parent=target/INSTALL_SUBDIR; parent.mkdir(parents=True,exist_ok=True)
     with FileLock(str(parent/'install-native.lock'),timeout=5):
+        recovery_path=parent/'native-install-recovery.json'
+        if recovery_path.exists() or recovery_path.is_symlink():
+            raise ValueError('Incomplete native installation recovery; inspect the retained release and backups before retrying.')
         existing=_find_managed_installation(target)
         if existing and existing[0]!=parent:
             raise ValueError('A managed installation exists in another release directory; use upgrade to migrate it.')
@@ -316,7 +472,7 @@ def _install_native(target: Path, agents_home: Path|None=None, compact: bool=Fal
                 _copy_release(ROOT,staging)
                 _render_release(staging,release,ROOT)
                 release.parent.mkdir(parents=True,exist_ok=True)
-                os.replace(staging,release)
+                _publish_release(staging,release)
                 release_created=True
             except BaseException:
                 if staging.exists():shutil.rmtree(staging)
@@ -408,14 +564,25 @@ def _install_native(target: Path, agents_home: Path|None=None, compact: bool=Fal
             else:row['selector']={'kind':'file'}
             rows.append(row)
         changed=[]
+        recovery={'schema_version':1,'status':'installing','release':str(release),
+                  'backup':str(backup),'remaining':rows}
         try:
+            for row,content in zip(rows,changes.values()):
+                row['installed_sha256']=hashlib.sha256(content).hexdigest()
+            # Write the recovery record before the first publication. A crash or
+            # persistent allocation failure then leaves the dependency paths known.
+            atomic_json(recovery_path,recovery)
             for row,content in zip(rows,changes.values()):
                 p=Path(row['path']);p.parent.mkdir(parents=True,exist_ok=True)
                 current=read_bytes(p)
                 expected=Path(row['backup']).read_bytes() if row['existed'] else None
                 if current!=expected: raise ValueError('Concurrent user edit during install: '+str(p))
                 temp=p.with_name(p.name+'.adhd-install.tmp');temp.write_bytes(content);os.replace(temp,p)
-                row['installed_sha256']=file_hash(p);changed.append(row)
+                changed.append(row)
+                if (not p.is_file() or p.is_symlink()
+                        or hasattr(p,'is_junction') and p.is_junction()
+                        or file_hash(p)!=row['installed_sha256']):
+                    raise ValueError('Published installation file changed: '+str(p))
             result={'version':__version__,'display_version':DISPLAY_NAME+' v'+__version__,'release_identity':identity,
                 'source_identity':source_identity,
                 'role_effort_fingerprint':effort_fingerprint,
@@ -427,17 +594,47 @@ def _install_native(target: Path, agents_home: Path|None=None, compact: bool=Fal
                  'models':'Existing model settings preserved; ADHD role pins require a live availability probe',
                 'existing_v1_record_preserved':(parent/'installation.json').exists()}
             atomic_json(record_path,result)
-            return result
-        except BaseException:
+        except BaseException as install_error:
+            remaining=[]
+            recovery['status']='rollback_pending'
+            recovery['remaining']=changed
+            try:
+                atomic_json(recovery_path,recovery)
+            except BaseException:
+                # Keep the initial record, release and backups if this write fails.
+                pass
             for row in reversed(changed):
                 p=Path(row['path'])
-                # Do not overwrite a concurrent edit even while rolling back an error.
-                if p.exists() and file_hash(p)==row['installed_sha256']:
-                    if row['existed']: p.write_bytes(Path(row['backup']).read_bytes())
-                    else: p.unlink()
-            prune_empty_skill_dirs(agents_home,bundled_skills+workflow_skills)
-            if release_created and release.exists():shutil.rmtree(release)
+                quarantine=p.with_name('.'+p.name+'.adhd-rollback-'+uuid.uuid4().hex)
+                try:
+                    _rollback_published_row(row,quarantine)
+                except BaseException as rollback_error:
+                    remaining.append({'path':str(p),'backup':row['backup'],
+                        'quarantine':str(quarantine) if quarantine.exists() or quarantine.is_symlink() else None,
+                        'error':type(rollback_error).__name__})
+            if not remaining:
+                try:
+                    prune_empty_skill_dirs(agents_home,bundled_skills+workflow_skills)
+                    if release_created and release.exists():shutil.rmtree(release)
+                    recovery_path.unlink(missing_ok=True)
+                except BaseException as cleanup_error:
+                    remaining.append({'path':str(release),'backup':str(backup),
+                                      'error':type(cleanup_error).__name__})
+            if remaining:
+                recovery['status']='rollback_incomplete'
+                recovery['remaining']=remaining
+                try:
+                    atomic_json(recovery_path,recovery)
+                except BaseException:
+                    # Failed marker update does not authorize dependency cleanup.
+                    install_error.add_note('Rollback incomplete; retained release and backups. Recovery marker update failed.')
+                else:
+                    install_error.add_note('Rollback incomplete; inspect '+str(recovery_path))
             raise
+        # The installation record is already committed. A marker removal error
+        # must not roll back its published files behind that record's back.
+        recovery_path.unlink()
+        return result
 
 def _rollback_native(target: Path, *, record_root:Path|None=None,
                      legacy_migration:bool=False) -> dict:
@@ -449,6 +646,8 @@ def _rollback_native(target: Path, *, record_root:Path|None=None,
     parent=record_root.expanduser().resolve()
     _assert_active_state_readable(parent, 0)
     with FileLock(str(parent/'install-native.lock'),timeout=5):
+        if (parent/'native-install-recovery.json').exists() or (parent/'native-install-recovery.json').is_symlink():
+            raise ValueError('Incomplete native installation recovery; inspect retained files before rollback.')
         p=parent/'native-installation.json';record=read_json(p)
         if not record: raise ValueError('No native installation record')
         # Validate ALL originals and current files before making any changes.
@@ -577,6 +776,10 @@ def upgrade_native(target:Path,agents_home:Path|None=None,compact:bool=False,mig
     with ExitStack() as locks:
         for lock_root in sorted({parent,record_root},key=lambda path:str(path).casefold()):
             locks.enter_context(FileLock(str(lock_root/'native-operation.lock'),timeout=10))
+        for lock_root in {parent,record_root}:
+            marker=lock_root/'native-install-recovery.json'
+            if marker.exists() or marker.is_symlink():
+                raise ValueError('Incomplete native installation recovery; inspect retained files before upgrade.')
         current=_find_managed_installation(target)
         if current is None or current[0]!=record_root:
             raise ValueError('Managed installation changed while waiting for its lock.')
@@ -618,6 +821,9 @@ def upgrade_native(target:Path,agents_home:Path|None=None,compact:bool=False,mig
                                    managed_workflows=managed_workflows,role_effort=role_effort)
             result['upgraded_from']=old['version'];return result
         except BaseException:
+            marker=parent/'native-install-recovery.json'
+            if marker.exists() or marker.is_symlink():
+                raise ValueError('Incomplete native installation recovery; inspect retained files before upgrade.')
             # _install_native already rolls back its partial writes. Restore v1.1 only
             # where bytes still match the expected pre-overlay originals.
             for row in old['files']:

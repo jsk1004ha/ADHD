@@ -19,7 +19,7 @@ class ReleaseAssetsTests(unittest.TestCase):
             'adhd/obsidian_assets/evidence/evidence_archive.py',
             'adhd/obsidian_assets/evidence/evidence_codec.py',
             'adhd/obsidian_assets/evidence/sources.json',
-            'schemas/wiki-packet.json', 'docs/obsidian.md', 'docs/releases/0.1.6.md',
+            'schemas/wiki-packet.json', 'docs/obsidian.md', 'docs/releases/0.1.6.md', 'docs/releases/0.1.7.md',
             'examples/obsidian/config.json', 'examples/obsidian/feedback.json',
             'scripts/benchmark_obsidian.py', 'tests/fixtures/obsidian/evaluation.json',
             'docs/verification-efficiency.md', 'scripts/benchmark_verification_efficiency.py',

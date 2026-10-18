@@ -334,8 +334,24 @@ def prepare_wiki_context(workspace: Path, goal: str) -> dict|None:
             'warnings':['invalid-obsidian-configuration'],'authority':'source_data'})
         return {'cards':0,'warnings':['invalid-obsidian-configuration']}
     if not config or not config['enabled']:return None
-    packet=obsidian.context(workspace,goal[:1000] or workspace.name,project=workspace.name,
-                            limit=3,max_chars=4500)
+    # A host hook must not do an unbounded full-vault reconciliation at startup.
+    from . import obsidian_index
+    options_path=obsidian_index.safe_path(workspace,'.adhd/context-options.json',allow_missing=True)
+    options=read_json(options_path,{}) if options_path.is_file() and options_path.stat().st_size<=8000 else {}
+    if isinstance(options,dict) and options.get('schema_version')==1 and options.get('wiki_startup_hints') is True:
+        db,generation=obsidian_index.hint_snapshot(workspace,config)
+        if db is None:
+            packet={'cards':[],'warnings':['wiki-reconciliation-required'],'complete':False,
+                    'policy_epoch':config['policy_epoch'],'index_generation':0}
+        else:
+            db.close()
+            from .context_search import locate
+            packet=locate(workspace,goal[:1000] or workspace.name,sources=('wiki',),limit=3,max_chars=4500)
+            packet.update(policy_epoch=config['policy_epoch'],index_generation=generation)
+            packet['warnings']=sorted(set(packet['warnings']+['startup-hints-incomplete']))
+    else:
+        packet=obsidian.context(workspace,goal[:1000] or workspace.name,project=workspace.name,
+                                limit=3,max_chars=4500)
     packet.update({'task_fingerprint':digest(goal),'current_user_and_contract_override':True,
                    'revalidate_revisions_before_dependent_action':True})
     path=workspace/'.adhd/wiki-plan-context.json'

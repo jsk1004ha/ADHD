@@ -39,6 +39,8 @@ class LargeIntegrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             ws = Path(temp)
             self.git(ws, 'init', '-q')
+            # Keep exact fixture bytes independent of host checkout conversion.
+            self.git(ws, 'config', 'core.autocrlf', 'false')
             (ws / '.gitignore').write_text('.adhd/\n', encoding='utf-8')
             self.git(ws, 'add', '.')
             self.git(ws, 'commit', '-qm', 'base')

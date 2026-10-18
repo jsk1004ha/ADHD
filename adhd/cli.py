@@ -14,6 +14,8 @@ from .native_install import (audit_native as audit, install_native, rollback_nat
                              upgrade_native, _find_managed_installation)
 from .native import submit_request, bridge, bounded_json
 from .runner import execute_run, make_run, run_folder
+from .maintenance_budget import BudgetExhausted
+from .time_budget import TimeBudgetExpired, validate_seconds
 
 
 def output(value):
@@ -88,6 +90,11 @@ def parser() -> argparse.ArgumentParser:
     q.add_argument('--workspace', type=Path, default=Path.cwd())
     q.add_argument('--payload-file', type=Path)
     q.add_argument('--profile', choices=['simple', 'standard', 'deep'], help='Explicit execution intensity for begin; preserves selected models and effort')
+    q.add_argument('--time-limit-seconds', type=float, help='Explicit total wall-time budget for native begin, including goal mode')
+    q.add_argument('--review-reserve-seconds', type=float, help='Reserve time for verification/review within the explicit total budget')
+    q.add_argument('--classification', choices=['no_change', 'new_task'], help='Payload-free native sync-intent control after expiry')
+    q.add_argument('--source-turn-id', help='Recorded pending user turn for payload-free sync-intent')
+    q.add_argument('--base-revision', type=int, help='Current contract revision for payload-free sync-intent')
     q = sub.add_parser('request-route', help='Inspect conservative first-pass routing without starting a run')
     q.add_argument('prompt')
     q.add_argument('--previous', help='Previous substantive request for a brief approval')
@@ -148,8 +155,9 @@ def main(argv=None) -> int:
             from .large_cli import execute
             result = execute(args)
             output(result)
-            return 2 if isinstance(result, dict) and result.get('status') in {'needs_repair', 'stale', 'blocked', 'failed'} else 0
-        elif args.command in {'memory','wiki','route','doc','extension','provenance','eval'}:
+            return 2 if isinstance(result, dict) and result.get('status') in {'needs_repair', 'stale', 'blocked', 'failed', 'budget_exhausted'} else 0
+        elif args.command in {'memory','wiki','route','doc','extension','provenance','eval',
+                              'context','experiment','diagnose','snapshot','objects'}:
             from .extra_cli import execute
             output(execute(args))
         elif args.command == 'check':
@@ -196,6 +204,27 @@ def main(argv=None) -> int:
             output(summarize_run_metrics(rows) if args.action == 'summarize' else compare_paired_runs(rows))
         elif args.command == 'native':
             payload=bounded_json(args.payload_file) if args.payload_file else {}
+            control = (args.classification, args.source_turn_id, args.base_revision)
+            if any(value is not None for value in control):
+                if (args.operation != 'sync-intent' or args.payload_file
+                        or any(value is None for value in control) or args.base_revision < 1):
+                    raise ValueError('Intent control needs sync-intent, all three control flags and no payload file')
+                payload = {'classification': args.classification, 'source_turn_id': args.source_turn_id,
+                           'base_revision': args.base_revision, 'operations': []}
+            for name, value in (('time_limit_seconds', args.time_limit_seconds),
+                                ('review_reserve_seconds', args.review_reserve_seconds)):
+                if value is not None:
+                    if args.operation != 'begin':
+                        raise ValueError('Time-limit flags apply only to native begin')
+                    validate_seconds(value, name, allow_zero=name == 'review_reserve_seconds')
+                    if name in payload and payload[name] != value:
+                        raise ValueError('CLI and payload time budgets differ')
+                    payload[name] = value
+            if 'review_reserve_seconds' in payload and 'time_limit_seconds' not in payload:
+                raise ValueError('A review reserve needs an explicit total time limit')
+            if ('review_reserve_seconds' in payload and 'time_limit_seconds' in payload
+                    and payload['review_reserve_seconds'] >= payload['time_limit_seconds']):
+                raise ValueError('Review reserve must be less than the total time limit')
             if args.profile:
                 if args.operation != 'begin':
                     raise ValueError('--profile applies only to native begin')
@@ -255,6 +284,7 @@ def main(argv=None) -> int:
             else:
                 output(state)
         return 0
-    except (ValueError, OSError, ImportError, TypeError, json.JSONDecodeError, subprocess.SubprocessError) as e:
-        print(f'Error: {e}', file=sys.stderr)
+    except (ValueError, OSError, ImportError, TypeError, json.JSONDecodeError, subprocess.SubprocessError, BudgetExhausted, TimeBudgetExpired) as e:
+        message = 'object-access-or-filesystem-unavailable' if args.command == 'objects' and isinstance(e, OSError) else str(e)
+        print(f'Error: {message}', file=sys.stderr)
         return 2

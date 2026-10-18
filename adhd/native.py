@@ -9,9 +9,11 @@ from __future__ import annotations
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import json
+import math
 import os
 from pathlib import Path
 import re
+import shlex
 import sys
 import time
 from time import perf_counter_ns
@@ -42,6 +44,7 @@ from .loop_guard import (CHURN_GRACE, observe_tool_loop, repeated_review_rejecti
                          reset_loop, steer_if_stuck)
 from .memory import validate_procedure_bundle
 from . import leases
+from .time_budget import validate_seconds
 from .vendor.smolagents_context import truncate_content
 
 ACTIVE = {'working', 'reviewing', 'revising'}
@@ -119,6 +122,119 @@ def limit_enabled(state: dict, name: str) -> bool:
             or name in state.get('explicit_policy_keys', []))
 
 
+def begin_time_budget(payload: dict, began_at: float) -> dict | None:
+    """Create an optional absolute budget that later epochs cannot reset."""
+    if 'time_limit_seconds' not in payload:
+        if 'review_reserve_seconds' in payload:
+            raise ValueError('review_reserve_seconds requires time_limit_seconds')
+        return None
+    total = validate_seconds(payload['time_limit_seconds'], 'time_limit_seconds')
+    reserve = (validate_seconds(payload['review_reserve_seconds'], 'review_reserve_seconds', allow_zero=True)
+               if 'review_reserve_seconds' in payload else min(total * 0.2, 300.0))
+    if reserve >= total:
+        raise ValueError('review_reserve_seconds must be below time_limit_seconds')
+    return {'began_at': began_at, 'expires_at': began_at + total,
+            'limit_seconds': total, 'reserve_seconds': reserve,
+            'last_observed_at': began_at}
+
+
+def remaining_time_budget(state: dict, *, now: float | None = None) -> float | None:
+    """Use the latest observed wall time, including across backwards clock jumps."""
+    budget = state.get('time_budget')
+    if budget is None:
+        return None
+    if (not isinstance(budget, dict) or set(budget) != {'began_at', 'expires_at',
+            'limit_seconds', 'reserve_seconds', 'last_observed_at'} or
+            any(type(value) not in (int, float) or not math.isfinite(value)
+                for value in budget.values()) or
+            budget['limit_seconds'] <= 0 or budget['reserve_seconds'] < 0 or
+            budget['reserve_seconds'] >= budget['limit_seconds'] or
+            budget['expires_at'] < budget['began_at'] or
+            abs((budget['expires_at'] - budget['began_at']) - budget['limit_seconds']) > 0.0001 or
+            budget['last_observed_at'] < budget['began_at']):
+        raise ValueError('Native time_budget state is invalid')
+    observed = time.time() if now is None else now
+    if not math.isfinite(observed):
+        raise ValueError('Current wall time is invalid')
+    budget['last_observed_at'] = max(budget['last_observed_at'], observed)
+    return max(0.0, budget['expires_at'] - budget['last_observed_at'])
+
+
+def time_budget_line(state: dict, *, current: bool = True) -> str | None:
+    budget = state.get('time_budget')
+    remaining = remaining_time_budget(state, now=None if current or budget is None
+                                      else budget['last_observed_at'])
+    if remaining is None:
+        return None
+    reserve = state['time_budget']['reserve_seconds']
+    phase = 'expired' if remaining <= 0 else 'verification' if remaining <= reserve else 'work'
+    return f'Time budget: {remaining:.1f}s remaining; {reserve:.1f}s reserved; phase={phase}.'
+
+
+def expire_time_budget(state: dict) -> bool:
+    """Mark an observed expiry unfinished; running children still drain."""
+    remaining = remaining_time_budget(state)
+    if remaining is None or remaining > 0 or state['status'] not in ACTIVE:
+        return False
+    end_after_children(state, 'budget_exhausted',
+        'Explicit task time limit elapsed; required work and independent acceptance remain unfinished.')
+    return True
+
+
+def budget_control_request(state: dict, ev: dict) -> bool:
+    """Allow only an exact native status/intent command after task expiry."""
+    tool = ev.get('tool_name')
+    data = ev.get('tool_input')
+    if tool in {'exec', 'functions.exec'}:
+        code = data if isinstance(data, str) else data.get('code', '') if isinstance(data, dict) else ''
+        if not isinstance(code, str):
+            return False
+        match = re.fullmatch(r'\s*text\(await tools\.exec_command\((.+)\)\);\s*', code, re.S)
+        if not match:
+            return False
+        try:
+            data = json.loads(match[1])
+        except (ValueError, TypeError):
+            return False
+        tool = 'exec_command'
+    if not isinstance(data, dict):
+        return False
+    if tool == 'Bash':
+        if set(data) - {'command', 'description', 'timeout'}:
+            return False
+        command = data.get('command')
+    elif tool == 'exec_command':
+        if set(data) - {'cmd', 'workdir', 'max_output_tokens', 'yield_time_ms'}:
+            return False
+        if data.get('workdir', state['workspace']) != state['workspace']:
+            return False
+        command = data.get('cmd')
+    else:
+        return False
+    if not isinstance(command, str):
+        return False
+    command = command.strip()
+    if command.startswith('& '):
+        command = command[2:]
+    if re.search(r'[&;\r\n|<>`$%!]', command):
+        return False
+    try:
+        argv = shlex.split(command)
+    except ValueError:
+        return False
+    prefix = [sys.executable, str(ROOT / 'adhd.py'), 'native']
+    identity = ['--session', state['key'], '--workspace', state['workspace']]
+    if argv == prefix + ['status'] + identity:
+        return True
+    for turn in state.get('pending_turn_ids', []):
+        for classification in ('no_change', 'new_task'):
+            if argv == prefix + ['sync-intent'] + identity + [
+                    '--classification', classification, '--source-turn-id', turn,
+                    '--base-revision', str(state['intent_version'])]:
+                return True
+    return False
+
+
 def observe_thread_goal(state: dict, event: dict, directory: Path) -> None:
     """Bind a real host /goal without inventing a UserPromptSubmit event."""
     scan = observed_thread_goal(event, state.get('host_goal_cursor'))
@@ -173,6 +289,10 @@ def observe_thread_goal(state: dict, event: dict, directory: Path) -> None:
 
 
 def resume_native(state: dict, feedback: str) -> None:
+    if remaining_time_budget(state) == 0:
+        state['status'] = 'budget_exhausted'
+        state['feedback'] = 'Explicit task time limit elapsed; resume cannot reset it.'
+        return
     if (limit_reached(state, 'max_epochs', state.get('epoch', 1)) or
             limit_reached(state, 'max_lifetime_children', state.get('lifetime_children', 0)) or
             limit_reached(state, 'max_lifetime_rounds', state.get('lifetime_rounds', 0))):
@@ -433,7 +553,7 @@ _NEW_CONTRACT_FIELDS = frozenset({'preserve_conditions', 'delivery_target',
 
 def _request_needs_current_reader(op: str, payload: dict) -> bool:
     if op == 'begin':
-        return bool(_NEW_CONTRACT_FIELDS & payload.keys())
+        return bool((_NEW_CONTRACT_FIELDS | {'time_limit_seconds', 'review_reserve_seconds'}) & payload.keys())
     if op == 'sync-intent':
         return any(isinstance(row, dict) and str(row.get('target', '')).split('/')[0] in
                    _NEW_CONTRACT_FIELDS for row in payload.get('operations', []))
@@ -559,6 +679,9 @@ def export_view(state: dict) -> None:
     public['pending_intent']=bool(state.get('pending_turn_ids'))
     public['artifact_status']='candidate' if state.get('candidate') else 'in_progress' if state.get('contract') else 'unknown'
     public['acceptance_status']='accepted' if state['status']=='complete' else 'pending'
+    budget_line=time_budget_line(state, current=False)
+    if budget_line:
+        public['time_budget_status']=budget_line
     target=(state.get('contract') or {}).get('delivery_target')
     delivery=(state.get('candidate') or {}).get('delivery_evidence')
     public['delivery_status']=(('complete' if state['status']=='complete' else 'pending')
@@ -574,10 +697,18 @@ def export_view(state: dict) -> None:
             'kind':'usage','actor':'child:'+str(call.get('agent_id',index)),
             **{name:usage.get(name) for name in ('input_tokens','cached_input_tokens','output_tokens')}})
     public['observed_accounting']=summarize_run_metrics(usage_rows)
+    if state.get('contract'):
+        try:
+            from .context_session import refresh_status
+            public['status_panel']=refresh_status(public)
+        except Exception as error:
+            # Derived UI failure cannot change authoritative state/acceptance.
+            public['status_panel']={'status':'unavailable','error':type(error).__name__}
     p = checked_path(Path(state['workspace']), str((b/'view.json').relative_to(state['workspace'])))
     atomic_json(p, public)
 
 def persist(d: Path, state: dict) -> None:
+    remaining_time_budget(state)
     atomic_json(d/'state.json', state)
     export_view(state)
 
@@ -814,6 +945,11 @@ def archive_for_new_task(state: dict, d: Path, turn_id: str) -> None:
     if state.get('run_id'):
         release_writer(state)
     fresh=initial(state['key'],Path(state['workspace']))
+    # These attest the still-running host session, not the archived task. Keep
+    # the actual observations; current-reader/profile checks still rehash them.
+    for field in ('session_reader', 'session_verifier_profile', 'session_helper_profiles'):
+        if field in state:
+            fresh[field] = state[field]
     fresh['prompt_turns']=state['prompt_turns']
     fresh['prompts']=[new_prompt]
     outcome = goal_command(new_prompt['text'])
@@ -838,6 +974,10 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             raise ValueError('Goal mode requires an observed /goal or $adhd-goal user command')
         if state.get('goal_request') and loop_mode != 'goal':
             raise ValueError('An observed goal command cannot be downgraded to bounded execution')
+        began_at = time.time()
+        time_budget = begin_time_budget(payload, began_at)
+        if time_budget is not None and not _current_session_reader(state):
+            raise ValueError('Explicit time budgets require the current managed SessionStart reader')
         if store().resolve().is_relative_to(ws.resolve()):
             raise ValueError('Use a project folder that does not contain the Codex host state directory')
         for field in ['assumptions','non_goals']:
@@ -891,7 +1031,7 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             error = role_profile_error(role, policy['role_effort'], state)
             if error:
                 raise ValueError(error)
-        state.update(run_id=uuid.uuid4().hex, status='working', started=time.time(),
+        state.update(run_id=uuid.uuid4().hex, status='working', started=began_at,
             mode=mode, rounds=0, astra_calls=0,total_children=0,children={},reservations={},
             seen_stops=[],halt_emitted=False,last_stop_decision={},feedback='',candidate=None,stagnation=0,last_progress=None,checkpoints=[],
             progress_initialized=False,seen_progress=[],verified_progress=[],test_outcomes={},
@@ -899,6 +1039,8 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             explicit_policy_keys=sorted(local_policy), plan=None,
             plan_required=profile['plan_depth']!='optional', execution_profile=profile,
             pending_turn_ids=[],epoch=1,review_children=0,lifetime_children=0,lifetime_rounds=0)
+        if time_budget is not None:
+            state['time_budget'] = time_budget
         state['failure_history']=[];state['failure_counts']={};state['verified_failure_counts']={};state['needs_replan']=False
         reset_loop(state, reviews=True)
         state['contract']={'criteria':criteria,'artifacts':artifacts,
@@ -1219,6 +1361,8 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         state['checkpoints']=(state.get('checkpoints',[])+[entry])[-6:]
         return 'Checkpoint saved.'
     if op=='candidate':
+        if state['status'] not in ACTIVE or expire_time_budget(state):
+            raise ValueError('Candidate requires an active, unexpired task time budget')
         if state.get('plan_required') and (not state.get('plan') or state['plan']['intent_version']!=state['intent_version']):
             raise ValueError('Create/update the required plan before submitting this task')
         for rel,sha in state['contract'].get('protected_inputs',{}).items():
@@ -1406,6 +1550,8 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         if scope_proof:
             c['coding_scope_proof'] = scope_proof
             c['coding_scope_evidence'] = payload['coding_scope_evidence']
+        if expire_time_budget(state):
+            raise ValueError('Candidate arrived after the explicit task time limit')
         c['digest']=digest(c)
         state['candidate']=c; state['status']='reviewing'; state['feedback']=''
         return 'Candidate '+c['digest']+' recorded. Spawn adhd-verifier on this exact digest; do not approve your own work.'
@@ -1444,6 +1590,7 @@ def process_inbox(state: dict, d: Path) -> list[str]:
             if state.get('run_id') != before.get('run_id') and state.get('run_id'):
                 release_writer(state)
             state.clear();state.update(before)
+            expire_time_budget(state)
             ack={'ok':False,'message':str(e),'status':state['status']}
         state['processed']=(state['processed']+[p.stem])[-200:]
         acks=state.setdefault('request_acks',{})
@@ -1494,6 +1641,12 @@ def spawn_guard(state: dict, ev: dict) -> dict:
     if not isinstance(args,dict): return deny('Invalid spawn arguments')
     role=args.get('agent_type',args.get('subagent_type',''))
     if not isinstance(role,str) or role not in ROLES: return deny('Use a ADHD role during this run, or pause the native owner before using another harness.')
+    remaining = remaining_time_budget(state)
+    if remaining == 0:
+        expire_time_budget(state)
+        return deny('Explicit task time limit elapsed; no new child may start.')
+    if remaining is not None and role != 'adhd-verifier' and remaining <= state['time_budget']['reserve_seconds']:
+        return deny('Reserved verification window; no new work child may start.')
     if role=='adhd-implementer' and state.get('plan_required') and (not state.get('plan') or state['plan']['intent_version']!=state['intent_version']):
         return deny('Profile plan and prerequisite inspection required before implementation. Use scout/planner or the Sol director first.')
     overrides = state['policy'].get('role_effort', {})
@@ -1573,7 +1726,11 @@ def verifier_profile_hash() -> str | None:
 
 def start_child(state: dict, ev: dict) -> dict:
     role=ev.get('agent_type'); aid=ev.get('agent_id')
-    if (state['status'] not in ACTIVE or role not in ROLES or
+    remaining = remaining_time_budget(state)
+    expired = remaining == 0
+    late_expired = expired and (state['status'] in {'budget_exhausted', 'handoff_pending'} or
+        (state['status'] == 'interrupt_pending' and state.get('pending_terminal') == 'budget_exhausted'))
+    if ((state['status'] not in ACTIVE and not late_expired) or role not in ROLES or
             not isinstance(aid,str) or not 0<len(aid)<=128): return {}
     if str(aid) in state['children']:
         state['children'][str(aid)]['correlated']=False
@@ -1616,6 +1773,21 @@ def start_child(state: dict, ev: dict) -> dict:
        'selected_model':choice['model'],'selected_effort':choice['effort'],
        'selection_reason':reservation.get('selection_reason') if matched and reservation is not None else choice['description'],
        'digest':state['candidate']['digest'] if role=='adhd-verifier' and state.get('candidate') else None}
+    if late_expired:
+        state['children'][str(aid)]['correlated'] = False
+        if state['status'] == 'budget_exhausted':
+            claim_writer(state)
+            state['status'] = 'interrupt_pending'
+            state['pending_terminal'] = 'budget_exhausted'
+        return message('SubagentStart', 'Subagent start was observed after the explicit task time limit; stop work and drain this child before releasing ownership.')
+    if expire_time_budget(state):
+        state['children'][str(aid)]['correlated'] = False
+        return message('SubagentStart', 'Explicit task time limit elapsed. Stop work; this observed child must drain before the unfinished run releases ownership.')
+    if (remaining is not None and role != 'adhd-verifier' and
+            remaining <= state['time_budget']['reserve_seconds']):
+        state['children'][str(aid)]['correlated'] = False
+        state['feedback'] = 'An ordinary child started inside the reserved verification window; stop it and use the remaining time for checks or independent review.'
+        return message('SubagentStart', state['feedback'])
     instruction='Do not spawn children. Return concise findings with exact file/source pointers. Never claim unexecuted checks.'
     if state.get('contract'):
         from .large_prompts import plan_context_packet
@@ -1655,11 +1827,16 @@ def stop_child(state: dict, ev: dict, d: Path) -> dict:
           'retry':sum(c['role']==child['role'] for c in state.get('model_calls',[])),
           'outcome':'completion_unverified','finished_at':time.time()}
     state['model_calls']=(state.get('model_calls',[])+[call])[-100:]
+    if expire_time_budget(state):
+        call['outcome'] = 'time_budget_expired'
+        return message('SubagentStop', state['feedback'])
     if state['status']=='handoff_pending' and all(c.get('status')=='finished' for c in state['children'].values()):
         archive_for_new_task(state,d,state['handoff_turn_id'])
         return message('SubagentStop','Previous run archived; a new begin contract may be submitted.')
     if state['status']=='interrupt_pending' and all(c.get('status')=='finished' for c in state['children'].values()):
         resume = state.pop('host_resume_pending', False) and state.get('pending_terminal') == 'paused'
+        if state.get('pending_terminal') == 'budget_exhausted':
+            call['outcome']='time_budget_expired'
         end_after_children(state, state.get('pending_terminal','paused'))
         if resume:
             resume_native(state, 'Resumed by the host goal after all old children stopped.')
@@ -1727,6 +1904,9 @@ def stop_child(state: dict, ev: dict, d: Path) -> dict:
                     any(not isinstance(item,str) or not item.strip() or len(item)>2000 for item in review['findings'])):
                 raise ValueError('Deep review needs concrete findings about the current target-covering executions')
         review_documents(state,verdict)
+        if expire_time_budget(state):
+            call['outcome']='time_budget_expired'
+            return message('SubagentStop',state['feedback'])
         state['host_capabilities']['verifier_correlated']=True
         state['review_receipt']={'agent_id':str(ev['agent_id']),'model':child.get('model'),
                                  'correlation':child['correlation'],'profile_hash':child.get('profile_hash'),
@@ -1818,6 +1998,19 @@ def context(state: dict, *, bootstrap: bool = True, restore: bool = False) -> st
     required=['ADHD Status='+state['status']+'; Profile='+profile['name']+'; plan='+profile['plan_depth']+'.',
               'SESSION='+state['key']+'; view='+str(b/'view.json'),
               'Next: '+next_action]
+    budget_line=time_budget_line(state)
+    if budget_line:
+        required.append(budget_line)
+        if remaining_time_budget(state) == 0:
+            identity = f'--session {state["key"]} --workspace "{state["workspace"]}"'
+            prefix = f'& "{sys.executable}" "{ROOT / "adhd.py"}" native '
+            required.append('Expired work stays blocked. Exact control command: ' + prefix + 'status ' + identity)
+            if state.get('pending_turn_ids'):
+                required.append('Classify only the pending human turn with: ' + prefix + 'sync-intent ' + identity +
+                    ' --classification new_task --source-turn-id ' + state['pending_turn_ids'][-1] +
+                    ' --base-revision ' + str(state['intent_version']) +
+                    ' (use no_change for status-only intent). In functions.exec use exactly '
+                    'text(await tools.exec_command(JSON_OBJECT_WITH_CMD)); with a literal JSON object and no extra statements.')
     lines=(['Direct reply: no native plan or acceptance loop.']
            if (state['status']=='idle' or direct_turn) and routed.get('path')=='direct'
            else [planning[profile['plan_depth']]])
@@ -1901,6 +2094,8 @@ def handle_event(ev: dict, *, diagnostics=None) -> dict:
         with diagnostics.phase('goal_check'):
             if name in {'SessionStart', 'UserPromptSubmit', 'PostToolUse', 'Stop'}:
                 observe_thread_goal(state, ev, d)
+        budget_ended = (expire_time_budget(state)
+                        if name not in {'SubagentStart', 'SubagentStop'} else False)
         dispatch_started = time.perf_counter_ns() if diagnostics.enabled else None
         out={}
         if name=='UserPromptSubmit':
@@ -1971,16 +2166,21 @@ def handle_event(ev: dict, *, diagnostics=None) -> dict:
             if reports: out=message(name,'\n'.join(reports+([loop_note] if loop_note else []))+'\nRead bridge/view.json for authoritative exported status.')
             elif loop_note: out=message(name,loop_note)
         elif name=='PreToolUse':
-            matched=matched_host_action(state,ev)
-            if matched:
-                if isinstance(ev.get('policy_version'),str) and ev['policy_version']:
-                    state['host_policy_version']=ev['policy_version']
-                decision=action_decision(state,matched,state.get('host_policy_version'))
-                if not decision['retry_allowed']:
-                    out=deny('ADHD scoped action held: '+decision['reason']+'; evidence '+
-                             ', '.join(decision['evidence_refs']))
-            if not out:
-                out=spawn_guard(state,ev)
+            exhausted = budget_ended or remaining_time_budget(state) == 0
+            if (exhausted and ev.get('tool_name') != 'interrupt_agent'
+                    and not budget_control_request(state, ev)):
+                out=deny('Explicit task time limit elapsed; no further work may start.')
+            else:
+                matched=matched_host_action(state,ev)
+                if matched:
+                    if isinstance(ev.get('policy_version'),str) and ev['policy_version']:
+                        state['host_policy_version']=ev['policy_version']
+                    decision=action_decision(state,matched,state.get('host_policy_version'))
+                    if not decision['retry_allowed']:
+                        out=deny('ADHD scoped action held: '+decision['reason']+'; evidence '+
+                                 ', '.join(decision['evidence_refs']))
+                if not out:
+                    out=spawn_guard(state,ev)
         elif name=='SubagentStart': out=start_child(state,ev)
         elif name=='SubagentStop':
             child=state.get('children',{}).get(str(ev.get('agent_id','')))
@@ -2030,7 +2230,8 @@ def handle_event(ev: dict, *, diagnostics=None) -> dict:
                         state['feedback']='Progress check: no fresh requirement/test/artifact progress for 10 minutes. Identify delay, remaining mandatory work, current execution value, and one changed next action.'
                     exceeded=(limit_reached(state, 'max_rounds', state['rounds'], inclusive=False) or
                               limit_reached(state, 'max_lifetime_rounds', state['lifetime_rounds'], inclusive=False) or
-                              limit_reached(state, 'max_seconds', time.time()-state['started']) or
+                               ((not state.get('time_budget') or 'max_seconds' in state.get('explicit_policy_keys', []))
+                                and limit_reached(state, 'max_seconds', time.time()-state['started'])) or
                               limit_reached(state, 'max_stagnation', state['stagnation']))
                     if exceeded:
                         failure=record_failure(state,'budget_exhausted',
@@ -2079,7 +2280,8 @@ def submit_request(key: str, workspace: Path, op: str, payload: dict,
     if not isinstance(contract,dict):
         raise ValueError('Native contract view is invalid')
     required_reader = (_request_needs_current_reader(op,payload)
-                       or (op != 'status' and bool(_NEW_CONTRACT_FIELDS & contract.keys())))
+                       or (op != 'status' and (bool(_NEW_CONTRACT_FIELDS & contract.keys())
+                                              or view.get('time_budget') is not None)))
     if required_reader:
         from .native_install import _find_managed_installation
         managed=_find_managed_installation(home())

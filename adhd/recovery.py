@@ -86,3 +86,47 @@ def record_failure(state: dict, category: str, detail: str, evidence_ref: str,
            'retry_allowed': retry_allowed, 'observed_at': time.time()}
     state['failure_history'] = (state.get('failure_history', []) + [row])[-30:]
     return row
+
+
+def diagnosis(workspace, failure_ref: str, *, run_id: str, revision: int, facts: list[dict],
+              hypotheses: list[str], changed_condition: dict, minimal_check: dict,
+              next_actions: dict) -> dict:
+    """Attach a discriminating repair proposal to an existing verified failure.
+
+    No retry/policy decision is changed. Return a sidecar for the caller to
+    retain; the native failure identity and acceptance machinery stay canonical.
+    """
+    from .evidence import validate_execution, _argv
+    from .core import file_hash
+    from .obsidian_index import safe_path
+    receipt = validate_execution(workspace, failure_ref, run_id=run_id, revision=revision, expect_failure=True)
+    if not isinstance(facts, list) or len(facts) > 12 or not isinstance(hypotheses, list) or not 1 <= len(hypotheses) <= 8:
+        raise ValueError('Bound verified facts and remaining hypotheses')
+    verified = []
+    for fact in facts:
+        if (not isinstance(fact, dict) or set(fact) != {'text', 'evidence_ref'}
+                or not isinstance(fact['text'], str) or not 1 <= len(fact['text']) <= 1000):
+            raise ValueError('Every fact requires a bounded claim and original evidence')
+        path = safe_path(workspace, fact['evidence_ref'])
+        if not path.is_file():
+            raise ValueError('Missing fact evidence')
+        verified.append({**fact, 'evidence_sha256': file_hash(path)})
+    if any(not isinstance(value, str) or not 1 <= len(value) <= 1000 for value in hypotheses):
+        raise ValueError('Hypotheses must be bounded text')
+    if (not isinstance(changed_condition, dict) or set(changed_condition) != {'description', 'evidence_ref'}
+            or not isinstance(changed_condition['description'], str) or not 1 <= len(changed_condition['description']) <= 1000):
+        raise ValueError('State the actual changed condition and its evidence')
+    condition_path = safe_path(workspace, changed_condition['evidence_ref'])
+    if not condition_path.is_file():
+        raise ValueError('Changed condition evidence is missing')
+    if (not isinstance(next_actions, dict) or set(next_actions) != {'if_pass', 'if_fail', 'if_unknown'}
+            or any(not isinstance(value, str) or not 1 <= len(value) <= 1000 for value in next_actions.values())):
+        raise ValueError('Declare conditional next actions for all minimal-check outcomes')
+    argv = _argv(minimal_check)
+    return {'schema_version': 1, 'failure_ref': failure_ref,
+            'failure_signature': verified_failure_signature(str(receipt['result'])),
+            'facts': verified, 'remaining_hypotheses': hypotheses,
+            'changed_condition': {**changed_condition, 'evidence_sha256': file_hash(condition_path)},
+            'minimal_check': {'argv': argv, 'executed': False}, 'next_actions': next_actions,
+            'policy_changed': False, 'retry_authorized': False,
+            'authority': 'repair_proposal_not_verified_progress'}

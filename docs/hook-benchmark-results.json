@@ -3,11 +3,11 @@
   "environment": {
     "os": "Windows-11-10.0.26200-SP0",
     "python": "3.13.12 (tags/v3.13.12:1cbe481, Feb  3 2026, 18:22:25) [MSC v.1944 64 bit (AMD64)]",
-    "python_executable": "C:\\Users\\js100\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+    "python_executable": "<home>\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
     "filelock": "3.29.0",
     "timer": "time.perf_counter_ns",
     "command": [
-      "C:\\Users\\js100\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "<home>\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
       "-m",
       "scripts.benchmark_hooks",
       "--ref",
@@ -5368,5 +5368,8 @@
         }
       ]
     }
+  ],
+  "redactions": [
+    "Personal home path replaced by <home>; benchmark values are unchanged."
   ]
 }

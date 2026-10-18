@@ -8,16 +8,19 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
 import shutil
 import sys
+import time
 import uuid
 from typing import Any
 
 from .core import atomic_json, digest, file_hash, safe_path
 from .runner import Halt, execute_native_check
+from .time_budget import TimeBudgetExpired, validate_seconds
 
 
 def recognized_test_failures(stdout: str, stderr: str, exit_code: int) -> int | None:
@@ -89,10 +92,19 @@ def _argv(spec: dict) -> list[str]:
     return [str(binary), *argv[1:]]
 
 
-def run_check(spec: dict, workspace: Path) -> dict:
+def run_check(spec: dict, workspace: Path, *, deadline_monotonic: float | None = None) -> dict:
     """Execute through Codex's normal CLI tool call, never from a host hook."""
     if not isinstance(spec, dict):
         raise ValueError('Check spec must be an object')
+    began = time.monotonic()
+    if deadline_monotonic is not None and (type(deadline_monotonic) not in {int, float}
+                                           or not math.isfinite(deadline_monotonic)):
+        raise ValueError('Check deadline must be a finite monotonic instant')
+    if 'time_limit_seconds' in spec:
+        own_deadline = began + validate_seconds(spec['time_limit_seconds'], 'time_limit_seconds')
+        deadline_monotonic = min(deadline_monotonic, own_deadline) if deadline_monotonic is not None else own_deadline
+    if deadline_monotonic is not None and began >= deadline_monotonic:
+        raise TimeBudgetExpired('Check was not started: time budget exhausted')
     workspace = workspace.expanduser().resolve()
     if not workspace.is_dir():
         raise ValueError('Missing check workspace')
@@ -112,6 +124,8 @@ def run_check(spec: dict, workspace: Path) -> dict:
     timeout = spec.get('timeout', 300)
     if type(timeout) not in {int, float} or not 1 <= timeout <= 1800:
         raise ValueError('Check timeout must be 1..1800 seconds')
+    if deadline_monotonic is not None and time.monotonic() >= deadline_monotonic:
+        raise TimeBudgetExpired('Check was not started: time budget exhausted while preparing inputs')
     check_id = uuid.uuid4().hex
     out = _path(workspace, '.adhd/checks/' + check_id + '/receipt.json', existing=False)
     out.parent.mkdir(parents=True, exist_ok=False)
@@ -121,11 +135,38 @@ def run_check(spec: dict, workspace: Path) -> dict:
                                'digest': digest(before)})
     started = datetime.now(timezone.utc).isoformat()
     execution_status = 'exited'
+    trial_id, registry, monitor = None, None, None
+    if spec.get('trial') is not None:
+        from .trial_registry import TrialRegistry
+        from .resource_metrics import ProcessTreeMonitor
+        metadata = dict(spec['trial'])
+        registry_relative = metadata.pop('registry', '.adhd/trials-v1')
+        registry = TrialRegistry(_path(workspace, registry_relative, existing=False))
+        trial_id = registry.start(**metadata)
+        monitor = ProcessTreeMonitor()
+        monitor.__enter__()
     try:
-        exit_code = execute_native_check(argv, cwd, prefix, timeout=timeout)
+        process_timeout = timeout
+        if deadline_monotonic is not None:
+            remaining = deadline_monotonic - time.monotonic()
+            if remaining <= 0:
+                raise TimeBudgetExpired('Check was not started: time budget exhausted before launch')
+            process_timeout = min(timeout, remaining)
+        exit_code = execute_native_check(argv, cwd, prefix, timeout=process_timeout)
+    except TimeBudgetExpired:
+        if registry is not None:
+            registry.finish(trial_id, 'timeout', reason='Time budget expired before process launch')
+        raise
     except Halt as error:
         execution_status = 'timeout' if error.status == 'budget_exhausted' else 'cancelled'
         exit_code = 124 if execution_status == 'timeout' else 130
+    except BaseException as error:
+        if registry is not None:
+            registry.finish(trial_id, 'failed', reason=type(error).__name__)
+        raise
+    finally:
+        if monitor is not None:
+            monitor.__exit__()
     finished = datetime.now(timezone.utc).isoformat()
     after = subject_manifest(workspace, paths)
     receipt = {
@@ -145,7 +186,21 @@ def run_check(spec: dict, workspace: Path) -> dict:
                    'stdout_sha256': file_hash(prefix.with_suffix('.stdout.jsonl')),
                    'stderr_sha256': file_hash(prefix.with_suffix('.stderr.log'))},
     }
+    if deadline_monotonic is not None:
+        receipt['invocation']['timeout_seconds'] = process_timeout
+        receipt['result']['budget_limited'] = execution_status == 'timeout' and process_timeout < timeout
     atomic_json(out, receipt)
+    if registry is not None:
+        resources = monitor.report()
+        post_task = monitor.observe_post_task()
+        resources['post_task'] = post_task
+        registry.finish(trial_id, 'success' if exit_code == 0 and before == after else
+                        'timeout' if execution_status == 'timeout' else
+                        'cancelled' if execution_status == 'cancelled' else 'failed',
+                        resources=resources, metrics={'peak_private_bytes': resources['peak_private_bytes']})
+        receipt['trial_observation'] = {'id': trial_id, 'resources': resources,
+                                       'quality_acceptance': 'not_inferred_from_check_exit'}
+        atomic_json(out, receipt)
     return {'receipt': str(out.relative_to(workspace)).replace('\\', '/'),
             'evidence_id': check_id, 'exit_code': exit_code,
             'inputs_unchanged': before == after, 'status': execution_status}
@@ -269,10 +324,59 @@ def observe_host_tool(state: dict, event: dict) -> dict | None:
            'input_result_sha256':hashlib.sha256(encoded.encode('utf-8')).hexdigest(),
            'observed_at':datetime.now(timezone.utc).isoformat(),
            'assurance':'host_PostToolUse_bounded_redacted'}
+    # Preserve supported textual/structured results separately from native schema 2.
+    # Missing and sensitive outputs stay explicit; hashes are never read authority.
+    row['full_output'] = _store_observed_output(state, row['id'], response,tool_name=name)
     existing=state.setdefault('tool_observations',[])
     if not any(value['id']==row['id'] for value in existing):
         state['tool_observations']=(existing+[row])[-100:]
     return row
+
+
+def _store_observed_output(state: dict, observation_id: str, response: Any, *, tool_name='') -> dict:
+    from .memory import SECRET
+    workspace=Path(state.get('workspace',''))
+    if not state.get('workspace') or not workspace.is_dir():
+        return {'status':'uncollected','reason':'workspace_unavailable'}
+    try:
+        policy_path=_path(workspace,'.adhd/tool-output-policy.json')
+        if policy_path.stat().st_size>8000:raise ValueError('Policy exceeds budget')
+        policy=json.loads(policy_path.read_text(encoding='utf-8-sig'))
+        if (policy.get('schema_version')!=1 or policy.get('enabled') is not True
+                or tool_name not in policy.get('allowed_tools',[]) or not policy.get('policy_revision')):
+            return {'status':'uncollected','reason':'capture_disabled'}
+        policy_hash=file_hash(policy_path)
+    except (OSError,ValueError,TypeError):
+        return {'status':'uncollected','reason':'capture_disabled'}
+    def sensitive(value, depth=0):
+        if depth > 16:
+            return True
+        if isinstance(value, dict):
+            if value.get('type') in {'image','audio'} or 'blob' in value:
+                return True
+            return any(re.search(r'(?i)(?:authorization|cookie|password|secret|api[_-]?key|access_token|private_key|email|address|phone)', str(k))
+                       or sensitive(v,depth+1) for k,v in value.items())
+        if isinstance(value,list):
+            return any(sensitive(v,depth+1) for v in value)
+        return isinstance(value,str) and bool(SECRET.search(value))
+    if sensitive(response):
+        return {'status':'uncollected','reason':'sensitive_or_binary_result'}
+    raw=json.dumps(response,ensure_ascii=False,sort_keys=True,default=str).encode('utf-8')
+    if len(raw)>1_000_000:
+        return {'status':'uncollected','reason':'result_exceeds_capture_budget'}
+    relative='.adhd/tool-results/'+observation_id+'.json'
+    try:
+        path=_path(workspace,relative,existing=False)
+        if file_hash(policy_path)!=policy_hash:
+            return {'status':'uncollected','reason':'capture_policy_changed'}
+        atomic_json(path,response)
+        return {'status':'stored','path':relative,'sha256':file_hash(path),'bytes':path.stat().st_size,
+                'policy_revision':policy['policy_revision'],'policy_sha256':policy_hash,
+                'reported_truncated':response.get('truncated') if isinstance(response,dict) else None,
+                'exit_code':response.get('exit_code') if isinstance(response,dict) else None,
+                'authority':'source_data_revalidate_before_use'}
+    except (OSError,ValueError):
+        return {'status':'uncollected','reason':'local_capture_unavailable'}
 
 
 def validate_tool_observations(state: dict, refs: list[str], kind: str,

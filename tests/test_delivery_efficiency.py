@@ -377,7 +377,7 @@ class DeliveryEfficiencyTests(unittest.TestCase):
 
     def test_explicit_markdown_skill_link_selects_goal(self):
         self.assertEqual(goal_command('[$adhd-goal](skill://adhd-goal) 완성해 줘'), '완성해 줘')
-        self.assertEqual(goal_command(r'[$adhd-goal](C:\Users\js100\.codex\skills\adhd-goal\SKILL.md) 구현시작'), '구현시작')
+        self.assertEqual(goal_command(r'[$adhd-goal](C:\Users\example\.codex\skills\adhd-goal\SKILL.md) 구현시작'), '구현시작')
         self.assertIsNone(goal_command('Explain [$adhd-goal](skill://adhd-goal)'))
 
 

@@ -70,7 +70,7 @@ class ReleaseSmokeTests(unittest.TestCase):
                          'adhd/obsidian_assets/evidence/evidence_codec.py',
                          'adhd/obsidian_assets/evidence/sources.json',
                          'schemas/wiki-packet.json', 'docs/obsidian.md',
-                         'docs/releases/0.1.6.md', 'examples/obsidian/config.json'):
+                         'docs/releases/0.1.6.md', 'docs/releases/0.1.7.md', 'examples/obsidian/config.json'):
                 self.assertTrue((release / name).is_file(), name)
             self.assertIn('goal', run([str(python), str(release / 'adhd.py'), 'native', '--help']))
             disabled = cli('wiki', 'context', '--workspace', str(workspace), '--query', 'release smoke')

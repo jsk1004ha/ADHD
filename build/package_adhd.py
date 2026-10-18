@@ -15,6 +15,12 @@ from adhd import __version__
 ARCHIVE_ROOT = f'ADHD-v{__version__}'
 OUTPUT = ROOT.parent / f'{ARCHIVE_ROOT}.zip'
 PUBLIC_FILE_LIST = ROOT / 'build' / 'public-files.txt'
+DENIED_COMPONENTS = {'.git', '.adhd', '.omx', '.venv', '__pycache__', '.pytest_cache',
+                     '.mypy_cache', '.ruff_cache', 'node_modules', '.tox', '.nox',
+                     'cache', '.cache', 'tmp', 'temp', 'scratch'}
+DENIED_NAMES = {'.env', '.env.local', '.env.production', 'auth.json', 'credentials.json',
+                'secrets.json', 'id_rsa', 'id_ed25519'}
+DENIED_SUFFIXES = {'.pyc', '.pyo', '.pem', '.key', '.p12', '.sqlite', '.sqlite3', '.db'}
 
 
 def public_files() -> list[Path]:
@@ -28,8 +34,17 @@ def public_files() -> list[Path]:
             part in {'', '.', '..'} for part in name.split('/')
         ):
             raise ValueError(f'Unsafe public path: {name!r}')
+        parts = [part.casefold() for part in name.split('/')]
+        leaf = parts[-1]
+        if (any(part in DENIED_COMPONENTS for part in parts)
+                or leaf in DENIED_NAMES or leaf.startswith('.env.')
+                or Path(leaf).suffix in DENIED_SUFFIXES):
+            raise ValueError(f'Private or generated public path: {name!r}')
         path = ROOT / name
-        if not path.is_file() or path.is_symlink() or not path.resolve().is_relative_to(ROOT.resolve()):
+        if (not path.is_file() or any(parent.is_symlink() or
+                (hasattr(parent, 'is_junction') and parent.is_junction())
+                for parent in (path, *path.parents) if parent != ROOT.parent)
+                or not path.resolve().is_relative_to(ROOT.resolve())):
             raise ValueError(f'Public source file missing or unsafe: {name!r}')
         files.append(path)
     return files

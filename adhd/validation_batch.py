@@ -18,11 +18,18 @@ import uuid
 
 from .core import atomic_json, digest, environment_signature, file_hash
 from .evidence import _path, _argv, run_check, subject_manifest, validate_execution
+from .time_budget import TimeBudgetExpired, validate_seconds
 
 
 def validate_plan(spec: dict) -> dict:
     if not isinstance(spec, dict):
         raise ValueError('Batch plan must be an object')
+    if 'time_limit_seconds' in spec:
+        validate_seconds(spec['time_limit_seconds'], 'time_limit_seconds')
+    if 'fail_fast' in spec and type(spec['fail_fast']) is not bool:
+        raise ValueError('fail_fast must be a boolean')
+    if spec.get('scheduling', 'declared') not in {'declared', 'shortest_first'}:
+        raise ValueError('Unknown batch scheduling policy')
     checks = spec.get('checks')
     if not isinstance(checks, list) or not 1 <= len(checks) <= 200:
         raise ValueError('Batch requires 1..200 declared checks')
@@ -47,6 +54,8 @@ def validate_plan(spec: dict) -> dict:
         for field in ('critical', 'impact_complete', 'environment_complete', 'external_state', 'time_sensitive'):
             if field in row and type(row[field]) is not bool:
                 raise ValueError('Invalid check ' + field)
+        if 'estimated_seconds' in row:
+            validate_seconds(row['estimated_seconds'], 'estimated_seconds', allow_zero=True)
         known.add(row['id'])
         covered.update(row.get('requirements', []))
     required = spec.get('requirements', [])
@@ -85,8 +94,88 @@ def diagnose_plan(spec: dict) -> dict:
                              'message': 'Incomplete declarations require execution; confirm coverage before enabling reuse.'})
     eligible = [row['id'] for row in checks if row.get('impact_complete') and row.get('environment_complete')
                 and not any(row.get(flag) for flag in ('critical', 'external_state', 'time_sensitive'))]
+    known = [float(row['estimated_seconds']) for row in checks if 'estimated_seconds' in row]
+    unknown = [row['id'] for row in checks if 'estimated_seconds' not in row]
+    lower_estimate = sum(known) / spec.get('process_slots', 2)
+    limit = spec.get('time_limit_seconds')
+    if limit is not None and lower_estimate > limit:
+        warnings.append({'code': 'estimated_work_exceeds_budget',
+                         'message': 'Declared estimates exceed the available budget; required evidence is unchanged.'})
+    timing = {'time_limit_seconds': limit, 'estimated_total_seconds': None if unknown else sum(known),
+              'minimum_estimated_seconds': lower_estimate, 'unknown_checks': unknown,
+              'scheduling': spec.get('scheduling', 'declared'), 'fail_fast': spec.get('fail_fast', False),
+              'assurance': 'Advisory estimates, not observed durations or permission to omit required checks'}
     return {'checks': len(checks), 'mandatory_checks': spec.get('mandatory_checks', []),
-            'reusable_checks': eligible, 'reuse_ready': bool(eligible), 'warnings': warnings}
+            'reusable_checks': eligible, 'reuse_ready': bool(eligible), 'warnings': warnings, 'timing': timing}
+
+
+def suggest_inputs(workspace: Path, spec: dict) -> dict:
+    """Bounded import/fixture hints. A static graph cannot prove full impact."""
+    import ast
+    from .obsidian_index import safe_path
+    validate_plan(spec)
+    suggestions = []
+    for check in spec['checks']:
+        imports, fixtures, variables, tools, uncertainty = set(), set(), set(), set(), set()
+        declared=list(dict.fromkeys(check['subject_paths'] + check.get('dependency_paths', [])))
+        if len(declared)>500:
+            uncertainty.add('input_budget_exceeded')
+        for relative in declared[:500]:
+            path = safe_path(workspace, relative)
+            if not path.is_file() or path.suffix != '.py':
+                uncertainty.add('non_python_or_missing_input')
+                continue
+            if path.stat().st_size > 1024 * 1024:
+                uncertainty.add('input_exceeds_parser_budget')
+                continue
+            try:
+                tree = ast.parse(path.read_text(encoding='utf-8-sig'), filename=relative)
+            except (SyntaxError, UnicodeError, OSError):
+                uncertainty.add('parse_unavailable')
+                continue
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    imports.update(alias.name for alias in node.names)
+                elif isinstance(node, ast.ImportFrom):
+                    if node.level:
+                        uncertainty.add('relative_import_requires_review')
+                    if node.module:
+                        imports.add(node.module)
+                elif isinstance(node, ast.Call):
+                    name = node.func.id if isinstance(node.func, ast.Name) else node.func.attr if isinstance(node.func, ast.Attribute) else ''
+                    literal = node.args[0].value if node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str) else None
+                    if name in {'open', 'Path'} and literal:
+                        fixtures.add(literal)
+                    if name in {'getenv', 'get'} and literal and 'environ' in ast.unparse(node.func):
+                        variables.add(literal)
+                    if name == 'getenv' and literal:
+                        variables.add(literal)
+                    if name in {'run', 'Popen', 'check_call', 'check_output'}:
+                        uncertainty.add('subprocess_tool_or_external_state')
+                        if node.args and isinstance(node.args[0], (ast.List, ast.Tuple)) and node.args[0].elts and isinstance(node.args[0].elts[0], ast.Constant):
+                            tools.add(str(node.args[0].elts[0].value))
+                    if name in {'import_module', '__import__', 'eval', 'exec'}:
+                        uncertainty.add('dynamic_dependency')
+                elif isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
+                    if 'environ' in ast.unparse(node.value):
+                        variables.add(node.slice.value)
+        dependencies = set()
+        for module in imports:
+            for relative in (module.replace('.', '/') + '.py', module.replace('.', '/') + '/__init__.py'):
+                try:
+                    path = safe_path(workspace, relative)
+                    if path.is_file():
+                        dependencies.add(relative)
+                except ValueError:
+                    uncertainty.add('unsafe_import_hint')
+        suggestions.append({'check_id': check['id'], 'possible_dependency_paths': sorted(dependencies),
+                            'declared_input_count': len(declared), 'inspected_input_count': min(len(declared),500),
+                            'fixture_hints': sorted(fixtures), 'environment_vars': sorted(variables),
+                            'tools': sorted(tools), 'uncertainty': sorted(uncertainty),
+                            'impact_complete': False, 'environment_complete': False,
+                            'requires_fresh': bool(uncertainty) or any(check.get(flag) for flag in ('critical', 'external_state', 'time_sensitive'))})
+    return {'schema_version': 1, 'checks': suggestions, 'manifest_rewritten': False,
+            'note': 'Review dynamic fixtures/config/tool/external state; hints never enable reuse automatically.'}
 
 
 def freeze(workspace: Path, paths: list[str], *, run_id: str, revision: int,
@@ -284,6 +373,9 @@ def run_batch(spec: dict, workspace: Path) -> dict:
     """Execute all runnable checks, including independent checks after a failure."""
     validate_plan(spec)
     started = time.time()
+    monotonic_started = time.monotonic()
+    deadline = (monotonic_started + float(spec['time_limit_seconds'])
+                if 'time_limit_seconds' in spec else None)
     diagnostics = diagnose_plan(spec)
     retry_policy = spec.get('retry_policy', {})
     if (not isinstance(retry_policy, dict)
@@ -309,7 +401,8 @@ def run_batch(spec: dict, workspace: Path) -> dict:
     batch_id = uuid.uuid4().hex
     root = _path(workspace, '.adhd/batches/' + batch_id + '/report.json', existing=False).parent
     root.mkdir(parents=True, exist_ok=False)
-    plan_value = {k: spec[k] for k in ('checks', 'requirements', 'mandatory_checks') if k in spec}
+    plan_value = {k: spec[k] for k in ('checks', 'requirements', 'mandatory_checks',
+                                     'time_limit_seconds', 'scheduling', 'fail_fast') if k in spec}
     plan_digest = digest(plan_value)
     atomic_json(root / 'plan.json', plan_value)
     atomic_json(root / 'snapshot.json', snapshot)
@@ -328,21 +421,27 @@ def run_batch(spec: dict, workspace: Path) -> dict:
     old_files = previous.get('snapshot', {}).get('files', {}) if previous else {}
     changed = {p for p in set(old_files) | set(snapshot['files']) if old_files.get(p) != snapshot['files'].get(p)}
     pending = list(spec['checks'])
+    if spec.get('scheduling') == 'shortest_first':
+        pending.sort(key=lambda check: check.get('estimated_seconds', float('inf')))
     completed, futures, busy = {}, {}, set()
     slots = spec.get('process_slots', 2)
 
     def execute(check):
+        check_started = time.monotonic()
         row = {'id': check['id'], 'owner': check.get('owner'),
                'requirements': check.get('requirements', []), 'status': 'error'}
         try:
+            options = {'deadline_monotonic': deadline} if deadline is not None else {}
             receipt = run_check({'run_id': run_id, 'contract_revision': revision,
                                  'argv': check['argv'], 'subject_paths': check['subject_paths'],
-                                 'cwd': check.get('cwd', '.'), 'timeout': check.get('timeout', 300)}, workspace)
+                                 'cwd': check.get('cwd', '.'), 'timeout': check.get('timeout', 300)}, workspace, **options)
             row.update(receipt)
             row['status'] = ('stale' if not receipt['inputs_unchanged'] else
                              'timeout' if receipt.get('status') == 'timeout' else
                              'passed' if receipt['exit_code'] == 0 else 'failed')
             row['excerpt'] = _excerpt(workspace, receipt['receipt']) if row['status'] != 'passed' else {'text': '', 'truncated': False}
+        except TimeBudgetExpired as error:
+            row.update(status='blocked', reason='batch_time_budget', detail=str(error), started=False)
         except Exception as error:
             # Persist errors; never manufacture a successful execution receipt.
             row['status'] = 'timeout' if error.__class__.__name__ == 'Halt' else 'error'
@@ -350,11 +449,20 @@ def run_batch(spec: dict, workspace: Path) -> dict:
             error_path = root / (check['id'] + '.error.json')
             atomic_json(error_path, {'type': error.__class__.__name__, 'detail': str(error)})
             row['error_ref'] = error_path.relative_to(workspace).as_posix()
+        row['duration_seconds'] = time.monotonic() - check_started
         return row
 
     with ThreadPoolExecutor(max_workers=slots) as pool:
         while pending or futures:
             for check in list(pending):
+                reason = ('batch_time_budget' if deadline is not None and time.monotonic() >= deadline else
+                          'fail_fast' if spec.get('fail_fast') and any(
+                              row['status'] not in {'passed', 'reused'} for row in completed.values()) else None)
+                if reason:
+                    completed[check['id']] = {'id': check['id'], 'status': 'blocked', 'reason': reason,
+                                             'owner': check.get('owner'), 'started': False}
+                    pending.remove(check)
+                    continue
                 deps = check.get('depends_on', [])
                 if not all(d in completed for d in deps):
                     continue
@@ -397,7 +505,10 @@ def run_batch(spec: dict, workspace: Path) -> dict:
                 raise ValueError('Batch has unresolved dependencies')
     results = [completed[row['id']] for row in spec['checks']]
     current = _current(workspace, snapshot)
-    status = ('stale' if not current else 'passed' if all(r['status'] in {'passed', 'reused'} for r in results) else 'needs_repair')
+    elapsed = time.monotonic() - monotonic_started
+    exhausted = deadline is not None and time.monotonic() >= deadline
+    status = ('stale' if not current else 'budget_exhausted' if exhausted else
+              'passed' if all(r['status'] in {'passed', 'reused'} for r in results) else 'needs_repair')
     counts = {s: sum(r['status'] == s for r in results) for s in sorted({r['status'] for r in results})}
     finished = time.time()
     reasons = {}
@@ -419,10 +530,16 @@ def run_batch(spec: dict, workspace: Path) -> dict:
               'plan_digest': plan_digest, 'plan_ref': (root / 'plan.json').relative_to(workspace).as_posix(),
               'status': status, 'inputs_unchanged': current, 'results': results,
               'groups': failure_groups(results), 'blocked_checks': [r['id'] for r in results if r['status'] == 'blocked'],
-              'omitted_checks_with_reason': [], 'started_at': started, 'finished_at': finished,
+              'omitted_checks_with_reason': [{'id': r['id'], 'reason': r['reason']} for r in results
+                                             if r.get('started') is False and r.get('reason')],
+              'started_at': started, 'finished_at': finished,
               'counts': counts, 'verification': verification, 'diagnostics': diagnostics,
               'usage': {'tokens': None, 'source': 'unmeasured', 'check_processes': processes,
                         'unobserved_execution_attempts': sum(r['status'] == 'error' and not r.get('receipt') for r in results)}}
+    if deadline is not None:
+        report['time_budget'] = {'limit_seconds': float(spec['time_limit_seconds']),
+                                 'elapsed_seconds': elapsed, 'exhausted': exhausted,
+                                 'scope': 'No new check after expiry; owned process timeouts share the deadline. Cleanup and hashing can add overhead.'}
     report['report_digest'] = digest(report)
     atomic_json(root / 'report.json', report)
     return {'report': (root / 'report.json').relative_to(workspace).as_posix(),

@@ -5,10 +5,10 @@ The `large` command connects scheduling, workspaces, assembly and current batch 
 `batch` also supports post-assembly checks for ordinary tasks. Existing App single-writer
 admission and user configuration are preserved.
 
-ADHD v0.1.6 is a local harness for Codex App and CLI. It adds planning, execution evidence, and review gates through Codex hooks while preserving your existing authentication, model selection, router, plugins, skills, and personal configuration.
+ADHD v0.1.7 is a local harness for Codex App and CLI. It adds planning, execution evidence, and review gates through Codex hooks while preserving your existing authentication, model selection, router, plugins, skills, and personal configuration.
 
 
-[0.1.6 release notes](docs/releases/0.1.6.md) describe persistent goal execution, the host goal bridge and opt-in Obsidian context and experience records. Source inventory and managed storage changes remain documented in [0.1.5](docs/releases/0.1.5.md), and large-task and lifecycle changes in [0.1.4](docs/releases/0.1.4.md).
+[0.1.7 release notes](docs/releases/0.1.7.md) describe bounded context, shared immutable storage, resource limits and optional task and batch deadlines. Persistent goal execution and opt-in Obsidian records remain documented in [0.1.6](docs/releases/0.1.6.md), source inventory and storage in [0.1.5](docs/releases/0.1.5.md), and large-task lifecycle changes in [0.1.4](docs/releases/0.1.4.md).
 This repository contains source code and generic defaults. It contains no account credentials, user configuration, run history, or personal wiki files. The Python package, skills, roles, hooks and install paths use the ADHD name; there is no legacy command alias. Previous native session state is reused in place only when its schema identifies one unambiguous state directory.
 
 [한국어 안내](README.ko.md) · [Getting started](시작하기.md) · [Source and licensing notes](ADHD_PROVENANCE.md)
@@ -21,7 +21,7 @@ This repository contains source code and generic defaults. It contains no accoun
 
 ## Install or upgrade
 
-On Windows x64, open `ADHD-Setup-v0.1.6-windows-x64.exe` and select **Install**. It detects the existing Codex home, includes Python, and installs offline without elevation. Restart Codex and review the new commands when prompted. The [installation guide](docs/installation.md) covers isolated homes, verification and source builds. The executable is unsigned; verify its SHA-256 before opening it.
+On Windows x64, open `ADHD-Setup-v0.1.7-windows-x64.exe` and select **Install**. It detects the existing Codex home, includes Python, and installs offline without elevation. Restart Codex and review the new commands when prompted. The [installation guide](docs/installation.md) covers isolated homes, verification and source builds. The executable is unsigned; verify its SHA-256 before opening it.
 
 Review the source and hook commands before installing. From a PowerShell terminal in this checkout:
 

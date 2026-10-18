@@ -13,6 +13,75 @@ Do not infer complete coverage from file names or a static import guess alone.
 and time-sensitive checks also run fresh. Missing impact or environment coverage
 forces execution. Neither diagnosis nor a budget silently lowers these gates.
 
+## Explicit time limits and earlier failure feedback
+
+After installing this version and starting a managed session, a native `begin`
+can set a total wall budget and reserve part for verification and review:
+
+```text
+python adhd.py native begin --session SESSION --workspace PROJECT --payload-file begin.json --time-limit-seconds 900 --review-reserve-seconds 180
+```
+
+These are opt-in seconds, also available as `time_limit_seconds` and
+`review_reserve_seconds` in the begin payload. Without a total limit, legacy
+behavior is unchanged. A reserve needs a total and must be smaller than it;
+the default reserve is 20% of the total, capped at 300 seconds. Explicit task
+limits apply in goal mode and retain the original expiry across resume.
+In the reserved window, finish implementation and focus on checks and independent
+review. Exhaustion preserves unfinished work; it never means success.
+
+The native controller observes deadlines at host hook boundaries. It cannot
+interrupt an in-flight host/model call. Use a shared batch budget to bound
+checks launched by ADHD itself. Additional top-level batch fields are:
+
+```json
+{"time_limit_seconds":600,"scheduling":"shortest_first","fail_fast":true}
+```
+
+Each check may declare `estimated_seconds`. Estimates only order ready checks
+and inform `batch diagnose`; unknown durations remain unknown. Dependencies and
+exclusive resources still apply. Defaults retain declared order and execution
+of independent checks after a failure. With `fail_fast`, the failed iteration
+defers unstarted checks so the cause can be fixed sooner. Every mandatory check
+still needs valid passing evidence before acceptance. A skipped, failed, timed
+out or budget-exhausted batch cannot be attached as a passed batch.
+
+The batch uses one monotonic deadline, including input preparation; each owned
+process receives the smaller of its normal timeout and the remaining budget.
+Expiry before launch records an unstarted check without manufacturing an observed
+process receipt. Existing process-tree cleanup is retained. Hashing, filesystem
+operations, process startup, the runner polling interval and cleanup may add
+overhead; this is not a hard operating-system quota. The CLI exits nonzero for
+an exhausted batch. Standalone `check` specs may also set `time_limit_seconds`.
+
+`scripts/benchmark_time_budget.py` compares a fixed, deliberately failing local
+iteration and its repair. It retains every run and confirms that the successful
+repair still runs all mandatory checks. This measures early failure feedback,
+not coding-agent, token or production speedup. Global settings and model/effort
+are never changed by these options.
+
+Native time budgets require this implementation in the managed hooks and a fresh
+SessionStart reader. A newer CLI refuses to queue budget requests to an older
+reader, which could otherwise ignore the new fields. Building a source package
+does not upgrade the currently running App session or its global installation.
+After expiry, interrupting a child remains allowed. General tools and new children
+remain blocked even when a new human turn is pending. Only the exact installed
+Python/entrypoint command for `native status` or payload-free intent classification
+is allowed, in this order (substitute the actual paths and recorded identifiers):
+
+```text
+& "PYTHON" "MANAGED_ENTRYPOINT" native sync-intent --session SESSION --workspace "PROJECT" --classification new_task --source-turn-id PENDING_TURN --base-revision REVISION
+```
+
+Use `no_change` for a status-only turn. A new task archives the expired contract;
+it cannot reset or accept that contract. The still-running session's actual reader
+and role observations are retained and rechecked. No arbitrary payload file,
+extra shell statement, shell substitution, model call or spawn is allowed through
+this exception. In `functions.exec`, the control transport must be exactly
+`text(await tools.exec_command(JSON_OBJECT_WITH_CMD));` using a literal JSON object
+with the exact command as `cmd`. This is a workflow boundary, not a security
+sandbox or a host quota.
+
 ```text
 python adhd.py batch diagnose --workspace PROJECT --spec-file checks.json
 python adhd.py batch run --workspace PROJECT --spec-file checks.json

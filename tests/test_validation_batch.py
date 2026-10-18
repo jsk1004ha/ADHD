@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from adhd.validation_batch import run_batch, load_report, repair_plan, validate_plan
 
@@ -137,6 +138,81 @@ class BatchTests(unittest.TestCase):
                   self.check('ui', 'raise ValueError("wrong")', owner='ui')]
         result = run_batch(self.spec(checks), self.ws)
         self.assertEqual(len(result['groups']), 2)
+
+
+class BatchTimeBudgetTests(unittest.TestCase):
+    setUp = BatchTests.setUp
+    tearDown = BatchTests.tearDown
+    check = BatchTests.check
+    spec = BatchTests.spec
+
+    def test_invalid_controls_fail_before_any_process(self):
+        invalid = [('time_limit_seconds', True), ('time_limit_seconds', float('nan')),
+                   ('time_limit_seconds', 0), ('fail_fast', 1), ('scheduling', 'skip_required')]
+        for field, value in invalid:
+            with self.subTest(field=field, value=value):
+                spec = self.spec([self.check('ok')])
+                spec[field] = value
+                with patch('adhd.validation_batch.run_check') as observed:
+                    with self.assertRaises(ValueError):
+                        run_batch(spec, self.ws)
+                    observed.assert_not_called()
+
+    def test_estimates_reject_nonfinite_and_boolean_values(self):
+        for value in (-1, True, float('inf'), 'fast'):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    validate_plan(self.spec([self.check('a', estimated_seconds=value)]))
+
+    def test_shared_budget_bounds_running_work_and_does_not_launch_next_check(self):
+        checks = [self.check('slow', 'import time; time.sleep(20)'),
+                  self.check('next', 'from pathlib import Path;Path("unexpected").write_text("ran")')]
+        spec = dict(self.spec(checks), process_slots=1, time_limit_seconds=1)
+        result = run_batch(spec, self.ws)
+        self.assertEqual(result['status'], 'budget_exhausted')
+        report = load_report(self.ws, result['report'], require_current=False)
+        self.assertEqual(report['results'][0]['status'], 'timeout')
+        self.assertEqual(report['results'][1]['status'], 'blocked')
+        self.assertEqual(report['results'][1]['reason'], 'batch_time_budget')
+        self.assertNotIn('receipt', report['results'][1])
+        self.assertEqual(report['usage']['check_processes'], 1)
+        self.assertFalse((self.ws / 'unexpected').exists())
+        with self.assertRaises(ValueError):
+            load_report(self.ws, result['report'])
+
+    def test_early_failure_is_fast_feedback_not_missing_mandatory_acceptance(self):
+        slow = self.check('slow', 'from pathlib import Path;Path("unexpected").write_text("ran")', estimated_seconds=10)
+        fast = self.check('failure', 'import sys;sys.exit(3)', estimated_seconds=.01)
+        spec = dict(self.spec([slow, fast]), process_slots=1, fail_fast=True, scheduling='shortest_first')
+        result = run_batch(spec, self.ws)
+        report = load_report(self.ws, result['report'], require_current=False)
+        self.assertEqual(result['status'], 'needs_repair')
+        self.assertEqual([r['status'] for r in report['results']], ['blocked', 'failed'])
+        self.assertEqual(report['results'][0]['reason'], 'fail_fast')
+        self.assertEqual(report['usage']['check_processes'], 1)
+        self.assertEqual(report['omitted_checks_with_reason'], [{'id': 'slow', 'reason': 'fail_fast'}])
+        self.assertFalse((self.ws / 'unexpected').exists())
+        with self.assertRaises(ValueError):
+            load_report(self.ws, result['report'])
+
+    def test_estimate_order_still_respects_dependencies_and_resources(self):
+        def write(letter):
+            return f'from pathlib import Path;p=Path("order");p.write_text((p.read_text() if p.exists() else "")+"{letter}")'
+        checks = [self.check('a', write('a'), estimated_seconds=1, resources=['shared']),
+                  self.check('b', write('b'), estimated_seconds=.01, depends_on=['a'], resources=['shared']),
+                  self.check('c', write('c'), estimated_seconds=2, resources=['shared'])]
+        result = run_batch(dict(self.spec(checks), scheduling='shortest_first'), self.ws)
+        self.assertEqual(result['status'], 'passed')
+        self.assertEqual((self.ws / 'order').read_text(), 'abc')
+
+    def test_diagnosis_does_not_invent_unknown_durations(self):
+        from adhd.validation_batch import diagnose_plan
+        spec = dict(self.spec([self.check('known', estimated_seconds=60), self.check('unknown')]),
+                    time_limit_seconds=5)
+        result = diagnose_plan(spec)
+        self.assertEqual(result['timing']['unknown_checks'], ['unknown'])
+        self.assertIsNone(result['timing']['estimated_total_seconds'])
+        self.assertTrue(any(row['code'] == 'estimated_work_exceeds_budget' for row in result['warnings']))
 
 
 if __name__ == '__main__':

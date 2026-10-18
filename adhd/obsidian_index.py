@@ -30,6 +30,7 @@ SCALAR_KEYS = frozenset({"id", "type", "layer", "privacy", "status", "retrieval"
                          "knowledge_kind", "artifact_kind", "source_uri", "source_kind"})
 BOOL_KEYS = frozenset({"template", "search_body", "context_scope"})
 MAX_NOTE_BYTES = 4 * 1024 * 1024
+STREAM_BYTES = 1024 * 1024
 
 
 def _date(value: str) -> date:
@@ -161,6 +162,7 @@ def _open_index(path: Path) -> sqlite3.Connection:
     db = sqlite3.connect(path, timeout=30)
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA journal_mode=DELETE")
+    db.execute("PRAGMA cache_size=-8192")
     with db:
         db.executescript("""
             CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -211,11 +213,20 @@ def _read(path: Path) -> tuple[bytes, str]:
     before = path.stat()
     if before.st_size > MAX_NOTE_BYTES:
         raise ValueError("oversized-note")
-    raw = path.read_bytes()
+    digest = hashlib.sha256()
+    chunks: list[bytes] = []
+    size = 0
+    with path.open("rb") as source:
+        while chunk := source.read(STREAM_BYTES):
+            size += len(chunk)
+            if size > MAX_NOTE_BYTES:
+                raise ValueError("oversized-note")
+            digest.update(chunk)
+            chunks.append(chunk)
     after = path.stat()
     if (before.st_size, before.st_mtime_ns, before.st_ino) != (after.st_size, after.st_mtime_ns, after.st_ino):
         raise ValueError("changed-during-read")
-    return raw, hashlib.sha256(raw).hexdigest()
+    return b"".join(chunks), digest.hexdigest()
 
 
 def refresh(workspace: Path, config: dict[str, Any], engine: Any) -> tuple[sqlite3.Connection, int, list[str]]:
@@ -233,7 +244,8 @@ def refresh(workspace: Path, config: dict[str, Any], engine: Any) -> tuple[sqlit
                 if version and int(version[0]) != INDEX_VERSION:
                     db.execute("DELETE FROM files")
                 db.execute("INSERT OR REPLACE INTO meta VALUES ('version',?)", (str(INDEX_VERSION),))
-                old = {row["path"]: row for row in db.execute("SELECT * FROM files")}
+                old = {row["path"]: row for row in db.execute(
+                    "SELECT path,mtime_ns,size,digest,state,reason FROM files")}
                 changed = bool(set(old) - found)
                 for gone in set(old) - found:
                     db.execute("DELETE FROM files WHERE path=?", (gone,))
@@ -292,9 +304,14 @@ def refresh(workspace: Path, config: dict[str, Any], engine: Any) -> tuple[sqlit
 
 def live_rows(db: sqlite3.Connection, config: dict[str, Any]) -> tuple[list[sqlite3.Row], list[str]]:
     rows = db.execute("SELECT * FROM files WHERE state='ok' ORDER BY path").fetchall()
+    return _visible_rows(db, config, rows)
+
+
+def _visible_rows(db: sqlite3.Connection, config: dict[str, Any], rows: list[sqlite3.Row]) -> tuple[list[sqlite3.Row], list[str]]:
+    """Apply the same duplicate, privacy and tombstone rules to full or scoped rows."""
     counts: dict[str, int] = {}
-    for row in rows:
-        counts[row["note_id"]] = counts.get(row["note_id"], 0) + 1
+    for note_id, count in db.execute("SELECT note_id,COUNT(*) FROM files WHERE state='ok' GROUP BY note_id"):
+        counts[note_id] = count
     denied = {(row["kind"], row["value"]) for row in db.execute("SELECT kind,value FROM tombstones")}
     aliases: dict[str, set[str]] = {}
     for row in db.execute("SELECT alias,note_id FROM aliases"):
@@ -313,6 +330,45 @@ def live_rows(db: sqlite3.Connection, config: dict[str, Any]) -> tuple[list[sqli
             continue
         visible.append(row)
     return visible, sorted(set(warnings))
+
+
+def query_rows(db: sqlite3.Connection, config: dict[str, Any], query: str,
+               *, limit: int = 200) -> tuple[list[sqlite3.Row], list[str], bool]:
+    """Bounded lexical candidates. A negative hint is not evidence of absence."""
+    if not 1 <= limit <= 800 or not query.strip():
+        raise ValueError("invalid-query-budget")
+    words = list(dict.fromkeys(re.findall(r"[a-z0-9_]+|[가-힣]+", query.casefold())))[:8]
+    terms = [query.strip(), *words]
+    predicates = []
+    args: list[str | int] = []
+    for term in dict.fromkeys(terms):
+        escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        predicates.append("(path LIKE ? ESCAPE '\\' OR title LIKE ? ESCAPE '\\' OR body LIKE ? ESCAPE '\\')")
+        args.extend(("%" + escaped + "%",) * 3)
+    sql = ("SELECT * FROM files WHERE state='ok' AND (" + " OR ".join(predicates) +
+           ") ORDER BY path LIMIT ?")
+    rows = db.execute(sql, (*args, limit + 1)).fetchall()
+    visible, warnings = _visible_rows(db, config, rows[:limit])
+    return visible, warnings, len(rows) > limit
+
+
+def hint_snapshot(workspace: Path, config: dict[str, Any]) -> tuple[sqlite3.Connection | None, int]:
+    """Open existing metadata read-only; callers must verify selected source hashes."""
+    path = safe_path(workspace, ".adhd/obsidian-index.sqlite3", allow_missing=True)
+    if not path.is_file():
+        return None, 0
+    try:
+        db = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=2)
+        db.row_factory = sqlite3.Row
+        db.execute("PRAGMA cache_size=-8192")
+        version = db.execute("SELECT value FROM meta WHERE key='version'").fetchone()
+        if version is None or int(version[0]) != INDEX_VERSION:
+            db.close()
+            return None, 0
+        generation = db.execute("SELECT value FROM meta WHERE key='generation'").fetchone()
+        return db, int(generation[0]) if generation else 0
+    except (OSError, sqlite3.DatabaseError, ValueError):
+        return None, 0
 
 
 def resolve_id(db: sqlite3.Connection, value: str, rows: list[sqlite3.Row]) -> tuple[str | None, str | None]:

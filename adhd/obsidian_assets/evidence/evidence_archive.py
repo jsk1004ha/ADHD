@@ -10,11 +10,12 @@ import shutil
 import uuid
 
 from filelock import FileLock
+from adhd.maintenance_budget import MaintenanceBudget
 
 from . import leases
 from .core import digest, file_hash, read_json, store
 from .evidence import _path, subject_manifest, validate_execution
-from .evidence_codec import store_log, verify_log, write_log
+from .evidence_codec import store_log, verify_log, write_log, _hash_size, MAX_DECODED_BYTES
 from .storage import _no_reparse
 
 
@@ -282,10 +283,12 @@ def _archive_lock(workspace: Path):
 
 
 def _existing_archive(workspace: Path, run_id: str, binding: dict,
-                      source: list[tuple[Path, dict]]) -> tuple[str, list[dict]] | None:
+                      source: list[tuple[Path, dict]], budget=None) -> tuple[str, list[dict]] | None:
     root = _path(workspace, '.adhd/evidence-archives', existing=False)
     wanted = {_relative(workspace, path): file_hash(path) for path, _ in source}
     for directory in root.iterdir():
+        if budget is not None:
+            budget.check()
         if not re.fullmatch(r'[0-9a-f]{32}', directory.name):
             continue
         manifest = _path(workspace, _relative(workspace, directory / 'manifest.json'), existing=False)
@@ -295,13 +298,15 @@ def _existing_archive(workspace: Path, run_id: str, binding: dict,
         _, value = _load_manifest(workspace, relative)
         if (value['run_id'] == run_id and value['owner'] == binding
                 and {row['receipt_path']: row['receipt_sha256'] for row in value['receipts']} == wanted):
-            verify_archive(workspace, relative)
+            verify_archive(workspace, relative, budget=budget)
             return relative, value['receipts']
     return None
 
 
-def archive_receipts(workspace: Path, run_id: str, receipts: list[str], *, release: bool = False) -> dict:
+def archive_receipts(workspace: Path, run_id: str, receipts: list[str], *,
+                     release: bool = False, budget=None) -> dict:
     workspace = Path(workspace).resolve()
+    budget = budget or MaintenanceBudget()
     if (not isinstance(run_id, str) or not run_id or len(run_id) > 256
             or not isinstance(receipts, list) or not 1 <= len(receipts) <= 200
             or len(set(receipts)) != len(receipts)):
@@ -310,49 +315,65 @@ def archive_receipts(workspace: Path, run_id: str, receipts: list[str], *, relea
         with _closed_owner(workspace, run_id, set(receipts), require_fresh=True) as (binding, _):
             source = []
             for relative in receipts:
+                budget.check()
                 receipt_path, receipt = _check_receipt(workspace, relative, run_id)
                 validate_execution(workspace, relative, run_id=run_id,
                                    revision=receipt['contract_revision'],
                                    expect_failure=receipt['result']['exit_code'] != 0)
                 source.append((receipt_path, receipt))
-            existing = _existing_archive(workspace, run_id, binding, source)
+                budget.check()
+            existing = _existing_archive(workspace, run_id, binding, source, budget)
             if existing:
                 relative, rows = existing
             else:
                 archive_dir = _path(workspace, '.adhd/evidence-archives/' + uuid.uuid4().hex + '/manifest.json',
                                     existing=False).parent
                 archive_dir.mkdir(parents=True, exist_ok=False)
-                rows = []
-                for receipt_path, receipt in source:
-                    logs = []
-                    for stream, name in _STREAMS.items():
-                        raw = _path(workspace, _relative(workspace, receipt_path.parent / name))
-                        copied = archive_dir / (receipt_path.parent.name + '.' + stream)
-                        with raw.open('rb') as original, copied.open('xb') as target:
-                            shutil.copyfileobj(original, target, 1024 * 1024)
-                            target.flush()
-                            os.fsync(target.fileno())
-                        descriptor = store_log(archive_dir, copied)
-                        verify_log(archive_dir, descriptor)
-                        if descriptor['codec'] == 'gzip':
-                            copied.unlink()
-                        if descriptor['original_sha256'] != receipt['result'][stream + '_sha256']:
-                            raise ValueError('Archived log differs from its receipt')
-                        logs.append({'stream': stream, 'original_path': _relative(workspace, raw),
-                                     'stored_path': _relative(workspace, archive_dir / descriptor['path']),
-                                     'codec': descriptor['codec'],
-                                     'original_sha256': descriptor['original_sha256'],
-                                     'original_bytes': descriptor['original_bytes'],
-                                     'stored_sha256': descriptor['stored_sha256'],
-                                     'stored_bytes': descriptor['stored_bytes']})
-                    rows.append({'receipt_path': _relative(workspace, receipt_path),
-                                 'receipt_sha256': file_hash(receipt_path), 'logs': logs})
-                manifest = {'schema_version': 1, 'workspace': str(workspace), 'run_id': run_id,
-                            'owner': binding, 'receipts': rows}
-                manifest['manifest_digest'] = digest(manifest)
-                _durable_json(archive_dir / 'manifest.json', manifest)
-                relative = _relative(workspace, archive_dir / 'manifest.json')
-                verify_archive(workspace, relative)
+                # The fresh UUID directory is ours. Cleanup only the exact new
+                # paths; never recurse, release originals or remove old archives.
+                with ExitStack() as cleanup:
+                    cleanup.callback(archive_dir.rmdir)
+                    rows = []
+                    for receipt_path, receipt in source:
+                        logs = []
+                        for stream, name in _STREAMS.items():
+                            raw = _path(workspace, _relative(workspace, receipt_path.parent / name))
+                            copied = archive_dir / (receipt_path.parent.name + '.' + stream)
+                            with raw.open('rb') as original, copied.open('xb') as target:
+                                cleanup.callback(copied.unlink, missing_ok=True)
+                                while chunk := original.read(1024 * 1024):
+                                    budget.consume(read=len(chunk), write=len(chunk))
+                                    target.write(chunk)
+                                target.flush()
+                                os.fsync(target.fileno())
+                            descriptor = store_log(archive_dir, copied, budget=budget)
+                            stored = archive_dir / descriptor['path']
+                            if stored != copied:
+                                cleanup.callback(stored.unlink, missing_ok=True)
+                            verify_log(archive_dir, descriptor, budget=budget)
+                            if descriptor['codec'] == 'gzip':
+                                copied.unlink()
+                            if descriptor['original_sha256'] != receipt['result'][stream + '_sha256']:
+                                raise ValueError('Archived log differs from its receipt')
+                            logs.append({'stream': stream, 'original_path': _relative(workspace, raw),
+                                         'stored_path': _relative(workspace, stored),
+                                         'codec': descriptor['codec'],
+                                         'original_sha256': descriptor['original_sha256'],
+                                         'original_bytes': descriptor['original_bytes'],
+                                         'stored_sha256': descriptor['stored_sha256'],
+                                         'stored_bytes': descriptor['stored_bytes']})
+                        rows.append({'receipt_path': _relative(workspace, receipt_path),
+                                     'receipt_sha256': file_hash(receipt_path), 'logs': logs})
+                    manifest = {'schema_version': 1, 'workspace': str(workspace), 'run_id': run_id,
+                                'owner': binding, 'receipts': rows}
+                    manifest['manifest_digest'] = digest(manifest)
+                    manifest_path = archive_dir / 'manifest.json'
+                    cleanup.callback(manifest_path.unlink, missing_ok=True)
+                    _durable_json(manifest_path, manifest)
+                    relative = _relative(workspace, manifest_path)
+                    verify_archive(workspace, relative, budget=budget)
+                    budget.check()
+                    cleanup.pop_all()
     result = {'manifest': relative, 'receipts': len(rows),
               'reused': bool(existing),
               'original_bytes': sum(log['original_bytes'] for row in rows for log in row['logs']),
@@ -378,12 +399,14 @@ def _load_manifest(workspace: Path, relative: str) -> tuple[Path, dict]:
     return path, value
 
 
-def _verify_archive(workspace: Path, relative: str) -> tuple[dict, list[tuple[Path, dict, Path]]]:
+def _verify_archive(workspace: Path, relative: str, budget=None) -> tuple[dict, list[tuple[Path, dict, Path]]]:
     manifest_path, value = _load_manifest(workspace, relative)
     archive_dir = manifest_path.parent
     paths = []
     seen = set()
     for row in value['receipts']:
+        if budget is not None:
+            budget.check()
         if not isinstance(row, dict) or not isinstance(row.get('logs'), list) or len(row['logs']) != 2:
             raise ValueError('Invalid evidence archive receipt entry')
         receipt_path, receipt = _check_receipt(workspace, row.get('receipt_path'), value['run_id'])
@@ -406,10 +429,10 @@ def _verify_archive(workspace: Path, relative: str) -> tuple[dict, list[tuple[Pa
             descriptor = {key: log.get(key) for key in ('codec', 'original_sha256', 'original_bytes',
                           'stored_sha256', 'stored_bytes')}
             descriptor['path'] = stored.name
-            verify_log(archive_dir, descriptor)
+            verify_log(archive_dir, descriptor, budget=budget)
             if log['original_sha256'] != receipt['result'].get(log['stream'] + '_sha256'):
                 raise ValueError('Archived log differs from the original receipt')
-            if raw.exists() and (not raw.is_file() or file_hash(raw) != log['original_sha256']
+            if raw.exists() and (not raw.is_file() or _hash_size(raw, MAX_DECODED_BYTES, budget)[0] != log['original_sha256']
                                  or raw.stat().st_size != log['original_bytes']):
                 raise ValueError('Raw log conflicts with the archived copy')
             paths.append((raw, descriptor, archive_dir))
@@ -418,9 +441,9 @@ def _verify_archive(workspace: Path, relative: str) -> tuple[dict, list[tuple[Pa
     return value, paths
 
 
-def verify_archive(workspace: Path, manifest: str) -> dict:
+def verify_archive(workspace: Path, manifest: str, *, budget=None) -> dict:
     workspace = Path(workspace).resolve()
-    value, paths = _verify_archive(workspace, manifest)
+    value, paths = _verify_archive(workspace, manifest, budget)
     return {'verified': True, 'run_id': value['run_id'], 'logs': len(paths),
             'raw_present': sum(raw.is_file() for raw, _, _ in paths)}
 

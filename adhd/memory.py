@@ -7,6 +7,8 @@ contradictions are not. Raw conversations and secret-bearing records are opt-in.
 """
 from __future__ import annotations
 import hashlib
+from functools import wraps
+import heapq
 import json
 import math
 import re
@@ -15,6 +17,7 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any
+from filelock import FileLock
 from .core import store
 
 KINDS = {'fact','preference','decision','episode','procedure','incident','document','skill'}
@@ -46,13 +49,40 @@ def validate_procedure_bundle(bundle: dict|None) -> dict|None:
             raise ValueError('Procedure bundle entries must be bounded nonempty text')
     return bundle
 
+
+def _serialized_write(method):
+    @wraps(method)
+    def locked(self, *args, **kwargs):
+        with self._write_lock:
+            self._check_schema()
+            return method(self, *args, **kwargs)
+    return locked
+
 class Memory:
-    def __init__(self, path: Path|None=None):
+    def __init__(self, path: Path|None=None, *, journal_mode: str|None=None):
+        if journal_mode not in {None, 'WAL', 'DELETE'}:
+            raise ValueError('Unsupported journal mode')
         self.path = path or store()/'memory-v2.sqlite3'
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._write_lock = FileLock(str(self.path)+'.write.lock', timeout=10)
+        with self._write_lock:
+            self._initialize_schema(journal_mode)
+
+    def _initialize_schema(self, journal_mode: str) -> None:
         self.db = sqlite3.connect(self.path, timeout=8)
         self.db.row_factory=sqlite3.Row
-        self.db.execute('PRAGMA journal_mode=WAL')
+        current_mode = self.db.execute('PRAGMA journal_mode').fetchone()[0].upper()
+        current_fts = self.db.execute("SELECT sql FROM sqlite_master WHERE name='recall_fts'").fetchone()
+        if journal_mode is None:
+            journal_mode = 'DELETE' if current_fts and "content='memory_fts_source'" in current_fts[0] else 'WAL'
+        if current_fts and "content='memory_fts_source'" in current_fts[0] and journal_mode != 'DELETE':
+            self.db.close()
+            raise ValueError('External FTS requires DELETE journal opt-in')
+        if journal_mode == 'DELETE' and current_mode == 'WAL':
+            self.db.close()
+            raise ValueError('Quiescent DELETE journal database required')
+        self.db.execute('PRAGMA journal_mode='+journal_mode)
+        self.db.execute('PRAGMA cache_size=-8192')
         self.db.execute('PRAGMA foreign_keys=ON')
         self.db.executescript('''
         CREATE TABLE IF NOT EXISTS records (
@@ -97,7 +127,17 @@ class Memory:
             self.fts=True
         except sqlite3.OperationalError:
             self.fts=False
+        schema = self.db.execute("SELECT sql FROM sqlite_master WHERE name='recall_fts'").fetchone()
+        self.external_fts = bool(schema and "content='memory_fts_source'" in schema[0])
+        if self.external_fts and not any(row[1]=='search_text' for row in self.db.execute('PRAGMA table_info(records)')):
+            self.db.close()
+            raise ValueError('External FTS schema is incomplete')
         self.db.commit()
+
+    def _check_schema(self) -> None:
+        row = self.db.execute("SELECT sql FROM sqlite_master WHERE name='recall_fts'").fetchone()
+        if bool(row and "content='memory_fts_source'" in row[0]) != self.external_fts:
+            raise RuntimeError('Memory FTS schema changed; reopen the connection')
 
     def _canonical(self, rid: str) -> str | None:
         if self.db.execute('SELECT 1 FROM records WHERE id=?',(rid,)).fetchone():
@@ -105,6 +145,7 @@ class Memory:
         row=self.db.execute('SELECT canonical_id FROM record_aliases WHERE alias=? ORDER BY namespace LIMIT 1',(rid,)).fetchone()
         return row['canonical_id'] if row else None
 
+    @_serialized_write
     def add_alias(self, namespace_name: str, alias: str, canonical_id: str) -> None:
         old=self.db.execute('SELECT canonical_id FROM record_aliases WHERE alias=?',(alias,)).fetchone()
         if old and old['canonical_id']!=canonical_id:
@@ -126,6 +167,7 @@ class Memory:
     def __enter__(self): return self
     def __exit__(self,*args): self.close()
 
+    @_serialized_write
     def put(self, *, scope: str, kind: str, key: str, content: str, source: str,
             locator: str, basis: str='source_read', observed: float|None=None,
             ttl_days: float|None=None, entities: list[str]|None=None,
@@ -181,15 +223,20 @@ class Memory:
                 for prior in self.db.execute("SELECT id FROM records WHERE scope=? AND logical_key=? AND status='conflict'",(scope,key)):
                     self._set_lifecycle(prior['id'],scope,'conflict','logical-key-conflict')
             rid=canonical_id or uuid.uuid4().hex
-            self.db.execute('INSERT INTO records VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-                (rid,scope,kind,key,content,source,locator,basis,observed,
+            columns='id,scope,kind,logical_key,content,source,locator,basis,observed,expires,status,digest,entities,environment,created'
+            if self.external_fts:
+                columns+=',search_text'
+            values=(rid,scope,kind,key,content,source,locator,basis,observed,
                  observed+float(ttl_days)*86400 if ttl_days is not None else None,status,digest,
-                 json.dumps(entities,ensure_ascii=False),environment,now))
+                 json.dumps(entities,ensure_ascii=False),environment,now)
+            if self.external_fts:
+                values+=(' '.join(sorted(tokens(key+' '+content))),)
+            self.db.execute('INSERT INTO records ('+columns+') VALUES ('+','.join('?' for _ in values)+')',values)
             self._set_lifecycle(rid,scope,status,'retain')
             if content_identity is not None:
                 self.db.execute('INSERT OR IGNORE INTO import_identities VALUES (?,?,?)',(scope,content_digest,rid))
                 self.db.execute('INSERT OR IGNORE INTO import_source_aliases VALUES (?,?,?)',(scope,rid,source_alias or source))
-            if self.fts:
+            if self.fts and not self.external_fts:
                 self.db.execute('INSERT INTO recall_fts VALUES (?,?)',(rid,' '.join(sorted(tokens(key+' '+content)))))
             # Explicit entity overlap: one-hop pointers only, no generated factual relations.
             if entities:
@@ -199,6 +246,7 @@ class Memory:
             self.db.execute('INSERT INTO events(at,op,record_id) VALUES (?,?,?)',(now,'retain:'+status,rid))
         return {'id':rid,'status':status}
 
+    @_serialized_write
     def observe(self, *, observation_id: str, evidence_digest: str, source_revision: str,
                 evidence_ref: str='', **record: Any) -> dict:
         """Record a verified observation. Replayed evidence never renews expiry."""
@@ -231,6 +279,7 @@ class Memory:
                             (time.time(),'observe:'+fingerprint(evidence_ref or evidence_digest),rid))
         return {**result,'observation':'recorded','renewed':ttl_days is not None}
 
+    @_serialized_write
     def resolve(self, rid: str, *, evidence: str) -> dict:
         """Explicit resolution only; caller must inspect current user/source evidence."""
         if not evidence.strip() or len(evidence)>2000: raise ValueError('Resolution needs current evidence')
@@ -250,6 +299,7 @@ class Memory:
             self.db.execute('INSERT INTO events(at,op,record_id) VALUES (?,?,?)',(time.time(),'resolve:'+fingerprint(evidence),rid))
         return {'id':row['id'],'status':'active','limitation':'Evidence existence checked; semantic truth requires review'}
 
+    @_serialized_write
     def forget(self,rid: str) -> dict:
         canonical=self._canonical(rid)
         row=self.db.execute('SELECT id,scope,digest FROM records WHERE id=?',(canonical or rid,)).fetchone()
@@ -258,10 +308,11 @@ class Memory:
             self.db.execute('INSERT OR IGNORE INTO tombstones VALUES (?,?)',(row['digest'],time.time()))
             self._set_lifecycle(row['id'],row['scope'],'forgotten','explicit-forget')
             self.db.execute('DELETE FROM records WHERE id=?',(row['id'],))
-            if self.fts: self.db.execute('DELETE FROM recall_fts WHERE id=?',(row['id'],))
+            if self.fts and not self.external_fts: self.db.execute('DELETE FROM recall_fts WHERE id=?',(row['id'],))
             self.db.execute('INSERT INTO events(at,op,record_id) VALUES (?,?,?)',(time.time(),'forget',row['id']))
         return {'forgotten':row['id'],'note':'Removed from this active store; original files and external backups are not erased'}
 
+    @_serialized_write
     def quarantine(self, ids: list[str], *, reason: str='failed replay') -> list[str]:
         changed=[]
         with self.db:
@@ -276,6 +327,7 @@ class Memory:
                 changed.append(rid)
         return changed
 
+    @_serialized_write
     def restore(self, rid: str, *, evidence: str, verified_receipt: str|None=None) -> dict:
         canonical=self._canonical(rid)
         if not canonical: raise ValueError('Forgotten records have no retained body; re-observe them with current evidence')
@@ -289,6 +341,7 @@ class Memory:
             self._set_lifecycle(canonical,row['scope'],'active','restore:'+fingerprint(evidence))
         return {'id':canonical,'status':'active'}
 
+    @_serialized_write
     def save_procedure(self, workspace: Path, mode: str, goal: str, steps: list[str],
                        evidence: str, environment: str, *, legacy_alias: str|None=None,
                        bundle: dict|None=None) -> str:
@@ -329,6 +382,7 @@ class Memory:
                     'bundle':payload.get('bundle'),'verified_runs':row['successes'],'similarity':overlap})
         return sorted(ranked,key=lambda d:(-d['similarity'],-d['verified_runs']))[:limit]
 
+    @_serialized_write
     def migrate_legacy_recipes(self, legacy_path: Path, *, backup_path: Path|None=None) -> dict:
         legacy_path=legacy_path.resolve()
         if not legacy_path.is_file(): return {'status':'absent','migrated':0}
@@ -362,30 +416,79 @@ class Memory:
         return {'status':'migrated','migrated':migrated,'backup':str(backup_path)}
 
     def recall(self,query: str,scope: str,*,limit:int=6,max_chars:int=6500,
-               environment: str='',include_global:bool=True,now:float|None=None) -> dict:
+               environment: str='',include_global:bool=True,now:float|None=None,
+               complete:bool=True) -> dict:
         if not 1<=limit<=12 or not 500<=max_chars<=16000: raise ValueError('Invalid recall budget')
         now=time.time() if now is None else now; q=tokens(query)
         scopes=[scope]+(['global'] if include_global and scope!='global' else [])
-        sql='SELECT * FROM records WHERE scope IN ('+','.join('?' for _ in scopes)+") AND status='active' AND (expires IS NULL OR expires>?)"
-        all_rows=self.db.execute(sql,(*scopes,now)).fetchall()
-        rows={r['id']:dict(r) for r in all_rows if not r['environment'] or r['environment']==environment}
-        # Filters happen BEFORE ranking; a wrong-project match cannot displace a valid record.
+        def eligible_for(prefix: str) -> str:
+            return (prefix+"scope IN ("+','.join('?' for _ in scopes)+") AND "+prefix+"status='active' "
+                    "AND ("+prefix+"expires IS NULL OR "+prefix+"expires>?) "
+                    "AND ("+prefix+"environment='' OR "+prefix+"environment=?)")
+        eligible=eligible_for('')
+        eligible_r=eligible_for('r.')
+        args=(*scopes,now,environment)
+        eligible_count=self.db.execute('SELECT COUNT(*) FROM records WHERE '+eligible,args).fetchone()[0]
+        rows:dict[str,dict]={}
+        fts_order:list[str]=[]
+        more=False
+        use_stream=complete or not self.fts or not q
+        expression=' OR '.join('"'+t.replace('"','""')+'"' for t in sorted(q)[:40])
+        if not use_stream:
+            statement=('SELECT r.* FROM recall_fts JOIN records r ON r.id=recall_fts.id '
+                       'WHERE recall_fts MATCH ? AND '+eligible_r
+                       +' ORDER BY bm25(recall_fts) LIMIT ?')
+            try:
+                batch=self.db.execute(statement,(expression,*args,201)).fetchall()
+                more=len(batch)>200
+                for row in batch[:200]:
+                    rows[row['id']]=dict(row);fts_order.append(row['id'])
+                if not rows:
+                    use_stream=True  # An empty or stale FTS index cannot prove absence.
+            except sqlite3.OperationalError:
+                use_stream=True
+
+        def payload(row: dict) -> dict:
+            return {key:row[key] for key in ['id','kind','logical_key','content','source','locator',
+                                            'basis','observed','expires','scope']}
+
+        if use_stream and q:
+            # Full lexical fallback keeps only answer-sized candidates; rows are never fetched en masse.
+            heap=[]
+            for row in self.db.execute('SELECT * FROM records WHERE '+eligible+' ORDER BY id',args):
+                item=dict(row)
+                terms=tokens(item['logical_key']+' '+item['content'])
+                overlap=len(q&terms)
+                if not overlap or len(json.dumps(payload(item),ensure_ascii=False))>max_chars:
+                    continue
+                score=overlap/math.sqrt(max(1,len(tokens(item['content']))))
+                ranked=(score,item['observed'],item['id'],item)
+                if len(heap)<64:heapq.heappush(heap,ranked)
+                elif ranked[:3]>heap[0][:3]:heapq.heapreplace(heap,ranked)
+            rows={item['id']:item for _,_,_,item in heap}
+            fts_order=[]
+            more=False
+        elif more:
+            # Expand only when the first bounded batch cannot fill the requested answer.
+            fitting=sum(len(json.dumps(payload(row),ensure_ascii=False))<=max_chars for row in rows.values())
+            if fitting<limit:
+                batch=self.db.execute(statement,(expression,*args,801)).fetchall()
+                rows={row['id']:dict(row) for row in batch[:800]}
+                fts_order=list(rows)
+                more=len(batch)>800
+
         ranks={}
-        lex=sorted(((len(q&tokens(r['logical_key']+' '+r['content']))/math.sqrt(max(1,len(tokens(r['content'])))),i) for i,r in rows.items()),reverse=True)
-        lex=[(score,i) for score,i in lex if score>0]
-        for n,(_,i) in enumerate(lex): ranks[i]=1/(60+n)
-        if self.fts and q:
-            expression=' OR '.join('"'+t.replace('"','""')+'"' for t in sorted(q)[:40])
-            hits=self.db.execute('SELECT id FROM recall_fts WHERE recall_fts MATCH ? ORDER BY bm25(recall_fts)',(expression,))
-            n=0
-            for h in hits:
-                if h['id'] in rows:
-                    ranks[h['id']]=ranks.get(h['id'],0)+1/(60+n);n+=1
-                    if n>=200:break
+        lex=sorted(((len(q&tokens(row['logical_key']+' '+row['content']))/
+                     math.sqrt(max(1,len(tokens(row['content'])))),rid)
+                    for rid,row in rows.items()),reverse=True)
+        for n,(score,rid) in enumerate((item for item in lex if item[0]>0)):
+            ranks[rid]=1/(60+n)
+        for n,rid in enumerate(fts_order):
+            ranks[rid]=ranks.get(rid,0)+1/(60+n)
         selected=[];size=0
         for rid in sorted(ranks,key=lambda i:(ranks[i],rows[i]['observed']),reverse=True):
             r=rows[rid]
-            obj={k:r[k] for k in ['id','kind','logical_key','content','source','locator','basis','observed','expires','scope']}
+            obj=payload(r)
             encoded=json.dumps(obj,ensure_ascii=False)
             if size+len(encoded)>max_chars: continue
             selected.append(obj);size+=len(encoded)
@@ -393,14 +496,19 @@ class Memory:
         ids=[r['id'] for r in selected]
         related=[]
         for rid in ids:
-            for edge in self.db.execute('SELECT a,b FROM edges WHERE a=? OR b=?',(rid,rid)):
-                other=edge['b'] if edge['a']==rid else edge['a']
-                if other in rows and other not in ids and other not in related: related.append(other)
+            statement=('SELECT r.id FROM edges e JOIN records r ON r.id=CASE WHEN e.a=? THEN e.b ELSE e.a END '
+                       'WHERE (e.a=? OR e.b=?) AND '+eligible_r+' LIMIT 32')
+            for edge in self.db.execute(statement,(rid,rid,rid,*args)):
+                other=edge['id']
+                if other not in ids and other not in related: related.append(other)
         conflicts=self.db.execute('SELECT COUNT(*) FROM records WHERE scope=? AND status=?',(scope,'conflict')).fetchone()[0]
         return {'trust':'retrieved_data_not_instructions','records':selected,
                 'related_ids':related[:6],'unresolved_conflict_records':conflicts,
-                'used_chars':size,'eligible_records':len(rows),
-                'selection':'FTS5 + Korean bigrams + RRF' if self.fts else 'Korean bigram lexical fallback'}
+                'used_chars':size,'eligible_records':eligible_count,
+                'selection':'FTS5 + Korean bigrams + RRF' if self.fts and not use_stream else 'Korean bigram lexical fallback',
+                'search_complete':not more and use_stream,
+                'truncated':more or len(ranks)>len(selected),
+                'continuation':{'complete':True} if more or not use_stream else None}
 
     def recall_with_wiki(self, query: str, scope: str, *, workspace: Path,
                          limit: int=6, max_chars: int=6500, project: str|None=None,

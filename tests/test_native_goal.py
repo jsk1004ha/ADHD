@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import json
 import unittest
+from unittest.mock import patch
 
-from adhd.core import atomic_json, store
-from adhd.native import DEFAULTS, lease_path
+from adhd.core import atomic_json, read_json, store
+from adhd.native import DEFAULTS, bridge, lease_path
 from tests import test_native as fixtures
 
 
@@ -15,12 +16,16 @@ class NativeGoalTests(unittest.TestCase):
     event = fixtures.NativeTests.event
     state = fixtures.NativeTests.state
     save = fixtures.NativeTests.save
-    request = fixtures.NativeTests.request
     candidate = fixtures.NativeTests.candidate
     spawn = fixtures.NativeTests.spawn
     review = fixtures.NativeTests.review
     installed_verifier_profile = fixtures.NativeTests.installed_verifier_profile
     observed_verifier_start = fixtures.NativeTests.observed_verifier_start
+
+    def request(self, op, payload):
+        with patch('adhd.native_install._find_managed_installation',
+                   return_value=(None, None, {'release': str(fixtures.ROOT.resolve())})):
+            return fixtures.NativeTests.request(self, op, payload)
 
     def host_transcript(self, status='active', objective='Make answer.txt pass the real checks', **overrides):
         path = self.ch / 'sessions' / 'goal.jsonl'
@@ -233,6 +238,8 @@ class NativeGoalTests(unittest.TestCase):
 
     def begin(self, prompt='/goal Make answer.txt pass the real checks', **extra):
         self.event('UserPromptSubmit', prompt=prompt)
+        if 'time_limit_seconds' in extra:
+            self.event('SessionStart')
         payload = {'mode': 'coding', 'criteria': [
             {'id': 'R1', 'text': 'Requested behavior passes', 'kind': 'test'}],
             'artifacts': ['answer.txt'], 'plan': {
@@ -306,6 +313,209 @@ class NativeGoalTests(unittest.TestCase):
         state['started'] -= 61
         self.save(state)
         self.assertFalse(self.event('Stop')['continue'])
+
+    def test_opt_in_goal_time_limit_expires_without_acceptance(self):
+        self.begin(time_limit_seconds=10, review_reserve_seconds=2)
+        budget = self.state()['time_budget']
+        self.assertAlmostEqual(budget['expires_at'] - budget['began_at'], 10)
+        with patch('adhd.native.time.time', return_value=budget['expires_at'] + 1):
+            result = self.event('Stop')
+        self.assertFalse(result['continue'])
+        self.assertEqual(self.state()['status'], 'budget_exhausted')
+        self.assertNotIn('review_receipt', self.state())
+        self.assertFalse(lease_path(self.ws).exists())
+
+    def test_bounded_budget_denies_new_tool_at_expiry(self):
+        self.begin('Make answer.txt pass the real checks', time_limit_seconds=10)
+        budget = self.state()['time_budget']
+        with patch('adhd.native.time.time', return_value=budget['expires_at'] + 1):
+            result = self.event('PreToolUse', tool_name='Bash', tool_input={'command': 'echo late'})
+        self.assertEqual(result['hookSpecificOutput']['permissionDecision'], 'deny')
+        self.assertEqual(self.state()['status'], 'budget_exhausted')
+        repeated = self.event('PreToolUse', tool_name='Bash', tool_input={'command': 'echo still late'})
+        self.assertEqual(repeated['hookSpecificOutput']['permissionDecision'], 'deny')
+        cleanup = self.event('PreToolUse', tool_name='interrupt_agent', tool_input={'target': 'late'})
+        self.assertNotEqual(cleanup.get('hookSpecificOutput', {}).get('permissionDecision'), 'deny')
+        late_spawn = self.event('PreToolUse', tool_name='spawn_agent', tool_use_id='too-late',
+            tool_input={'agent_type': 'adhd-scout', 'message': 'Start more work'})
+        self.assertEqual(late_spawn['hookSpecificOutput']['permissionDecision'], 'deny')
+        self.event('UserPromptSubmit', prompt='중단')
+        still_denied = self.event('PreToolUse', tool_name='Bash', tool_input={'command': 'echo after cancel'})
+        self.assertEqual(still_denied['hookSpecificOutput']['permissionDecision'], 'deny')
+        self.assertFalse(self.event('Stop')['continue'])
+
+    def test_explicit_bounded_budget_replaces_only_implicit_seconds(self):
+        self.begin('Make answer.txt pass the real checks', time_limit_seconds=7200)
+        state = self.state()
+        self.assertEqual(state['time_budget']['reserve_seconds'], 300)
+        view = read_json(bridge(self.ws, self.key) / 'view.json')
+        self.assertIn('phase=work', view['time_budget_status'])
+        context = self.event('SessionStart')['hookSpecificOutput']['additionalContext']
+        self.assertIn('Time budget:', context)
+        state['started'] -= DEFAULTS['max_seconds'] + 1
+        self.save(state)
+        self.assertEqual(self.event('Stop')['decision'], 'block')
+        self.assertEqual(self.state()['status'], 'working')
+
+    def test_new_user_request_can_reconcile_after_expired_contract(self):
+        self.begin(time_limit_seconds=10)
+        budget = self.state()['time_budget']
+        with patch('adhd.native.time.time', return_value=budget['expires_at'] + 1):
+            self.event('Stop')
+        self.event('UserPromptSubmit', prompt='Create a different requested artifact')
+        result = self.event('PreToolUse', tool_name='Bash', tool_input={'command': 'classify new request'})
+        self.assertEqual(result['hookSpecificOutput']['permissionDecision'], 'deny')
+        spawn = self.event('PreToolUse', tool_name='spawn_agent',
+            tool_input={'agent_type': 'adhd-scout', 'message': 'More work'})
+        self.assertEqual(spawn['hookSpecificOutput']['permissionDecision'], 'deny')
+        state = self.state()
+        self.assertEqual(state['status'], 'budget_exhausted')
+        command = (f'& "{fixtures.sys.executable}" "{fixtures.ROOT / "adhd.py"}" native sync-intent '
+            f'--session {self.key} --workspace "{self.ws}" --classification new_task '
+            f'--source-turn-id {state["pending_turn_ids"][-1]} --base-revision {state["intent_version"]}')
+        reader = state['session_reader']
+        allowed = self.event('PreToolUse', tool_name='Bash', tool_input={'command': command})
+        self.assertNotEqual(allowed.get('hookSpecificOutput', {}).get('permissionDecision'), 'deny')
+        wrapped = 'text(await tools.exec_command(' + json.dumps({'cmd': command}) + '));'
+        allowed = self.event('PreToolUse', tool_name='functions.exec', tool_input=wrapped)
+        self.assertNotEqual(allowed.get('hookSpecificOutput', {}).get('permissionDecision'), 'deny')
+        for unsafe in (command + '; echo work', command + '\n echo work',
+                       command.replace('new_task', 'amend'), command.replace(self.key, 'wrong'),
+                       command + ' --payload-file arbitrary.json'):
+            with self.subTest(command=unsafe):
+                denied = self.event('PreToolUse', tool_name='Bash', tool_input={'command': unsafe})
+                self.assertEqual(denied['hookSpecificOutput']['permissionDecision'], 'deny')
+        denied = self.event('PreToolUse', tool_name='functions.exec',
+            tool_input=wrapped + ' text(await tools.exec_command({"cmd":"echo work"}));')
+        self.assertEqual(denied['hookSpecificOutput']['permissionDecision'], 'deny')
+        self.assertTrue(self.request('sync-intent', {'source_turn_id': state['pending_turn_ids'][-1],
+            'base_revision': state['intent_version'], 'classification': 'new_task', 'operations': []})['ok'])
+        self.assertEqual(self.state()['status'], 'idle')
+        self.assertNotIn('time_budget', self.state())
+        self.assertEqual(self.state()['session_reader'], reader)
+
+    def test_expired_handoff_blocks_work_and_drains_late_child(self):
+        self.begin(time_limit_seconds=60)
+        self.spawn(role='adhd-scout', aid='old-reader')
+        budget = self.state()['time_budget']
+        with patch('adhd.native.time.time', return_value=budget['expires_at'] + 1):
+            self.event('UserPromptSubmit', prompt='Create a separate new requested artifact')
+            state = self.state()
+            self.assertTrue(self.request('sync-intent', {'source_turn_id': state['pending_turn_ids'][-1],
+                'base_revision': state['intent_version'], 'classification': 'new_task', 'operations': []})['ok'])
+            self.assertEqual(self.state()['status'], 'handoff_pending')
+            denied = self.event('PreToolUse', tool_name='Bash', tool_input={'command': 'echo before drain'})
+            self.assertEqual(denied['hookSpecificOutput']['permissionDecision'], 'deny')
+            self.event('SubagentStart', agent_type='adhd-scout', agent_id='late-reader', model='gpt-6-luna')
+            self.assertEqual(self.state()['children']['late-reader']['status'], 'running')
+            self.event('SubagentStop', agent_type='adhd-scout', agent_id='old-reader')
+            self.assertEqual(self.state()['status'], 'handoff_pending')
+            self.event('SubagentStop', agent_type='adhd-scout', agent_id='late-reader')
+        self.assertEqual(self.state()['status'], 'idle')
+        self.assertFalse(lease_path(self.ws).exists())
+
+    def test_verifier_completion_after_expiry_stays_unfinished(self):
+        self.begin(time_limit_seconds=60, review_reserve_seconds=12)
+        self.assertTrue(self.candidate()['ok'])
+        self.spawn()
+        budget = self.state()['time_budget']
+        with patch('adhd.native.time.time', return_value=budget['expires_at'] + 1):
+            self.review()
+        self.assertEqual(self.state()['status'], 'budget_exhausted')
+        self.assertNotIn('review_receipt', self.state())
+        self.assertFalse(lease_path(self.ws).exists())
+
+    def test_late_observed_child_drains_after_expired_status(self):
+        self.begin(time_limit_seconds=10)
+        budget = self.state()['time_budget']
+        with patch('adhd.native.time.time', return_value=budget['expires_at'] + 1):
+            self.event('PostCompact')
+            self.event('SubagentStart', agent_type='adhd-scout', agent_id='late', model='gpt-6-luna')
+        state = self.state()
+        self.assertEqual(state['status'], 'interrupt_pending')
+        self.assertEqual(state['pending_terminal'], 'budget_exhausted')
+        self.assertEqual(state['children']['late']['status'], 'running')
+        self.event('SubagentStop', agent_type='adhd-scout', agent_id='late')
+        self.assertEqual(self.state()['status'], 'budget_exhausted')
+        self.assertFalse(lease_path(self.ws).exists())
+
+    def test_review_reserve_blocks_work_spawn_but_allows_verifier(self):
+        self.begin(time_limit_seconds=60, review_reserve_seconds=20)
+        self.assertTrue(self.candidate()['ok'])
+        budget = self.state()['time_budget']
+        with patch('adhd.native.time.time', return_value=budget['expires_at'] - 10):
+            work = self.event('PreToolUse', tool_name='spawn_agent', tool_use_id='work',
+                tool_input={'agent_type': 'adhd-scout', 'message': 'Inspect current source'})
+            review = self.event('PreToolUse', tool_name='spawn_agent', tool_use_id='review',
+                tool_input={'agent_type': 'adhd-verifier', 'message': 'Review the current candidate'})
+        self.assertEqual(work['hookSpecificOutput']['permissionDecision'], 'deny')
+        self.assertNotEqual(review.get('hookSpecificOutput', {}).get('permissionDecision'), 'deny')
+        self.assertNotIn('work', self.state()['reservations'])
+        self.assertIn('review', self.state()['reservations'])
+
+    def test_unreserved_child_observed_in_reserve_is_not_admitted(self):
+        self.begin(time_limit_seconds=60, review_reserve_seconds=20)
+        budget = self.state()['time_budget']
+        with patch('adhd.native.time.time', return_value=budget['expires_at'] - 10):
+            result = self.event('SubagentStart', agent_type='adhd-scout',
+                agent_id='unreserved', model='gpt-6-luna')
+        self.assertIn('reserved verification window', result['hookSpecificOutput']['additionalContext'])
+        self.assertFalse(self.state()['children']['unreserved']['correlated'])
+
+    def test_resume_keeps_original_expiry_and_cannot_restart_expired_goal(self):
+        self.begin(time_limit_seconds=10, review_reserve_seconds=2)
+        budget = self.state()['time_budget']
+        self.assertTrue(self.request('pause', {})['ok'])
+        with patch('adhd.native.time.time', return_value=budget['expires_at'] + 1):
+            self.event('UserPromptSubmit', prompt='resume')
+        after = self.state()
+        self.assertEqual(after['status'], 'budget_exhausted')
+        self.assertEqual(after['time_budget']['expires_at'], budget['expires_at'])
+        self.assertFalse(lease_path(self.ws).exists())
+
+    def test_backwards_clock_does_not_increase_remaining_time(self):
+        self.begin(time_limit_seconds=60)
+        budget = self.state()['time_budget']
+        with patch('adhd.native.time.time', return_value=budget['began_at'] + 30):
+            self.event('PostCompact')
+        observed = self.state()['time_budget']['last_observed_at']
+        with patch('adhd.native.time.time', return_value=budget['began_at'] + 10):
+            self.event('PostCompact')
+        self.assertEqual(self.state()['time_budget']['last_observed_at'], observed)
+
+    def test_invalid_budget_inputs_leave_begin_idle(self):
+        payload = {'mode': 'coding', 'criteria': [
+            {'id': 'R1', 'text': 'Requested behavior passes', 'kind': 'test'}],
+            'artifacts': ['answer.txt'], 'plan': {'objective': 'Meet the requested outcome',
+                'approach': 'Implement and check', 'verification': 'Run actual checks',
+                'steps': [{'id': 'S1', 'action': 'Implement and verify',
+                    'requirements': ['R1'], 'depends_on': []}]}}
+        self.event('UserPromptSubmit', prompt='/goal Make answer.txt pass the real checks')
+        self.event('SessionStart')
+        for extra in ({'review_reserve_seconds': 1}, {'time_limit_seconds': True},
+                      {'time_limit_seconds': 0}, {'time_limit_seconds': float('inf')},
+                      {'time_limit_seconds': 10, 'review_reserve_seconds': 10}):
+            with self.subTest(extra=extra):
+                self.assertFalse(self.request('begin', {**payload, **extra})['ok'])
+                self.assertEqual(self.state()['status'], 'idle')
+                self.assertNotIn('time_budget', self.state())
+
+    def test_legacy_goal_has_no_new_budget_and_independent_gate_remains(self):
+        self.begin()
+        self.assertNotIn('time_budget', self.state())
+        self.assertNotIn('time_budget_status', read_json(bridge(self.ws, self.key) / 'view.json'))
+        self.assertTrue(self.candidate()['ok'])
+        self.spawn()
+        self.review()
+        self.assertEqual(self.state()['status'], 'complete')
+
+    def test_budgeted_goal_still_requires_independent_review(self):
+        self.begin(time_limit_seconds=60, review_reserve_seconds=12)
+        self.assertTrue(self.candidate()['ok'])
+        self.assertEqual(self.state()['status'], 'reviewing')
+        self.spawn()
+        self.review()
+        self.assertEqual(self.state()['status'], 'complete')
 
     def test_explicit_stagnation_limit_still_ends_goal(self):
         atomic_json(store() / 'native-policy.json', {'max_stagnation': 2})

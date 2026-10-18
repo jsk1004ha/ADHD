@@ -7,6 +7,31 @@ from .core import atomic_json
 
 
 def add_parsers(sub):
+    q=sub.add_parser('objects',help='Explicitly capture completed evidence and manage scoped immutable references')
+    q.add_argument('action',choices=['capture','read','export','restore','forget','audit','gc','apply','recover'])
+    q.add_argument('--root',type=Path);q.add_argument('--workspace',type=Path,default=Path.cwd())
+    q.add_argument('--payload-file',type=Path)
+    q.add_argument('--operation-id',help='Persisted dry-run operation required for apply')
+    q=sub.add_parser('snapshot',help='Immutable reader inputs and generation-checked writer transition')
+    q.add_argument('action',choices=['prepare','read','claim-writer','capabilities'])
+    q.add_argument('--workspace',type=Path,default=Path.cwd());q.add_argument('--payload-file',type=Path)
+    q=sub.add_parser('context',help='Bounded, source-scoped context and continuation sidecars')
+    q.add_argument('action',choices=['locate','read','handoff','trace','status'])
+    q.add_argument('--workspace',type=Path,default=Path.cwd());q.add_argument('--query',default='')
+    q.add_argument('--payload-file',type=Path);q.add_argument('--revision');q.add_argument('--session')
+    q.add_argument('--actor',default='parent');q.add_argument('--epoch',default='0')
+    q.add_argument('--environment');q.add_argument('--no-global',action='store_true')
+    q.add_argument('--sources',default='code,memory,wiki');q.add_argument('--complete',action='store_true')
+    q.add_argument('--limit',type=int,default=6);q.add_argument('--max-chars',type=int,default=6500)
+    q.add_argument('--start-line',type=int);q.add_argument('--end-line',type=int)
+    q.add_argument('--start-char',type=int,help='Decoded character offset within the starting line')
+    q.add_argument('--after');q.add_argument('--write',action='store_true');q.add_argument('--markdown',action='store_true')
+    q=sub.add_parser('experiment',help='All-start metadata registry and preregistered rollout gates')
+    q.add_argument('action',choices=['start','finish','usable','summary','preregister','compare'])
+    q.add_argument('--payload-file',type=Path);q.add_argument('--root',type=Path)
+    q=sub.add_parser('diagnose',help='Advisory capability, recovery, check-input and review analysis')
+    q.add_argument('action',choices=['capabilities','recovery','manifest','calibration'])
+    q.add_argument('--workspace',type=Path,default=Path.cwd());q.add_argument('--payload-file',type=Path,required=True)
     q=sub.add_parser('memory');q.add_argument('action',choices=['put','recall','forget','resolve','stats'])
     q.add_argument('--workspace',type=Path,default=Path.cwd());q.add_argument('--payload-file',type=Path)
     q.add_argument('--query',default='');q.add_argument('--id');q.add_argument('--evidence',default='')
@@ -39,10 +64,130 @@ def add_parsers(sub):
 
 def payload(args):
     if not args.payload_file or args.payload_file.stat().st_size>200000:raise ValueError('A bounded JSON payload file is required')
-    return json.loads(args.payload_file.read_text(encoding='utf-8-sig'))
+    result=json.loads(args.payload_file.read_text(encoding='utf-8-sig'))
+    if not isinstance(result,dict):raise ValueError('Payload must be a JSON object')
+    return result
 
 
 def execute(args):
+    if args.command=='objects':
+        from .immutable_store import ImmutableStore
+        if args.action=='apply' and not args.operation_id:
+            raise ValueError('objects apply requires --operation-id from a current dry-run')
+        if args.action!='apply' and args.operation_id:
+            raise ValueError('--operation-id applies only to objects apply')
+        if args.action=='capture':
+            from .completed_archive import capture_completed
+            p=payload(args)
+            if set(p)-{'owner_key','policy_revision','privacy','source','retention'}:
+                raise ValueError('Unexpected completed-capture field')
+            if 'source' in p:
+                selected=Path(p['source'])
+                p['source']=selected if selected.is_absolute() else args.workspace/selected
+            return capture_completed(args.workspace,root=args.root,**p)
+        if args.action in {'read','export','restore','forget'}:
+            p=payload(args)
+            allowed={'policy_revision','allowed_privacy'}|{
+                'read':{'ref_id','offset','limit'},'export':{'ref_id','destination'},
+                'restore':{'export_path','destination'},'forget':{'ref_id'}}[args.action]
+            if set(p)-allowed:
+                raise ValueError('Unexpected object access field')
+            privacy=p.pop('allowed_privacy',None)
+            revision=p.pop('policy_revision',None)
+            if (not isinstance(revision,str) or not revision or not isinstance(privacy,list)
+                    or not privacy or len(privacy)>8 or any(not isinstance(item,str) for item in privacy)):
+                raise ValueError('Expected policy_revision and restrictive allowed_privacy are required')
+            # The common store boundary reloads workspace-owned immutable-policy.json.
+            # These request values can narrow that policy, never grant access.
+            access={'workspace':args.workspace,'policy_revision':revision,'allowed_privacy':privacy}
+            if args.action=='restore':
+                return ImmutableStore.restore(Path(p['export_path']),Path(p['destination']),access)
+            with ImmutableStore(args.root) as objects:
+                if args.action=='export':return objects.export(p['ref_id'],access,Path(p['destination']))
+                if args.action=='forget':return objects.forget(p['ref_id'],access)
+                import base64
+                offset=p.get('offset',0);limit=p.get('limit',65536)
+                body=objects.read(p['ref_id'],access,offset=offset,limit=limit)
+                return {'ref_id':p['ref_id'],'encoding':'base64','data':base64.b64encode(body).decode('ascii'),
+                        'offset':offset,'bytes':len(body),'may_have_more':len(body)==limit,
+                        'next_offset':offset+len(body)}
+        with ImmutableStore(args.root) as objects:
+            if args.action=='audit':return objects.audit()
+            if args.action=='apply':return objects.gc_apply(args.operation_id)
+            if args.action=='recover':return objects.gc_recover()
+            return objects.gc(dry_run=True)
+    if args.command=='snapshot':
+        from . import snapshot_reader as reader
+        if args.action=='capabilities':return reader.concurrent_support()
+        p=payload(args)
+        if args.action=='prepare':
+            if 'scratch' in p:p['scratch']=Path(p['scratch'])
+            return reader.prepare(args.workspace,**p)
+        p['snapshot']=Path(p['snapshot'])
+        if args.action=='read':return reader.read(**p)
+        return reader.claim_writer(**p)
+    if args.command=='context':
+        from .context_session import ContextSession,handoff,status
+        environment=args.environment or ''
+        if args.action=='locate' and 'memory' in args.sources.split(',') and args.environment is None:
+            from .core import environment_signature
+            from .memory import fingerprint
+            environment=args.environment if args.environment is not None else fingerprint(environment_signature(args.workspace))
+        if args.action=='locate':
+            from .context_search import locate
+            return locate(args.workspace,args.query,limit=args.limit,max_chars=args.max_chars,
+                          complete=args.complete,sources=tuple(args.sources.split(',')),
+                          environment=environment,include_global=not args.no_global)
+        if args.action=='read':
+            from .context_search import read
+            p=payload(args);ref=p.get('ref',p)
+            if ref.get('source')=='memory' and args.environment is None:
+                from .core import environment_signature
+                from .memory import fingerprint
+                environment=fingerprint(environment_signature(args.workspace))
+            revision=args.revision or p.get('expected_revision')
+            if not revision:raise ValueError('context read requires an expected revision')
+            result=read(args.workspace,ref,expected_revision=revision,
+                        start_line=args.start_line if args.start_line is not None else p.get('start_line'),
+                        end_line=args.end_line if args.end_line is not None else p.get('end_line'),
+                        start_char=args.start_char if args.start_char is not None else p.get('start_char',0),
+                        max_chars=args.max_chars,environment=environment,include_global=not args.no_global)
+            if args.session and result.get('status')=='ok':
+                with ContextSession(args.workspace,args.session) as ledger:
+                    delivery=ledger.deliver(result.get('ref',ref),result.get('text',''),actor=args.actor,
+                                            epoch=args.epoch,max_chars=args.max_chars)
+                result.update(text=delivery['excerpt'],delivery=delivery)
+            return result
+        if not args.session:raise ValueError('A native/context session is required')
+        if args.action=='handoff':return handoff(args.workspace,args.session,max_chars=args.max_chars)
+        if args.action=='status':
+            result=status(args.workspace,args.session,write=args.write)
+            return {'markdown':result['markdown']} if args.markdown else result
+        with ContextSession(args.workspace,args.session) as ledger:
+            return ledger.trace(limit=args.limit,after=args.after)
+    if args.command=='experiment':
+        from .trial_registry import TrialRegistry,rollout_gate
+        registry=TrialRegistry(args.root)
+        if args.action=='summary':return registry.summary()
+        p=payload(args)
+        if args.action=='start':return {'trial_id':registry.start(**p)}
+        if args.action=='finish':registry.finish(**p);return {'status':'recorded'}
+        if args.action=='usable':return {'first_usable_ms':registry.usable(p['trial_id'],Path(p['receipt']))}
+        if args.action=='preregister':return registry.preregister(p)
+        return rollout_gate(p,list(registry.trials()))
+    if args.command=='diagnose':
+        p=payload(args)
+        if args.action=='capabilities':
+            from .host_capabilities import capability_inventory
+            return capability_inventory(p.get('configured',[]),p.get('exposed'),p.get('observations',[]))
+        if args.action=='recovery':
+            from .recovery import diagnosis
+            return diagnosis(args.workspace,**p)
+        if args.action=='manifest':
+            from .validation_batch import suggest_inputs
+            return suggest_inputs(args.workspace,p)
+        from .review_calibration import calibrate
+        return calibrate(args.workspace,p['cases'],p['reviews'])
     if args.command=='memory':
         from .memory import Memory,namespace,fingerprint
         from .core import environment_signature

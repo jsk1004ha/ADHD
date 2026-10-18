@@ -33,6 +33,8 @@ class LargeTaskTests(unittest.TestCase):
 
     def repository(self):
         git(self.root, 'init', '-q')
+        # Keep exact fixture bytes independent of host checkout conversion.
+        git(self.root, 'config', 'core.autocrlf', 'false')
         (self.root / '.gitignore').write_text('.adhd/\n', encoding='utf-8')
         (self.root / 'outside.txt').write_text('user data\n', encoding='utf-8')
         git(self.root, 'add', '.')

@@ -2,7 +2,7 @@
 name: adhd-native
 description: ADHD Codex App/CLI workflow for substantive research, study, document editing, coding and games when this harness is the selected owner. Task-sized plans, bounded delegation and artifact verification.
 ---
-# ADHD — Autonomous Delegation Harness Director v0.1.6 — map, not a giant prompt
+# ADHD — Autonomous Delegation Harness Director v0.1.7 — map, not a giant prompt
 On an idle request, use the hook's initial route in view.json. A high-confidence self-contained question, translation, status request, or isolated text correction can be answered directly with appropriate checking, without native begin, a durable plan, or independent acceptance. Inspect uncertain scope briefly; begin a native run if it is substantive. A direct request that grows into substantive work can use native begin after scope is understood. The rule-based route is guidance, not general language understanding; see `ADHD_ROOT/docs/request-routing.md`. Use Luna only when a separate call is worthwhile. Substantive work: use the native hook's SESSION/view path and read `ADHD_ROOT/skills/adhd-native/references/protocol-quickstart.md`; open a section of `protocol.md` or `v12-gates.md` only when the quickstart's table names it or the hook rejects a request. Missing hooks, role tools or acknowledgements are real capability failures; never simulate success.
 
 The first hook context supplies the begin entrypoint and common rules. Repeated

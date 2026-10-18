@@ -125,3 +125,37 @@ def observe_event(profile: dict, event: dict) -> None:
     """Record event names, not prompt text or auth payloads."""
     if event.get('supported'):
         profile['observed_events'] = sorted(set(profile.get('observed_events', [])) | {event['name']})
+
+
+def capability_inventory(configured: list[str], exposed: list[str] | None, observations: list[dict]) -> dict:
+    """Separate configuration, exposure and actual calls, without making a probe.
+
+    This is an advisory projection of supplied host observations, not an auth
+    grant. Stable tool/call IDs and an evidence pointer are required for success.
+    """
+    if (not isinstance(configured, list) or len(configured) > 1000
+            or exposed is not None and (not isinstance(exposed, list) or len(exposed) > 1000)
+            or not isinstance(observations, list) or len(observations) > 10000):
+        raise ValueError('Capability inventory exceeds its bounded input')
+    names = set(configured) | set(exposed or [])
+    latest = {}
+    for row in observations:
+        if (not isinstance(row, dict) or not isinstance(row.get('name'), str)
+                or not row.get('call_id') or not row.get('evidence_ref')):
+            continue
+        names.add(row['name'])
+        latest[row['name']] = row
+    if any(not isinstance(name, str) or not name or len(name) > 200 for name in names):
+        raise ValueError('Capability names must be bounded identifiers')
+    entries = []
+    for name in sorted(names):
+        seen = latest.get(name, {})
+        success = seen.get('status') == 'success'
+        blocker = seen.get('status') if seen.get('status') in {'auth_required', 'permission_denied', 'policy_denied', 'unavailable'} else None
+        entries.append({'name': name, 'configured': name in configured,
+                        'exposed': name in exposed if exposed is not None else None,
+                        'observed_success': success, 'state': 'observed_success' if success else
+                        'exposed' if name in (exposed or []) else 'configured' if name in configured else 'unknown',
+                        'blocker': blocker, 'evidence_ref': seen.get('evidence_ref'),
+                        'call_id': seen.get('call_id'), 'additional_probe_calls': 0})
+    return {'schema_version': 1, 'capabilities': entries, 'authority': 'observed_advisory_not_authorization'}

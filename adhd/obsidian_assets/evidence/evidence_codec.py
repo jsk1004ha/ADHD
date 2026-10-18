@@ -10,6 +10,8 @@ import re
 import uuid
 import zlib
 
+from adhd.maintenance_budget import MaintenanceBudget
+
 
 MAX_DECODED_BYTES = 512 * 1024 * 1024
 CHUNK = 1024 * 1024
@@ -30,19 +32,23 @@ def _safe_file(root: Path, name: str) -> Path:
     return path
 
 
-def _hash_size(path: Path, limit: int) -> tuple[str, int]:
+def _hash_size(path: Path, limit: int, budget=None) -> tuple[str, int]:
     sha = hashlib.sha256()
     size = 0
     with path.open('rb') as source:
         for chunk in iter(lambda: source.read(CHUNK), b''):
+            if budget is not None:
+                budget.consume(read=len(chunk))
             size += len(chunk)
             if size > limit:
                 raise ValueError('Log exceeds byte limit')
             sha.update(chunk)
+    if budget is not None:
+        budget.check()
     return sha.hexdigest(), size
 
 
-def store_log(root: Path, raw: Path) -> dict:
+def store_log(root: Path, raw: Path, *, budget=None) -> dict:
     """Publish gzip only when smaller; leave raw in place until its receipt exists."""
     root = Path(root)
     if root.is_symlink() or (hasattr(root, 'is_junction') and root.is_junction()):
@@ -50,7 +56,8 @@ def store_log(root: Path, raw: Path) -> dict:
     if raw.parent.resolve() != root:
         raise ValueError('Log must be inside the check directory')
     raw = _safe_file(root, raw.name)
-    original_sha, original_bytes = _hash_size(raw, MAX_DECODED_BYTES)
+    budget = budget or MaintenanceBudget()
+    original_sha, original_bytes = _hash_size(raw, MAX_DECODED_BYTES, budget)
     zipped = root / (raw.name + '.gz')
     if zipped.exists():
         raise ValueError('Compressed log destination already exists')
@@ -59,25 +66,29 @@ def store_log(root: Path, raw: Path) -> dict:
         with raw.open('rb') as source, temporary.open('xb') as sink:
             with gzip.GzipFile(fileobj=sink, mode='wb', filename='', mtime=0) as compressor:
                 for chunk in iter(lambda: source.read(CHUNK), b''):
+                    budget.consume(read=len(chunk), write=len(chunk))
                     compressor.write(chunk)
+                    budget.check()
             sink.flush()
             os.fsync(sink.fileno())
         if temporary.stat().st_size < original_bytes:
+            stored_sha, stored_bytes = _hash_size(temporary, MAX_DECODED_BYTES, budget)
+            budget.check()
             os.replace(temporary, zipped)
             stored = zipped
             kind = 'gzip'
         else:
             stored = raw
             kind = 'raw'
+            stored_sha, stored_bytes = _hash_size(stored, MAX_DECODED_BYTES, budget)
     finally:
         temporary.unlink(missing_ok=True)
-    stored_sha, stored_bytes = _hash_size(stored, MAX_DECODED_BYTES)
     return {'path': stored.name, 'codec': kind,
             'original_sha256': original_sha, 'original_bytes': original_bytes,
             'stored_sha256': stored_sha, 'stored_bytes': stored_bytes}
 
 
-def _validated(root: Path, descriptor: dict) -> tuple[Path, str]:
+def _validated(root: Path, descriptor: dict, budget=None) -> tuple[Path, str]:
     if not isinstance(descriptor, dict) or set(descriptor) != {
         'path', 'codec', 'original_sha256', 'original_bytes', 'stored_sha256', 'stored_bytes'
     }:
@@ -96,7 +107,7 @@ def _validated(root: Path, descriptor: dict) -> tuple[Path, str]:
         if type(value) is not int or not 0 <= value <= MAX_DECODED_BYTES:
             raise ValueError('Invalid log byte count')
     path = _safe_file(root, descriptor['path'])
-    stored_sha, stored_bytes = _hash_size(path, MAX_DECODED_BYTES)
+    stored_sha, stored_bytes = _hash_size(path, MAX_DECODED_BYTES, budget)
     if (stored_sha != descriptor['stored_sha256']
             or stored_bytes != descriptor['stored_bytes']):
         raise ValueError('Stored log changed')
@@ -106,17 +117,21 @@ def _validated(root: Path, descriptor: dict) -> tuple[Path, str]:
     return path, kind
 
 
-def _chunks(root: Path, descriptor: dict):
-    path, kind = _validated(root, descriptor)
+def _chunks(root: Path, descriptor: dict, budget=None):
+    path, kind = _validated(root, descriptor, budget)
     sha = hashlib.sha256()
     size = 0
     try:
         with (gzip.open(path, 'rb') if kind == 'gzip' else path.open('rb')) as stream:
             for chunk in iter(lambda: stream.read(CHUNK), b''):
+                if budget is not None:
+                    budget.consume(read=len(chunk))
                 size += len(chunk)
                 if size > MAX_DECODED_BYTES or size > descriptor['original_bytes']:
                     raise ValueError('Decoded log exceeds declared byte count')
                 sha.update(chunk)
+                if budget is not None:
+                    budget.check()
                 yield chunk
     except (EOFError, gzip.BadGzipFile, OSError, zlib.error) as error:
         raise ValueError('Invalid or truncated compressed log') from error
@@ -124,8 +139,8 @@ def _chunks(root: Path, descriptor: dict):
         raise ValueError('Original log identity mismatch')
 
 
-def verify_log(root: Path, descriptor: dict) -> None:
-    for _ in _chunks(root, descriptor):
+def verify_log(root: Path, descriptor: dict, *, budget=None) -> None:
+    for _ in _chunks(root, descriptor, budget):
         pass
 
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from statistics import median
+from math import isfinite
 
 
 FIELDS = ('input_tokens', 'cached_input_tokens', 'output_tokens')
@@ -25,7 +26,7 @@ def summarize_run_metrics(events: list[dict]) -> dict:
         seen[event['id']] = event
         if event.get('kind') == 'run':
             start, finish = event.get('started_ms'), event.get('finished_ms')
-            if not all(type(v) in (int, float) for v in (start, finish)) or finish < start:
+            if not all(type(v) in (int, float) and isfinite(v) for v in (start, finish)) or finish < start:
                 raise ValueError('Invalid run span')
             spans.append((start, finish))
             continue
@@ -125,3 +126,9 @@ def compare_paired_runs(pairs: list[dict]) -> dict:
                        or any(metrics[key] is None for key in ('first_usable_ms','input_tokens','uncached_input_tokens'))
                        else 'measured_exploratory'}
     return {'by_task_type': result, 'claim': 'observed_pair_values_only'}
+
+
+def all_start_summary(root=None) -> dict:
+    """Project the durable registry, including failed and unfinished starts."""
+    from .trial_registry import TrialRegistry
+    return TrialRegistry(root).summary()
