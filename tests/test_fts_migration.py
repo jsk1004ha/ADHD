@@ -80,14 +80,15 @@ class FtsProposalTests(unittest.TestCase):
             with Memory(path, journal_mode="DELETE") as memory:
                 memory.put(scope="global", kind="fact", key="baseline", content="existing",
                            source="fixture", locator="line 1")
-            script = ("import sys,time; from pathlib import Path; from adhd.memory import Memory; "
+            script = ("import sys,time; from pathlib import Path; "
+                      "from adhd import dependencies as _dependencies; from adhd.memory import Memory; "
                       "db=Memory(Path(sys.argv[1]),journal_mode='DELETE'); "
                       "lock=db._write_lock; lock.acquire(); "
                       "db.put(scope='global',kind='fact',key='cross process',content='fresh evidence',"
                       "source='fixture',locator='line 2'); "
                       "Path(sys.argv[2]).write_text('holding'); time.sleep(1.5); "
                       "lock.release(); db.close()")
-            child = subprocess.Popen([sys.executable, "-c", script, str(path), str(ready)],
+            child = subprocess.Popen([sys.executable, "-S", "-c", script, str(path), str(ready)],
                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             try:
                 deadline = time.monotonic() + 20

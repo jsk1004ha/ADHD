@@ -41,6 +41,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(self.call('experiment','summary','--root',self.ws/'trials')['started'],0)
 
     def test_context_cli_finds_required_symbol_and_reads_a_revision(self):
+        subprocess.run(['git', '-C', str(self.ws), 'init', '-q'], check=True,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         (self.ws/'target.py').write_text('def required_symbol():\n    return 42\n')
         located=self.call('context','locate','--workspace',self.ws,'--query','required_symbol','--sources','code','--complete')
         self.assertTrue(any(card['ref']['path']=='target.py' for card in located['cards']))

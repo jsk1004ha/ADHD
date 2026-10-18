@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -23,6 +24,8 @@ class ContextSearchTests(unittest.TestCase):
         self.addCleanup(self.home.stop)
         (self.workspace / "logic.py").write_text("def 검증():\n    return 'evidence'\n", encoding="utf-8")
         (self.workspace / "screen.ts").write_text("const x1 = 'hello';\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(self.workspace), "init", "-q"], check=True,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
 
     def test_complete_code_search_and_bounded_stale_read(self):
         found = context_search.locate(self.workspace, "검증", sources=("code",), complete=True)
@@ -39,6 +42,11 @@ class ContextSearchTests(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which("rg"), "ripgrep required for non-Git complete enumeration")
     def test_non_git_complete_search_probes_git_only_once(self):
+        non_git = self.base / "non-git"
+        non_git.mkdir()
+        for name in ("logic.py", "screen.ts"):
+            shutil.copyfile(self.workspace / name, non_git / name)
+        self.workspace = non_git
         for number in range(4):
             (self.workspace / f"extra-{number}.txt").write_text("other evidence\n", encoding="utf-8")
         from adhd import context_index
