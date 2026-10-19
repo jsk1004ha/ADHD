@@ -1,7 +1,9 @@
 # ADHD — Autonomous Delegation Harness Director (v0.1.7)
 
+[한국어](README.md) · [English](README_en.md) · [빠른 시작](README.ko.md)
+
 > **Codex App 및 CLI 환경을 위한 로컬 자율 위임·검증 하네스 오케스트레이터**<br>
-> 사용자의 기존 인증(`auth.json`), 모델 선택, 라우터, 플러그인 및 개인 설정(`config.toml`)을 침해하지 않으면서, **요구사항 기반 계획(Planning) → 범위가 제한된 위임(Bounded Delegation) → 실행 영수증 검증(Execution Receipts) → 독립 검증자 게이트(Independent Review Gate)**를 Codex 생명주기 훅(Lifecycle Hooks)으로 결합합니다.
+> 사용자의 기존 인증(`auth.json`), 모델 선택, 라우터, 플러그인 및 개인 설정(`config.toml`)을 침해하지 않으면서, <strong>요구사항 기반 계획(Planning) → 범위가 제한된 위임(Bounded Delegation) → 실행 영수증 검증(Execution Receipts) → 독립 검증자 게이트(Independent Review Gate)</strong>를 Codex 생명주기 훅(Lifecycle Hooks)으로 결합합니다.
 
 | 항목 | 세부 사양 (코드베이스 실측 기준) |
 | :--- | :--- |
@@ -18,9 +20,9 @@
 
 ## 1. 프로젝트 개요 및 핵심 설계 철학
 
-**ADHD (Autonomous Delegation Harness Director)**는 AI 에이전트가 복잡한 코딩, 연구, 문서 작성, 데이터 분석, 게임 개발 과업을 수행할 때 발생하는 **조기 완료 선언(Self-Declared Completion), 요구사항 누락, 무분별한 파일 수정, 무한 실패 루프, 문맥 비대화(Context Bloat)** 문제를 시스템 계층에서 해결하기 위해 설계된 로컬 오케스트레이션 하네스입니다.
+<strong>ADHD (Autonomous Delegation Harness Director)</strong>는 AI 에이전트가 복잡한 코딩, 연구, 문서 작성, 데이터 분석, 게임 개발 과업을 수행할 때 발생하는 **조기 완료 선언(Self-Declared Completion), 요구사항 누락, 무분별한 파일 수정, 무한 실패 루프, 문맥 비대화(Context Bloat)** 문제를 시스템 계층에서 해결하기 위해 설계된 로컬 오케스트레이션 하네스입니다.
 
-코드베이스 전반([hook.py](hook.py), [adhd/native.py](adhd/native.py), [adhd/large\_tasks.py](adhd/large_tasks.py), [adhd/coding\_scope.py](adhd/coding_scope.py))을 관통하는 **5대 핵심 설계 원칙(Architectural Invariants)**은 다음과 같습니다:
+코드베이스 전반([hook.py](hook.py), [adhd/native.py](adhd/native.py), [adhd/large\_tasks.py](adhd/large_tasks.py), [adhd/coding\_scope.py](adhd/coding_scope.py))을 관통하는 <strong>5대 핵심 설계 원칙(Architectural Invariants)</strong>은 다음과 같습니다:
 
 1. **호스트 훅(Host Hook)과 샌드박스 CLI의 엄격한 권한 분리 (Trust-Boundary Separation)**
    * Codex 호스트가 실행하는 [hook.py](hook.py)는 `stdin`으로 최대 `180,000 bytes`의 이벤트 JSON만 읽고 `stdout`으로 제어 JSON만 출력하며, **절대로 모델이 제공한 쉘 명령이나 Git 서브프로세스를 직접 실행하지 않습니다.**
@@ -33,93 +35,62 @@
 4. **관측된 실행 영수증 기반 진전 판정 (Evidence-Bound Progress)**
    * 단순 텍스트 요약이나 타임스탬프 변경은 진전(Progress)으로 인정되지 않습니다. 오직 [adhd/evidence.py](adhd/evidence.py)가 기록한 **입력 파일 해시 고정 실행 영수증(`receipt.json`)**, 통과한 요구사항 증가, 실패 테스트 감소, 또는 실제 타깃 아티팩트 해시 변경만이 정체 카운터(`stagnation`)를 초기화합니다.
 5. **독립 검증자 게이트 통과 필수 (Mandatory Independent Acceptance)**
-   * 작성자(Parent Director 또는 `adhd-implementer`)는 자신의 결과물을 스스로 완료(`complete`) 처리할 수 없습니다. 모든 후보(`candidate`) 스냅샷은 읽기 전용 샌드박스에서 실행되는 독립 에이전트 **`adhd-verifier`**가 원본 프롬프트(`prompts`), 계약 해시(`contract_hash`), 후보 다이제스트(`candidate.digest`), 실행 영수증을 직접 대조하여 `{"verdict": "approve"}`를 반환했을 때만 `SubagentStop` 훅에서 최종 완료로 전이됩니다.
+   * 작성자(Parent Director 또는 `adhd-implementer`)는 자신의 결과물을 스스로 완료(`complete`) 처리할 수 없습니다. 모든 후보(`candidate`) 스냅샷은 읽기 전용 샌드박스에서 실행되는 독립 에이전트 <strong>`adhd-verifier`</strong>가 원본 프롬프트(`prompts`), 계약 해시(`contract_hash`), 후보 다이제스트(`candidate.digest`), 실행 영수증을 직접 대조하여 `{"verdict": "approve"}`를 반환했을 때만 `SubagentStop` 훅에서 최종 완료로 전이됩니다.
 
 ## 2. 전체 시스템 아키텍처 및 데이터 흐름
 
-아래 다이어그램은 Codex 호스트(App/CLI), `hook.py` 이벤트 디스패처, 비대칭 브리지(`inbox`/`outbox`/`view.json`), 6대 에이전트 역할, 그리고 5개 로컬 스토리지/인덱스 엔진 간의 전체 구조와 제어 흐름을 보여줍니다.
+호스트가 정본 상태를 소유하고, 에이전트는 워크스페이스 브리지로 요청을 제출합니다. 아래 개요는 이 경계를 중심으로 정리했으며, 역할별 설정과 검증 규칙은 뒤의 표에서 설명합니다.
 
 ```mermaid
 flowchart TB
-    subgraph Host["Codex App / CLI Host Boundary (Trusted)"]
-        Events["9 Codex Hook Events<br/>(SessionStart, UserPromptSubmit, PreToolUse,<br/>PostToolUse, SubagentStart/Stop, PostCompact, Stop, SessionEnd)"]
-        HookPy["hook.py<br/>(180KB Stdin Cap, HookDiagnostics,<br/>Zero Command Execution)"]
-        NativeSM["adhd/native.py<br/>(Host State Machine & Gate Controller)"]
-        CanonicalState[("$CODEX_HOME/adhd/native/SESSION/<br/>state.json + ledger.jsonl + FileLock")]
-    end
+    accTitle: ADHD host and workspace architecture
+    accDescr: Agents run local tools and queue requests through a workspace bridge. Only host hooks validate requests and commit canonical state; status and acknowledgements return through the bridge.
 
-    subgraph Bridge["Workspace Bridge (.adhd/bridge/SESSION/)"]
-        Inbox["inbox/&lt;32-hex&gt;.json<br/>(Queued CLI Requests)"]
-        Outbox["outbox/&lt;32-hex&gt;.json<br/>(Committed Receipts)"]
-        ViewJson["view.json &amp; context-status.md<br/>(Read-Only State Projection)"]
-        Packets["packets/&lt;agent_hash&gt;.json<br/>(Subagent Context Packets)"]
-    end
+    agents["부모 · 역할별 자식<br/>ADHD CLI · 로컬 엔진"]
+    bridge["워크스페이스 브리지<br/>inbox · outbox · view.json"]
+    host["Codex 호스트 훅<br/>hook.py → native.py"]
+    state[("정본 상태<br/>state.json · ledger.jsonl")]
+    agents <-->|"요청 / 응답"| bridge
+    bridge <-->|"검증 / 상태 내보내기"| host
+    host <--> state
 
-    subgraph Sandbox["Workspace Sandbox &amp; CLI Tools (adhd.py)"]
-        Director["Parent Director Agent (Sol / max)<br/>Request Routing &amp; Orchestration"]
-        CLI["adhd.py CLI Entrypoint<br/>(native, check, coding-scope, large, batch,<br/>context, wiki, memory, objects, doc, provenance)"]
-        Subagents["Pinned Native Subagents (native/agents/*.toml)<br/>• adhd-planner (Sol/max, RO)<br/>• adhd-scout (Luna/max|low, RO)<br/>• adhd-light (Luna/max|low, RO)<br/>• adhd-architect (Astra/low, RO, <=1 call)<br/>• adhd-implementer (Sol/max, Single Writer)<br/>• adhd-verifier (Sol/max, Independent Gate)"]
-    end
-
-    subgraph Engines["Local Verification, DAG &amp; Storage Engines"]
-        Gates["Verification Gates<br/>• evidence.py (Execution Receipts)<br/>• coding_scope.py (Git Scope Audit)<br/>• documents.py (Page Render Check)<br/>• provenance.py (Claim Lineage)"]
-        LargeDAG["Large-Task &amp; Batch Engine<br/>• large_tasks.py (SQLite DAG)<br/>• large_execution.py (<=6 CLI Workers)<br/>• validation_batch.py (Central Batch)"]
-        Storage["Context, Memory &amp; CAS Storage<br/>• context_index.py (AST SQLite Index)<br/>• memory.py (FTS5 + KO Bigram + RRF)<br/>• obsidian_index.py (Vault SQLite Index)<br/>• immutable_store.py &amp; immutable_gc.py"]
-    end
-
-    Events --> HookPy --> NativeSM
-    NativeSM <--> CanonicalState
-    NativeSM -->|Export Projection| ViewJson
-    NativeSM -->|Write Task Packet| Packets
-    NativeSM -->|Read &amp; Validate| Inbox
-    NativeSM -->|Write Ack| Outbox
-
-    ViewJson -->|Read Status| Director
-    Director -->|Invoke Tool| CLI
-    CLI -->|submit_request()| Inbox
-    Outbox -->|Read Ack| Director
-    Director -->|Spawn Role| Subagents
-    Packets -->|Read Scoped Brief| Subagents
-    Subagents -->|SubagentStart / Stop| Events
-
-    CLI --> Gates
-    CLI --> LargeDAG
-    CLI --> Storage
-    Gates -->|Verify Hashes &amp; Receipts| NativeSM
+    classDef control fill:#dbeafe,stroke:#2563eb,color:#1e3a5f
+    classDef data fill:#f3f4f6,stroke:#6b7280,color:#1f2937
+    classDef work fill:#dcfce7,stroke:#16a34a,color:#14532d
+    class host control
+    class bridge,state data
+    class agents work
 ```
 
 ### 비대칭 훅-샌드박스 IPC 프로토콜 (Inbox / Outbox / View 메커니즘)
 
-샌드박스 내부에서 실행되는 에이전트는 호스트의 정본 `state.json`을 직접 수정할 수 없습니다. 대신 [adhd/native.py](adhd/native.py)의 `submit_request()`와 `process_inbox()`가 다음과 같은 **2단계 비동기 커밋 프로토콜**로 상태 전이를 수행합니다:
+샌드박스 내부에서 실행되는 에이전트는 호스트의 정본 `state.json`을 직접 수정할 수 없습니다. 대신 [adhd/native.py](adhd/native.py)의 `submit_request()`와 `process_inbox()`가 다음과 같은 <strong>2단계 비동기 커밋 프로토콜</strong>로 상태 전이를 수행합니다:
 
 ```mermaid
 sequenceDiagram
+    accTitle: Queued CLI request and acknowledgement
+    accDescr: A CLI request is only queued when the shell exits. The host hook validates it, commits canonical state on success, and exports an acknowledgement.
     autonumber
-    participant Agent as Codex Agent (Sandbox)
-    participant CLI as adhd.py native &lt;OP&gt;
-    participant Bridge as .adhd/bridge/SESSION/
-    participant Hook as hook.py (PostToolUse / Stop)
-    participant State as $CODEX_HOME/.../state.json
+    participant agent as Codex 에이전트
+    participant cli as ADHD CLI
+    participant bridge as 워크스페이스 브리지
+    participant hook as 호스트 훅
+    participant state as 정본 상태
 
-    Agent->>CLI: python adhd.py native begin/plan/checkpoint/candidate ...
-    CLI->>Bridge: Read view.json (Check reader version &amp; active contract)
-    CLI->>Bridge: Write inbox/&lt;32-hex-id&gt;.json
-    CLI-->>Agent: Return {"status": "queued", "request_id": "..."} (Exit 0)
-    Note over Agent,Hook: Shell tool finishes; Codex Host immediately triggers PostToolUse hook
-    Hook->>State: Acquire FileLock(state.lock) &amp; Load state.json
-    Hook->>Bridge: process_inbox() reads up to 8 sorted inbox/*.json files
-    Hook->>Hook: apply_request(state, op, payload) validates contract, hashes &amp; receipts
-    alt Validation Passed
-        Hook->>State: Commit updated state.json &amp; Append ledger.jsonl
-        Hook->>Bridge: Export updated view.json &amp; .adhd/context-status.md
-        Hook->>Bridge: Write outbox/&lt;id&gt;.json ({"ok": true, "status": ...})
-        Hook->>Bridge: Move inbox/&lt;id&gt;.json -> processed/&lt;id&gt;.json
-    else Validation Failed (ValueError / OSError)
-        Hook->>State: Rollback state in-memory to pre-request snapshot
-        Hook->>Bridge: Write outbox/&lt;id&gt;.json ({"ok": false, "message": error})
-        Hook->>Bridge: Move inbox/&lt;id&gt;.json -> processed/&lt;id&gt;.json
+    agent->>cli: native 명령 실행
+    cli->>bridge: view.json 확인 후 inbox에 요청 저장
+    cli-->>agent: queued 반환 후 종료
+    Note over agent,hook: 도구 종료 후 PostToolUse 훅 실행
+    hook->>state: 잠금 획득 · 현재 상태 읽기
+    hook->>bridge: 대기 중인 요청 읽기
+    hook->>hook: 계약 · 파일 해시 · 영수증 검증
+    alt 검증 통과
+        hook->>state: 상태 커밋 · 원장 기록
+        hook->>bridge: view.json과 성공 응답 내보내기
+    else 검증 실패
+        hook->>bridge: 기존 상태 유지 · 실패 응답 저장
     end
-    Hook-->>Agent: Emit hookSpecificOutput.additionalContext (Ack + Loop Guidance)
+    agent->>bridge: outbox 응답과 새 상태 확인
 ```
 
 ## 3. 디렉토리 구조 및 63개 코어 Python 파일 상세 분석
@@ -204,6 +175,10 @@ ADHD/
 └── tests/                          # 72개 통합·회귀 테스트 모듈 (12,568 LOC)
 ```
 
+![현재 저장소의 8개 서브시스템별 LOC와 가장 큰 10개 Python 모듈](docs/assets/readme/adhd_architecture_overview.png)
+
+*현재 소스 기준: 코어 Python 63개 · 19,234 LOC, 테스트 모듈 72개 · 12,568 LOC. 아래 표와 동일한 범위로 집계했습니다.*
+
 ### 서브시스템별 코드 규모 및 핵심 책임 요약표
 
 | 서브시스템 분류 | 포함 모듈 | 코드 라인 수 (LOC) | 비중 (%) | 핵심 엔지니어링 책임 |
@@ -236,7 +211,7 @@ ADHD/
 | **`Stop`** | 턴 종료 시도 시 | 20s | 없음 | 미처리 `inbox` 반영, 승인 후 파일 임의 수정 감지(`is_fresh` 실패 시 `revising` 강등), 활성 작업 중이면 라운드/정체 업데이트 후 `{"decision": "block", "reason": "[ADHD_CONTINUE:...]"}` 반환하여 루프 지속 |
 | **`SessionEnd`** | 세션 종료 시 (`Interrupt` 포함) | 3s | 없음 | 활성 실행 중이면 `end_after_children(state, 'paused')`를 호출하여 실행 중인 자식이 모두 끝날 때까지 작성자 임대를 보호한 채 안전하게 일시 정지 |
 
-* **1,200자 필수 필드 우선 보존 알고리즘 (`context()` L1966–2073)**: 문맥 안내 문자열을 생성할 때 `ADHD Status=...`, `SESSION=...; view=...`, `Next: ...`, 시간 예산 안내 등 **필수 복구 필드(`required`)를 먼저 배치**하고, 남은 글자 수(`1200 - len(text) - 1`) 안에만 부가 설명을 넣습니다. 긴 워크스페이스 경로나 목표 텍스트 때문에 중간의 `Next` 액션이 잘려 나가는 현상을 원천 방지합니다([docs/hook-followup-fixes.md](docs/hook-followup-fixes.md)).
+* **1,200자 필수 필드 우선 보존 알고리즘 (`context()` L1966–2073)**: 문맥 안내 문자열을 생성할 때 `ADHD Status=...`, `SESSION=...; view=...`, `Next: ...`, 시간 예산 안내 등 <strong>필수 복구 필드(`required`)를 먼저 배치</strong>하고, 남은 글자 수(`1200 - len(text) - 1`) 안에만 부가 설명을 넣습니다. 긴 워크스페이스 경로나 목표 텍스트 때문에 중간의 `Next` 액션이 잘려 나가는 현상을 원천 방지합니다([docs/hook-followup-fixes.md](docs/hook-followup-fixes.md)).
 
 ### 원리 2: 초기 요청 라우팅 및 네이티브 상태 머신 전이
 
@@ -254,42 +229,20 @@ ADHD/
 
 ```mermaid
 stateDiagram-v2
+    accTitle: Native task review lifecycle
+    accDescr: Work progresses from a contract to a frozen candidate and independent review. Rejected or changed artifacts return to revision; interruption states preserve the contract.
+    direction TB
     [*] --> idle
-    idle --> idle : direct 경로 (즉시 응답)
-    idle --> working : native begin (계약 체결 &amp; Writer Lease 획득)
-
-    working --> working : native plan / checkpoint (진전 기록)
-    working --> reviewing : native candidate (스냅샷 &amp; 영수증 검증 통과)
-
-    reviewing --> complete : SubagentStop (adhd-verifier verdict="approve")
-    reviewing --> revising : SubagentStop (adhd-verifier verdict="reject" / 검증 실패)
-    complete --> revising : Stop 훅에서 승인 후 파일 변경 감지 (!is_fresh)
-
-    revising --> working : native plan / sync-intent (수정 계획/계약 갱신)
-    revising --> reviewing : native candidate (재검증 스냅샷 제출)
-
-    working --> interrupt_pending : pause / blocked / cancel / time_budget 만료 (실행 중 자식 있음)
-    reviewing --> interrupt_pending : pause / blocked / cancel / time_budget 만료 (실행 중 자식 있음)
-    revising --> interrupt_pending : pause / blocked / cancel / time_budget 만료 (실행 중 자식 있음)
-
-    interrupt_pending --> paused : 마지막 자식 SubagentStop (Lease 해제)
-    interrupt_pending --> blocked : 마지막 자식 SubagentStop (Lease 해제)
-    interrupt_pending --> cancelled : 마지막 자식 SubagentStop (Lease 해제)
-    interrupt_pending --> budget_exhausted : 마지막 자식 SubagentStop (Lease 해제)
-
-    working --> paused : native pause / SessionEnd (실행 중 자식 없음)
-    working --> blocked : native blocked / 치명적 권한·도구 실패
-    working --> cancelled : 사용자 "그만 / stop" 입력
-    working --> budget_exhausted : 라운드 / 시간 / 정체 한도 도달
-
-    paused --> working : 실제 사용자 "재개 / resume" 입력 (계약 보존)
-    blocked --> working : 실제 사용자 "재개 / resume" 입력
-    budget_exhausted --> working : 실제 사용자 "재개 / resume" 입력
-    cancelled --> working : 실제 사용자 "재개 / resume" 입력
-
-    working --> handoff_pending : sync-intent (classification="new_task", 자식 실행 중)
-    handoff_pending --> idle : 마지막 자식 SubagentStop (이전 실행 아카이브 완료)
+    idle --> working: native begin
+    working --> reviewing: native candidate
+    reviewing --> complete: 독립 검증 승인
+    reviewing --> revising: 반려 또는 검증 실패
+    revising --> working: 계획 또는 계약 갱신
+    revising --> reviewing: 수정 후보 제출
+    complete --> revising: 승인 후 파일 변경 감지
 ```
+
+중단 결과는 원인에 따라 `paused`, `blocked`, `cancelled`, `budget_exhausted`로 구분됩니다. 실행 중인 자식이 있으면 먼저 `interrupt_pending`에서 종료를 기다린 뒤 임대를 해제합니다. `new_task` 전환은 자식이 있으면 `handoff_pending`을 거쳐 이전 실행을 아카이브합니다. 위 도식은 대표 경로를 보여주며, 중단 상태의 재개에는 실제 사용자 요청이 필요합니다.
 
 ### 원리 3: 3계층 모델 고정(Pinning) 및 6대 에이전트 역할 거버넌스
 
@@ -316,13 +269,13 @@ stateDiagram-v2
 1. **12슬롯 실패 핑거프린트 링 (`observe_tool_loop()`)**:
    * `Bash`, `exec`, `exec_command`, `apply_patch`, `write_stdin` 호출 결과를 감시하며, 명령줄 내 `--api-key`, `--token`, `--password`, `--secret` 등의 인자를 정규식(`SECRET_FLAG`)으로 먼저 `[REDACTED]` 마스킹합니다.
    * `[command_id, verified_failure_signature(output)]`의 SHA-256 다이제스트를 크기 12의 링 버퍼(`RING_SIZE = 12`)에 기록합니다(단, `rg` 명령의 단순 미매칭 `exit_code == 1`은 실패에서 제외).
-   * 동일 핑거프린트가 **3회 누적되면 Level 1 경고**, **5회 누적되면 Level 2 경고**를 발생시켜 가설 변경과 최소 실패 검사를 강제하며, 해당 명령이 성공(`exit_code == 0`)하면 즉시 경고 상태를 해제합니다.
+   * 동일 핑거프린트가 **3회 누적되면 Level 1 경고**, <strong>5회 누적되면 Level 2 경고</strong>를 발생시켜 가설 변경과 최소 실패 검사를 강제하며, 해당 명령이 성공(`exit_code == 0`)하면 즉시 경고 상태를 해제합니다.
 2. **진전(Progress) 대 처닝(Churn) 분리 (`update_stagnation()`, `CHURN_GRACE = 3`)**:
    * 라운드가 끝날 때마다(`Stop` 훅) 진전 마커 집합(`progress_markers`)을 비교합니다.
-   * 진전으로 인정되는 사건: ① 새로운 요구사항 통과(`requirement_pass`), ② 계획 단계 완료(`plan_step`), ③ 영수증에서 확인된 실패 테스트 수 감소, ④ 후보 제출 전 선언된 타깃 아티팩트의 실제 바이트 해시 변경(단, 마지막 검증된 결과 진전 이후 최대 **3회(`CHURN_GRACE`)**까지만 유예 인정).
+   * 진전으로 인정되는 사건: ① 새로운 요구사항 통과(`requirement_pass`), ② 계획 단계 완료(`plan_step`), ③ 영수증에서 확인된 실패 테스트 수 감소, ④ 후보 제출 전 선언된 타깃 아티팩트의 실제 바이트 해시 변경(단, 마지막 검증된 결과 진전 이후 최대 <strong>3회(`CHURN_GRACE`)</strong>까지만 유예 인정).
    * 진전이 없으면 `stagnation` 카운터가 증가하며, 일반 모드(`bounded`)에서는 `max_stagnation = 3` 도달 시 `budget_exhausted`로 안전 종료합니다.
 3. **Goal 모드 다단계 정체 사다리 (`steer_if_stuck()` & `stuck.md`)**:
-   * `/goal` 또는 `$adhd-goal`로 시작된 지속 실행 모드에서는 정체 시 작업을 종료하는 대신 **3, 6, 9 라운드(Stage 1, 2, 3)**마다 개입 메시지를 생성합니다.
+   * `/goal` 또는 `$adhd-goal`로 시작된 지속 실행 모드에서는 정체 시 작업을 종료하는 대신 <strong>3, 6, 9 라운드(Stage 1, 2, 3)</strong>마다 개입 메시지를 생성합니다.
    * `.adhd/bridge/<SESSION>/stuck.md`에 실패 이력(`failure_history`), 반복 실패 명령(`loop_notes`), 리뷰어 거절 사유(`review_findings`)를 기록하고 `needs_replan = True`를 설정하여, 새로운 계획을 제출하기 전까지 후보(`candidate`) 제출을 차단합니다.
 4. **반복 리뷰 거절 자카드 유사도 감지 (`repeated_review_rejection()`)**:
    * `adhd-verifier`가 연속으로 후보를 거절할 때, 이전 거절 소견과 현재 거절 소견의 단어 집합 간 **자카드 유사도(`len(old & current) / len(old | current) >= 0.6`)** 및 언급된 파일 경로 교집합을 계산합니다. 동일한 결함이 반복 지적되면 단순 패치 재시도를 막고 `needs_replan = True`로 전략 수정을 강제합니다.
@@ -332,28 +285,20 @@ stateDiagram-v2
 후보 제출(`native candidate`)부터 최종 승인(`SubagentStop`)까지 총 5개의 코드 기반 검증 관문이 순차적으로 작동합니다.
 
 ```mermaid
-flowchart LR
-    subgraph Gate1["1. 실행 영수증 관문 (evidence.py)"]
-        R1["adhd.py check<br/>• 쉘 해석 없는 명시적 argv 실행<br/>• 실행 전/후 subject_paths SHA-256 대조<br/>• exit_code == 0 &amp; 파일 불변 시만 인정"]
-    end
+flowchart TB
+    accTitle: Five evidence and review gates
+    accDescr: Execution receipts, Git scope, document or research evidence, snapshot integrity, and independent review bind completion to the current artifact bytes.
+    execution["1 · 실행 영수증<br/>종료 코드 · 입력 해시"]
+    scope["2 · Git 변경 범위<br/>허용 경로 · 기존 작업 보존"]
+    domain["3 · 문서 / 연구 증거<br/>페이지 검수 · 수치 계보"]
+    snapshot["4 · 후보 스냅샷<br/>파일 해시 · candidate.digest"]
+    review["5 · 독립 검증<br/>요청 · 계약 · 동일 후보"]
+    execution --> scope --> domain --> snapshot --> review
 
-    subgraph Gate2["2. Git 코딩 범위 관문 (coding_scope.py)"]
-        R2["adhd.py coding-scope<br/>• 작업 전 HEAD/index/dirty_files 캡처<br/>• 허용 경로(allowed_paths) 외 수정 차단<br/>• 모든 변경 파일의 요구사항 ID 매핑 강제<br/>• 훅에서 Git 실행 없이 해시/트리 재검증"]
-    end
-
-    subgraph Gate3["3. 문서/계보 관문 (documents.py / provenance.py)"]
-        R3["문서 &amp; 연구 수치 검증<br/>• DOCX/PPTX/PDF/HWP 페이지별 이미지 렌더링<br/>• 보호된 원본(protected_inputs) 불변 확인<br/>• 원본 데이터 -> .py 분석 -> 결과 수치 계보 대조"]
-    end
-
-    subgraph Gate4["4. 스트리밍 스냅샷 봉인 (snapshots.py)"]
-        R4["build_snapshot()<br/>• 일반/대용량/렌더/태스크 번들 해시 결합<br/>• 심볼릭 링크·정션 탈출 차단<br/>• 단일 64자 candidate.digest 생성"]
-    end
-
-    subgraph Gate5["5. 독립 검증자 승인 (adhd-verifier)"]
-        R5["SubagentStop (stop_child)<br/>• tool_use_id 예약 또는 프로필 해시 상관관계 확인<br/>• reviewed_digest == candidate.digest<br/>• reviewed_contract_hash == contract_hash<br/>• 문서 전 페이지 열람 증명(inspected_pages)"]
-    end
-
-    Gate1 --> Gate2 --> Gate3 --> Gate4 --> Gate5
+    classDef evidence fill:#dbeafe,stroke:#2563eb,color:#1e3a5f
+    classDef approval fill:#dcfce7,stroke:#16a34a,color:#14532d
+    class execution,scope,domain,snapshot evidence
+    class review approval
 ```
 
 * **훅 내부 무-Git(Zero-Git) 범위 재검증 원리 ([adhd/coding\_scope.py](adhd/coding_scope.py))**:
@@ -366,15 +311,26 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    Init["1. large init<br/>• 요구사항 전체 커버리지 검증<br/>• write_paths 중복/충돌 검사<br/>• SQLite DAG 초기화 (.adhd/large/RUN_ID/state.sqlite3)"]
-    Dispatch["2. large run-workers (최대 6개 병렬 CLI 워커)<br/>• 슬롯 계산: min(host, policy, resource, budget, 6)<br/>• 핵심 경로(Critical Path) 우선 배정<br/>• 워커별 격리 Git Worktree 생성 및 임대 세대(Generation) 부여"]
-    Deps["3. 의존성 조건 해금<br/>• contract_ready: 인터페이스(interface) 게시 시 소비자 착수<br/>• artifact_ready: 선행 패키지 제출(submit) 시 소비자 착수<br/>• accepted 의존성은 데드락 방지를 위해 초기화 시 거부"]
-    Stage["4. 직렬 통합 및 동결 (large stage &amp; freeze)<br/>• 단일 스테이징 Worktree로 변경분 병합<br/>• 최대 20,000개 파일 / 단일 64GiB / 총 128GiB 스트리밍 매니페스트 동결"]
-    Validate["5. 제작 후 단일 배치 검사 (large validate / batch run)<br/>• shortest_first 스케줄링 &amp; fail_fast 지원<br/>• 변경 없는 검사는 이전 영수증(_reuse) 안전 재사용<br/>• 실패 시 failure_groups로 원인별 단일 소유자 묶음 수리(large repairs)"]
+    accTitle: Large task assembly and validation
+    accDescr: Requirement-bound tasks run in isolated worktrees, then merge through serial staging and a shared validation batch. Failed batches return to grouped repairs before independent acceptance.
+    initialize["1 · DAG 초기화<br/>요구사항 · 소유 경로 · 의존성"]
+    dispatch["2 · 격리 CLI 워커 실행<br/>정책 / 자원 / 예산 범위 · 최대 6개"]
+    dependencies["3 · 의존성 해금<br/>contract_ready / artifact_ready"]
+    stage["4 · 직렬 통합과 동결<br/>단일 스테이징 작업 트리"]
+    batch["5 · 중앙 배치 검사<br/>현재 입력 검증 · 유효한 영수증 재사용"]
+    repairs["원인별 묶음 수리"]
+    candidate["6 · 통합 후보 제출<br/>독립 검증 승인 후 publish"]
+    initialize --> dispatch --> dependencies --> stage --> batch
+    batch -->|"통과"| candidate
+    batch -->|"실패"| repairs
+    repairs --> dispatch
 
-    Init --> Dispatch --> Deps --> Stage --> Validate
-    Validate -->|status == needs_repair| Dispatch
-    Validate -->|status == passed| NativeCandidate["6. native attach-large &amp; candidate<br/>• 통합 스냅샷 다이제스트 및 배치 리포트 바인딩<br/>• adhd-verifier 최종 독립 검수 후 large publish"]
+    classDef process fill:#dbeafe,stroke:#2563eb,color:#1e3a5f
+    classDef warning fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef success fill:#dcfce7,stroke:#16a34a,color:#14532d
+    class initialize,dispatch,dependencies,stage,batch process
+    class repairs warning
+    class candidate success
 ```
 
 * **보수적 검사 재사용(`_reuse` in [adhd/validation\_batch.py](adhd/validation_batch.py) L286–337)**:
@@ -382,7 +338,7 @@ flowchart TB
 
 ### 원리 7: 경계 문맥(Bounded Context), 한국어 하이브리드 메모리, Obsidian 및 CAS 불변 저장소
 
-v0.1.6~v0.1.7에서 대폭 강화된 문맥 및 스토리지 계층은 **최소 필요 문맥 전달**과 **엄격한 자원 예산**을 결합합니다:
+v0.1.6~v0.1.7에서 대폭 강화된 문맥 및 스토리지 계층은 <strong>최소 필요 문맥 전달</strong>과 <strong>엄격한 자원 예산</strong>을 결합합니다:
 
 | 엔진 / 모듈 | 저장소 경로 및 포맷 | 핵심 알고리즘 및 동작 원리 | 하드웨어 / 리소스 예산 한도 |
 | :--- | :--- | :--- | :--- |
@@ -398,11 +354,11 @@ v0.1.6~v0.1.7에서 대폭 강화된 문맥 및 스토리지 계층은 **최소 
 
 ### 5.1 코덱스 훅(Hook) 서브프로세스 지연 시간 및 방출 문맥 최적화
 
+![훅 시나리오별 프로세스 지연 시간과 방출 문맥 크기 비교](docs/assets/readme/adhd_hook_benchmark_analysis.png)
 
+*저장된 Windows 벤치마크 결과입니다. 문맥 글자 수는 토큰 사용량과 다르며, 이 결과는 전체 작업 속도나 비용 절감률을 뜻하지 않습니다.*
 
 Windows 11 (`Python 3.13.12`, `filelock 3.29.0`) 환경에서 8개 시나리오 × 3개 버전(`Baseline`, `Version A: HookDiagnostics 계측 추가`, `Version B: 프로필 기반 조용한 문맥 가이드 및 복원`) × 2개 진단 모드 × 5회 반복(총 **240회 훅 서브프로세스 실행**)을 측정한 결과입니다.
-
-
 
 | 시나리오 (`scenario`) | 대응 Codex 훅 이벤트 | Baseline 중앙값 / p95 (ms) | Version A 중앙값 / p95 (ms) | Version B 중앙값 / p95 (ms) | 방출 문맥 글자 수 (Before → B) | 문맥 절감률 및 핵심 변화 |
 | :--- | :--- | ---: | ---: | ---: | ---: | :--- |
@@ -415,16 +371,16 @@ Windows 11 (`Python 3.13.12`, `filelock 3.29.0`) 환경에서 8개 시나리오 
 | **`active_resume_start`** | `SessionStart` (`source="resume"`) | 276.3 / 396.6 | 278.2 / 331.9 | **294.1 / 340.6** | `1,129 → 690 chars` | **-38.9%** (재개 시 보존된 계약 요약 복원) |
 | **`active_post_compact`** | `PostCompact` | 305.1 / 319.4 | 296.3 / 313.7 | **274.0 / 474.7** | `0 → 0 chars` | **유지** (`SessionStart(compact)`가 복원을 담당하므로 무출력) |
 
-* **내부 단계별 소요 시간 분석 (`HookDiagnostics` 켜짐 기준)**: 전체 서브프로세스 시간(약 `270~350 ms`) 중 Python 인터프리터 기동 및 `adhd.native` 모듈 임포트(`native_import`: 약 `125~165 ms`)가 대부분을 차지하며, 실제 훅 내부 로직(`stdin_parse` ~`0.05 ms`, `lock_wait` ~`0.65 ms`, `state_read` ~`0.50 ms`, `event_dispatch` ~`1.5~4.5 ms`, `persist` ~`4.2 ms`)은 **총 10 ms 미만**으로 매우 빠르게 처리됩니다.
+* **내부 단계별 소요 시간 분석 (`HookDiagnostics` 켜짐 기준)**: 전체 서브프로세스 시간(약 `270~350 ms`) 중 Python 인터프리터 기동 및 `adhd.native` 모듈 임포트(`native_import`: 약 `125~165 ms`)가 대부분을 차지하며, 실제 훅 내부 로직(`stdin_parse` ~`0.05 ms`, `lock_wait` ~`0.65 ms`, `state_read` ~`0.50 ms`, `event_dispatch` ~`1.5~4.5 ms`, `persist` ~`4.2 ms`)은 <strong>총 10 ms 미만</strong>으로 매우 빠르게 처리됩니다.
 * **지연 임포트(`Hook Lazy Imports`, [docs/hook-lazy-imports.md](docs/hook-lazy-imports.md)) 검증**: `snapshots`, `coding_scope`, `provenance` 모듈을 최초 사용 분기로 지연 임포트한 실험(1,320개 샘플)에서 내부 `native_import` 시간은 `active_prompt` 기준 `160.6 ms → 138.8 ms`로 감소했으나, 최초 스냅샷/계보 검증 시점의 인박스 처리 시간은 지연된 임포트 비용만큼 소폭 증가(`15.2 ms → 17.9 ms`, `50.9 ms → 59.4 ms`)함을 투명하게 문서화하고 있습니다.
 
 ### 5.2 Obsidian 문맥 및 프라이버시/리비전 게이트 벤치마크
 
+![Obsidian 진단 쿼리의 카테고리별 통과율, 조회 지연 시간과 패킷 크기](docs/assets/readme/adhd_obsidian_retrieval_benchmark.png)
 
+*36개 진단 쿼리 × 3회 반복으로 얻은 픽스처 결과입니다. 일반 사용자 성능이나 모든 문서에 대한 정확도를 보장하는 수치는 아닙니다.*
 
-6개 평가 카테고리(`project`, `aliases`, `decision`, `temporal`, `absence`, `privacy`) × 6개 문항 = **36개 진단 쿼리(개발 24개, 보류 12개) × 3회 반복 = 총 108회 조회**에 대해 기존 `wiki_context.py` 단독 실행(**Variant A**), ADHD 어댑터 + Cold SQLite 인덱스(**Variant B**), ADHD 어댑터 + Warm SQLite 인덱스(**Variant C**)를 비교한 실측 결과([integrations/obsidian/benchmark-final.json](integrations/obsidian/benchmark-final.json))입니다.
-
-
+6개 평가 카테고리(`project`, `aliases`, `decision`, `temporal`, `absence`, `privacy`) × 6개 문항 = <strong>36개 진단 쿼리(개발 24개, 보류 12개) × 3회 반복 = 총 108회 조회</strong>에 대해 기존 `wiki_context.py` 단독 실행(**Variant A**), ADHD 어댑터 + Cold SQLite 인덱스(**Variant B**), ADHD 어댑터 + Warm SQLite 인덱스(**Variant C**)를 비교한 실측 결과([integrations/obsidian/benchmark-final.json](integrations/obsidian/benchmark-final.json))입니다.
 
 | 비교 항목 | Variant A (기존 `wiki_context.py` 단독) | Variant B (ADHD 어댑터 · Cold Index) | Variant C (ADHD 어댑터 · Warm Index) | 핵심 엔지니어링 분석 |
 | :--- | :---: | :---: | :---: | :--- |
@@ -441,7 +397,7 @@ Windows 11 (`Python 3.13.12`, `filelock 3.29.0`) 환경에서 8개 시나리오 
 
 ### 6.1 ADHD 전용 워크플로 및 코어 스킬 (13종)
 
-ADHD는 강제적인 고정 파이프라인 대신, 현재 작업의 필요 지점에서만 선택적으로 호출하여 기존 실행 소유자(Owner)에게 판단 근거를 인계하는 **모듈형 스킬 아키텍처**를 채택하고 있습니다([skills/adhd-native/references/skill-handoff.md](skills/adhd-native/references/skill-handoff.md)).
+ADHD는 강제적인 고정 파이프라인 대신, 현재 작업의 필요 지점에서만 선택적으로 호출하여 기존 실행 소유자(Owner)에게 판단 근거를 인계하는 <strong>모듈형 스킬 아키텍처</strong>를 채택하고 있습니다([skills/adhd-native/references/skill-handoff.md](skills/adhd-native/references/skill-handoff.md)).
 
 | 스킬 호출명 | 경로 | 구분 | 핵심 역할 및 네이티브 프로토콜 연동 방식 |
 | :--- | :--- | :---: | :--- |
@@ -461,7 +417,7 @@ ADHD는 강제적인 고정 파이프라인 대신, 현재 작업의 필요 지�
 
 ### 6.2 기본 내장 공개 스킬 50종 (`bundled/skills/` & `config/builtin-skills.json`)
 
-`adhd.py upgrade` 또는 `adhd.py builtin apply` 실행 시, 라이선스와 파일별 SHA-256 해시가 검증된 **50개의 공개 스킬 트리 전체**가 함께 설치됩니다(동일 이름의 기존 사용자 스킬 폴더가 있으면 사용자 폴더를 보존하고 릴리스 사본을 폴백으로 유지).
+`adhd.py upgrade` 또는 `adhd.py builtin apply` 실행 시, 라이선스와 파일별 SHA-256 해시가 검증된 <strong>50개의 공개 스킬 트리 전체</strong>가 함께 설치됩니다(동일 이름의 기존 사용자 스킬 폴더가 있으면 사용자 폴더를 보존하고 릴리스 사본을 폴백으로 유지).
 
 | 출처 저장소 (고정 커밋) | 라이선스 | 수량 | 포함 스킬 목록 (`bundled/skills/*`) |
 | :--- | :---: | :---: | :--- |
@@ -470,7 +426,7 @@ ADHD는 강제적인 고정 파이프라인 대신, 현재 작업의 필요 지�
 
 ### 6.3 16종 MCP 서버 카탈로그 및 5단계 준비도(Readiness) 검증 ([adhd/builtin.py](adhd/builtin.py))
 
-[config/mcp-selection.json](config/mcp-selection.json)에 정의된 16개 MCP 연결 레시피는 단순 등록 여부만으로 사용 가능(`usable: true`) 판정을 내리지 않습니다. `adhd.py builtin status`와 `adhd.py builtin probe`는 **`registered` → `dependencies_ready` → `auth_integration_verified` → `connected` → `read_verified` (`usable = true`)**의 5단계를 개별 추적하며, 프로브 증거는 레시피·실행 파일·자격 증명 다이제스트에 바인딩되어 **1시간(3,600초)** 후 만료됩니다.
+[config/mcp-selection.json](config/mcp-selection.json)에 정의된 16개 MCP 연결 레시피는 단순 등록 여부만으로 사용 가능(`usable: true`) 판정을 내리지 않습니다. `adhd.py builtin status`와 `adhd.py builtin probe`는 <strong>`registered` → `dependencies_ready` → `auth_integration_verified` → `connected` → `read_verified` (`usable = true`)</strong>의 5단계를 개별 추적하며, 프로브 증거는 레시피·실행 파일·자격 증명 다이제스트에 바인딩되어 **1시간(3,600초)** 후 만료됩니다.
 
 | 초기 활성화 분류 | MCP 키 (`key`) | ID | 전송 / 실행 방식 | 용도 및 선행 조건 (`config/mcp-selection.json`) |
 | :--- | :--- | :---: | :--- | :--- |
