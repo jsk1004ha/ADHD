@@ -7,8 +7,8 @@
 | :--- | :--- |
 | **패키지 버전** | `v0.1.7` ([adhd/\_\_init\_\_.py](adhd/__init__.py), 상태 스키마 `v2`, 설치 레코드 스키마 `v3`) |
 | **런타임 요구사항** | Python `3.11+` (소스 설치 기준) / Windows x64 오프라인 설치기는 공식 `Python 3.13.16` 임베디드 런타임 내장 |
-| **핵심 엔진 규모** | 총 **44개** Python 모듈 (`adhd.py`, `hook.py`, `adhd/*.py`) · **20,200 LOC** (순수 코어 코드 기준) |
-| **회귀 테스트 스위트** | 총 **75개** 테스트 모듈 (`tests/test_*.py`) · **12,643 LOC** (550개 이상 단위·서브프로세스·패키징 검증) |
+| **핵심 엔진 규모** | 총 **63개** Python 소스 파일 (`adhd.py`, `hook.py`, `adhd/*.py`) · **19,234 LOC** (순수 코어 코드 기준) |
+| **회귀 테스트 스위트** | 총 **72개** 테스트 모듈 (`tests/test_*.py`) · **12,568 LOC** (550개 이상 단위·서브프로세스·패키징 검증) |
 | **에이전트 역할(Roles)** | 3종 모델 계층(`gpt-6-sol`, `gpt-6-luna`, `gpt-6-astra`) 기반 **6개 고정 역할** (`native/agents/*.toml`) |
 | **내장 스킬 & MCP** | 코어/워크플로 스킬 **13종** (`skills/adhd*`) + 공개 번들 스킬 **50종** (`bundled/skills/`) + MCP 레시피 **16종** (`config/mcp-selection.json`) |
 | **내장 의존성(Vendored)** | `filelock` v3.29.0 (Unlicense), `tomlkit` (MIT) 오프라인 순수 Python 내장 ([adhd/dependencies.py](adhd/dependencies.py)) |
@@ -122,7 +122,7 @@ sequenceDiagram
     Hook-->>Agent: Emit hookSpecificOutput.additionalContext (Ack + Loop Guidance)
 ```
 
-## 3. 디렉토리 구조 및 44개 코어 모듈 상세 분석
+## 3. 디렉토리 구조 및 63개 코어 Python 파일 상세 분석
 
 저장소는 실행 엔트리포인트(`adhd.py`, `hook.py`), 코어 패키지(`adhd/`), 고정 에이전트 프로필(`native/agents/`), 하네스 및 번들 스킬(`skills/`, `bundled/skills/`), 스키마(`schemas/`), 설정 카탈로그(`config/`), 빌드/설치 도구(`build/`), 벤치마크 스크립트(`scripts/`), 회귀 테스트(`tests/`)로 구성됩니다.
 
@@ -132,7 +132,7 @@ ADHD/
 ├── hook.py                         # Codex 호스트 훅 엔트리포인트 (stdin JSON -> adhd.native.handle_event)
 ├── install.ps1 / install.sh        # Windows PowerShell 및 macOS/Linux 원클릭 업그레이드 스크립트
 ├── requirements-documents.txt      # 문서 렌더링/편집 선택 의존성 (pypdf, python-docx, python-pptx 등)
-├── adhd/                           # 핵심 오케스트레이션 패키지 (42개 모듈, 20,159 LOC)
+├── adhd/                           # 핵심 오케스트레이션 패키지 (61개 모듈, 19,193 LOC)
 │   ├── native.py                   # 호스트 상태 머신, 9대 훅 핸들러, 후보/검증자 게이트 (2,306 LOC)
 │   ├── large_tasks.py              # 대규모 작업 SQLite DAG 큐, 임대 세대, Git Worktree 스테이징 (1,395 LOC)
 │   ├── native_install.py           # 트랜잭션 기반 오버레이 설치기, 백업 검증, 원자적 롤백 (835 LOC)
@@ -201,22 +201,22 @@ ADHD/
 ├── scripts/                        # 훅, 범위 인벤토리, 배달 효율성, 시간 예산, Obsidian 벤치마크 스크립트 11종
 ├── docs/                           # 설계 문서 9종, 릴리스 노트(0.1.4~0.1.7), 실측 벤치마크 JSON
 ├── third_party/                    # Vendored 패키지(filelock, tomlkit, spec-kit, superpowers) 및 라이선스
-└── tests/                          # 75개 통합·회귀 테스트 모듈 (12,643 LOC)
+└── tests/                          # 72개 통합·회귀 테스트 모듈 (12,568 LOC)
 ```
 
 ### 서브시스템별 코드 규모 및 핵심 책임 요약표
 
 | 서브시스템 분류 | 포함 모듈 | 코드 라인 수 (LOC) | 비중 (%) | 핵심 엔지니어링 책임 |
 | :--- | :--- | ---: | ---: | :--- |
-| **1. 네이티브 상태 머신 & 훅 IPC** | `native.py`, `hook.py`, `intent.py`, `loop_guard.py`, `recovery.py`, `request_routing.py`, `host_capabilities.py`, `execution_decisions.py`, `delivery_policy.py`, `leases.py`, `time_budget.py`, `hook_diagnostics.py` | 3,926 | 19.4% | 9대 Codex 훅 이벤트 처리, `inbox`/`outbox` 비동기 상태 전이, 루프 정체 감지 및 전략 조향, 단일 작성자 임대 제어 |
-| **2. Obsidian 볼트 & 경험 엔진** | `obsidian.py`, `obsidian_index.py`, `experience.py`, `experience_procedures.py`, `experience_storage.py`, `wiki.py`, `obsidian_assets/*` | 3,159 | 15.6% | Markdown 위키 프론트매터 검증, SQLite 캐시 인덱싱, 선별적 경험/피드백 원장 관리, 컨트롤러 검증 절차 채택, 증거 아카이브 |
-| **3. 대규모 작업 DAG & 일괄 검증** | `large_tasks.py`, `validation_batch.py`, `snapshots.py`, `large_execution.py`, `large_cli.py`, `large_native.py`, `large_prompts.py` | 2,876 | 14.2% | SQLite 기반 작업 DAG 스케줄링, 최대 6개 격리 Git Worktree CLI 워커 실행, 직렬 스테이징, 중앙 검사 배치 및 입력 해시 재사용 |
-| **4. CLI, 모델 라우팅 & 메트릭** | `cli.py`, `extra_cli.py`, `core.py`, `runner.py`, `models.py`, `resource_metrics.py`, `trial_registry.py`, `run_metrics.py`, `evaluation.py`, `skill_router.py`, `maintenance_budget.py` | 2,560 | 12.7% | 23개 CLI 서브커맨드 제공, Sol/Luna/Astra 모델 핀 고정, 프로세스 트리 자원 측정, 실험 레지스트리 및 유지보수 예산 제한 |
-| **5. 설치기, 번들 스킬 & MCP** | `native_install.py`, `builtin.py`, `extensions.py`, `install.py`, `change_journal.py`, `windows_setup.py`, `dependencies.py` | 2,345 | 11.6% | `$CODEX_HOME` 트랜잭션 설치 및 원자적 롤백, 50개 공개 스킬 배포, 16개 MCP 상태/읽기 프로브 검증, Windows 오프라인 셋업 |
-| **6. 문맥 인덱싱 & FTS5 메모리** | `context_index.py`, `memory.py`, `context_search.py`, `context_session.py`, `fts_migration.py`, `vendor/smolagents_context.py` | 1,924 | 9.5% | Python AST 심볼 인덱싱, 한국어 문자 바이그램 + SQLite FTS5 + RRF 하이브리드 메모리 검색, 액터/에폭별 문맥 전달 원장 |
-| **7. 불변 CAS 저장소 & 가비지 컬렉션** | `immutable_store.py`, `immutable_gc.py`, `storage.py`, `source_cache.py`, `immutable_policy.py`, `completed_archive.py` | 1,882 | 9.3% | 완료된 실행 증거의 SHA-256 CAS 보관, 정책 기반 접근 제어, 닫힌 세계(Closed-World) 참조 클로저 검증 후 미참조 객체/릴리스 정리 |
-| **8. 검증 게이트, 문서 & 계보** | `evidence.py`, `documents.py`, `coding_scope.py`, `provenance.py`, `gates.py`, `review_calibration.py` | 1,528 | 7.6% | 실행 영수증(`receipt.json`) 발급, Git 변경 범위 감사, Office/PDF/HWP 페이지 렌더링 검증, 연구 수치 계보(Lineage) 검증 |
-| **합계 (Core Python)** | **총 44개 파이썬 소스 파일** | **20,200** | **100.0%** | **75개 테스트 파일(`12,643 LOC`)과 1:0.63 비율로 맞물려 검증됨** |
+| **1. 네이티브 상태 머신 & 훅 IPC** | `native.py`, `hook.py`, `intent.py`, `loop_guard.py`, `recovery.py`, `request_routing.py`, `host_capabilities.py`, `execution_decisions.py`, `delivery_policy.py`, `leases.py`, `time_budget.py`, `hook_diagnostics.py`, `__init__.py` | 3,565 | 18.5% | 19.4% |
+| **2. Obsidian 볼트 & 경험 엔진** | `obsidian.py`, `obsidian_index.py`, `experience.py`, `experience_procedures.py`, `experience_storage.py`, `wiki.py` | 2,291 | 11.9% | 15.6% |
+| **3. 대규모 작업 DAG & 일괄 검증** | `large_tasks.py`, `validation_batch.py`, `snapshots.py`, `large_execution.py`, `large_cli.py`, `large_native.py`, `large_prompts.py` | 2,866 | 14.9% | 14.2% |
+| **4. CLI, 모델 라우팅 & 메트릭** | `cli.py`, `extra_cli.py`, `core.py`, `runner.py`, `models.py`, `resource_metrics.py`, `trial_registry.py`, `run_metrics.py`, `evaluation.py`, `skill_router.py`, `maintenance_budget.py`, `adhd.py` | 2,591 | 13.5% | 12.7% |
+| **5. 설치기, 번들 스킬 & MCP** | `native_install.py`, `builtin.py`, `extensions.py`, `install.py`, `change_journal.py`, `windows_setup.py`, `dependencies.py` | 2,351 | 12.2% | 11.6% |
+| **6. 문맥 인덱싱 & FTS5 메모리** | `context_index.py`, `memory.py`, `context_search.py`, `context_session.py`, `fts_migration.py` | 1,918 | 10.0% | 9.5% |
+| **7. 불변 CAS 저장소 & 가비지 컬렉션** | `immutable_store.py`, `immutable_gc.py`, `storage.py`, `source_cache.py`, `immutable_policy.py`, `completed_archive.py` | 1,879 | 9.8% | 9.3% |
+| **8. 검증 게이트, 문서 & 계보** | `evidence.py`, `documents.py`, `coding_scope.py`, `provenance.py`, `gates.py`, `review_calibration.py`, `snapshot_reader.py` | 1,773 | 9.2% | 7.6% |
+| **합계 (Core Python)** | **총 63개 파이썬 소스 파일** | **19,234** | **100.0%** | **72개 테스트 파일(`12,568 LOC`)과 1:0.65 비율로 맞물려 검증됨** |
 
 ## 4. 코드 기반 7대 핵심 동작 원리 심층 분석
 
@@ -562,7 +562,7 @@ python3 adhd.py upgrade
 체크아웃한 소스 코드의 모든 계약, 상태 머신, 훅 디스패치, 스냅샷, 가비지 컬렉터, 설치 무결성은 외부 네트워크나 유료 API 호출 없이 로컬에서 즉시 검증할 수 있습니다.
 
 ```bash
-# 1. 75개 전체 단위 및 서브프로세스 회귀 테스트 실행 (550+ 테스트 케이스)
+# 1. 72개 전체 단위 및 서브프로세스 회귀 테스트 실행 (550+ 테스트 케이스)
 python3 -m unittest discover -s tests -q
 
 # 2. 읽기 전용 로컬 설치 감사 테스트 실행
