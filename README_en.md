@@ -313,13 +313,13 @@ Large jobs divided into independent packages use `LargeTaskStore` in [adhd/large
 flowchart TB
     accTitle: Large task assembly and validation
     accDescr: Requirement-bound tasks run in isolated worktrees, then merge through serial staging and a shared validation batch. Failed batches return to grouped repairs before independent acceptance.
-    initialize["1 · Initialize DAG<br/>Requirements · owned paths · dependencies"]
-    dispatch["2 · Run isolated CLI workers<br/>Policy / resources / budget · up to six"]
-    dependencies["3 · Unlock dependencies<br/>contract_ready / artifact_ready"]
-    stage["4 · Serial integration and freeze<br/>One staging worktree"]
-    batch["5 · Central check batch<br/>Current inputs · reuse valid receipts"]
+    initialize["1 · Initialize DAG<br/>Requirements / paths<br/>Dependency checks"]
+    dispatch["2 · Run CLI workers<br/>Isolated worktrees<br/>Policy / resources<br/>Budget · up to six"]
+    dependencies["3 · Unlock dependencies<br/>contract_ready<br/>artifact_ready"]
+    stage["4 · Serial integration<br/>Freeze staging worktree"]
+    batch["5 · Central check batch<br/>Verify current inputs<br/>Reuse valid receipts"]
     repairs["Group repairs by cause"]
-    candidate["6 · Submit integrated candidate<br/>Publish after independent approval"]
+    candidate["6 · Submit candidate<br/>Independent review<br/>Publish after approval"]
     initialize --> dispatch --> dependencies --> stage --> batch
     batch -->|"Pass"| candidate
     batch -->|"Fail"| repairs

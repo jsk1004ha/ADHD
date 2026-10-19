@@ -313,13 +313,13 @@ flowchart TB
 flowchart TB
     accTitle: Large task assembly and validation
     accDescr: Requirement-bound tasks run in isolated worktrees, then merge through serial staging and a shared validation batch. Failed batches return to grouped repairs before independent acceptance.
-    initialize["1 · DAG 초기화<br/>요구사항 · 소유 경로 · 의존성"]
-    dispatch["2 · 격리 CLI 워커 실행<br/>정책 / 자원 / 예산 범위 · 최대 6개"]
-    dependencies["3 · 의존성 해금<br/>contract_ready / artifact_ready"]
-    stage["4 · 직렬 통합과 동결<br/>단일 스테이징 작업 트리"]
-    batch["5 · 중앙 배치 검사<br/>현재 입력 검증 · 유효한 영수증 재사용"]
+    initialize["1 · DAG 초기화<br/>요구사항 · 소유 경로<br/>의존성 검사"]
+    dispatch["2 · CLI 워커 실행<br/>격리 작업 트리<br/>정책 · 자원 · 예산<br/>최대 6개"]
+    dependencies["3 · 의존성 해금<br/>contract_ready<br/>artifact_ready"]
+    stage["4 · 직렬 통합과 동결<br/>단일 스테이징 트리"]
+    batch["5 · 중앙 배치 검사<br/>현재 입력 검증<br/>유효한 영수증 재사용"]
     repairs["원인별 묶음 수리"]
-    candidate["6 · 통합 후보 제출<br/>독립 검증 승인 후 publish"]
+    candidate["6 · 통합 후보 제출<br/>독립 검증 승인<br/>승인 후 publish"]
     initialize --> dispatch --> dependencies --> stage --> batch
     batch -->|"통과"| candidate
     batch -->|"실패"| repairs
