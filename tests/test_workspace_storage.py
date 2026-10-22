@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import stat
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -104,6 +105,45 @@ class WorkspaceStorageTests(unittest.TestCase):
         self.assertTrue(path.exists())
         self.assertIn(path.name, manager.sweep()['removed'])
         self.assertFalse(path.exists())
+
+    def test_cleanup_queue_is_bounded_and_never_deletes(self):
+        manager = WorkspaceStorage(self.workspace)
+        with manager.scratch('pinned', reserved_bytes=1, minimum_free=0) as pinned:
+            manager.add_reference(pinned, 'needed-report-consumer')
+        pending = []
+        for _ in range(3):
+            with patch.object(manager, '_clean', return_value=False):
+                with self.assertRaises(OSError):
+                    with manager.scratch('diagnostic', reserved_bytes=1, minimum_free=0) as path:
+                        (path / 'copy').write_bytes(b'x')
+            pending.append(path)
+        with patch.object(manager, '_clean') as clean:
+            result = manager.pending_cleanup(limit=2)
+        clean.assert_not_called()
+        self.assertEqual(result['status'], 'queued')
+        self.assertEqual(len(result['entries']), 2)
+        self.assertTrue(result['more'])
+        self.assertTrue(all(path.exists() for path in [pinned, *pending]))
+        actual = manager.sweep()
+        self.assertEqual(set(actual['removed']), {path.name for path in pending})
+        self.assertEqual(actual['protected'], [pinned.name])
+
+    def test_invalid_queue_limit_cannot_expand_cleanup(self):
+        manager = WorkspaceStorage(self.workspace)
+        for limit in (0, -1, True, 257):
+            with self.subTest(limit=limit), self.assertRaises(ValueError):
+                manager.pending_cleanup(limit=limit)
+
+    def test_cleanup_queue_sql_deadline_interrupts_large_catalog_scan(self):
+        manager = WorkspaceStorage(self.workspace)
+        with manager._db() as db:
+            db.executemany('INSERT INTO scratch VALUES (?,?,?,?,?,?,?,?,?,?)',
+                [(f'{i:032x}', str(self.root / 'other-workspace'), str(self.root / f'{i:032x}'),
+                  'fixture', os.getpid(), 'fixture', 'cleanup_pending', str(i), '[]', '[]')
+                 for i in range(1000)])
+        with patch('adhd.workspace_storage.time.monotonic', side_effect=[0.0] + [1.0] * 100):
+            with self.assertRaisesRegex(sqlite3.OperationalError, 'interrupted'):
+                manager.pending_cleanup()
 
     def test_bounded_copy_preflight_and_existing_original(self):
         source = self.workspace / 'input.bin'

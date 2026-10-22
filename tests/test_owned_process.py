@@ -6,6 +6,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 from adhd.owned_process import OwnedProcess
 
@@ -73,6 +74,25 @@ class OwnedProcessTests(unittest.TestCase):
         self.assertTrue(all(stream.closed for stream in streams))
         time.sleep(.9)
         self.assertFalse((self.root / 'late.txt').exists())
+
+    @unittest.skipUnless(sys.platform == 'win32', 'Windows launcher-specific handles')
+    def test_failed_launch_releases_all_launcher_pipes(self):
+        original = subprocess.Popen
+        started = []
+
+        def capture(*args, **kwargs):
+            process = original(*args, **kwargs)
+            started.append(process)
+            return process
+
+        with patch('adhd.owned_process.subprocess.Popen', side_effect=capture):
+            with self.assertRaises(RuntimeError):
+                OwnedProcess([str(self.root / 'missing-tool')], cwd=self.root,
+                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.assertEqual(len(started), 1)
+        self.assertIsNotNone(started[0].poll())
+        self.assertTrue(all(stream.closed for stream in
+                            (started[0].stdin, started[0].stdout, started[0].stderr)))
 
 
 if __name__ == '__main__':

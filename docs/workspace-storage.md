@@ -20,6 +20,67 @@ ownership rows and process creation identity. It never selects a directory by
 age alone; unknown directories and links are left for inspection. Failed
 cleanup is recorded as `cleanup_pending` for another safe sweep.
 
+## Diagnostic commands without a separate payload file
+
+```powershell
+python adhd.py workspace-storage run --workspace PROJECT --max-bytes 33554432 --timeout 120 --owner diagnostic --argv TOOL --out "{scratch}/generated"
+```
+
+Put `--argv` last: all following arguments belong to the producer. This form runs
+with its working directory in registered scratch, so ordinary relative outputs
+are temporary too. `{scratch}` and `{results}` expand only as entire path arguments
+or path prefixes, for example `"{results}/verification.json"`. Escaping `..`
+suffixes are rejected; script bodies and shell expressions are never interpolated.
+Use absolute paths for a producer script stored in the project. No shell is
+started implicitly.
+
+Every runner invocation sets `ADHD_SCRATCH`, `ADHD_RESULTS`, `TEMP`, `TMP` and
+`TMPDIR` for its producer only. A cooperating tool must use those paths; this is
+not an OS sandbox for a tool that hardcodes an unrelated location. Publish required
+reports to `{results}` before exit. Full generated schemas, extracted media and
+temporary profiles belong in `{scratch}`. Context exit cleans that exact registered
+tree after owned descendants stop, including producer failure, launch errors and
+timeouts. The retained `report.json` includes `cleanup.status`: `cleaned`,
+`cleanup_pending`, or `not_created`. A pending cleanup is never reported complete.
+
+Existing `--payload-file` calls remain compatible and default to the project cwd.
+They may request `"cwd": "scratch"` and use the same path arguments. Direct
+`--argv` and `--payload-file` are mutually exclusive. `--max-bytes`, `--timeout`
+and `--owner` are direct-form options; payload calls declare them in JSON.
+
+## Native completion and crash leftovers
+
+`Stop`, `SessionEnd`, `Interrupt`, and the final `SubagentStop` queue metadata for
+up to eight registered entries once native work is terminal and every child has
+confirmed termination. Hooks perform no recursive filesystem walk/deletion or
+reservation sweep. The next owned runner automatically rechecks and recovers
+eligible leftovers before starting its producer. A forcibly killed invocation
+therefore leaves visible queued work until the next owned command, rather than
+blocking a host termination hook on a large directory. Normal, failed and timed-out
+producers continue to clean immediately when their context exits.
+
+No catalog means no storage import/database creation. Hook lock/SQLite waits use
+0.1 seconds; the metadata SELECT has a 0.05-second SQLite progress deadline and a
+limit of nine rows (eight plus a `more` indicator). No full catalog count or sort
+is needed. These are cooperative limits, not an OS hard deadline for a filesystem
+or lock operation. Active work/review and unconfirmed child termination skip even
+this queue inspection.
+
+The native exported view records `scratch_cleanup`, including queued entry IDs,
+reference indicators, `more`, or a typed error on failure. Original inputs, final results, references, live
+or unknown producer identities, reparse points, and unregistered folders remain
+protected by the existing ownership checks. Only a fresh invocation may create a
+registered scratch tree: this does not provide an adoption or arbitrary-delete API.
+
+A shell tool rejected with `blocked by policy` before its process starts is a
+host approval decision, not a Windows ACL failure or an ADHD permission setting.
+The host may not disclose its detailed classifier rule. ADHD does not disable
+that policy or retry the same denied target through another command. Instead,
+new work declares creation/use/cleanup together in the owned runner, avoiding a
+separate broad recursive-delete request after diagnostics. Previously denied
+legacy files stay outside automatic recovery. OS cleanup errors inside an
+already registered lifecycle remain visible as `cleanup_pending`.
+
 `bounded_copy(sources: dict[str, Path], destination: Path, *, workspace: Path,
 max_bytes=512 MiB, minimum_free=2 GiB) -> {"bytes": int, "files": int}` expects
 an already resolved mapping from workspace-relative POSIX destination names to

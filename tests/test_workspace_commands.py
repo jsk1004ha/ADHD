@@ -43,6 +43,62 @@ class WorkspaceCommandTests(unittest.TestCase):
         self.assertEqual((result['status'], result['exit_code']), ('failed', 7))
         self.assertFalse((self.manager.scratch_root / result['scratch_id']).exists())
 
+    def test_diagnostic_cwd_os_temp_and_outputs_are_owned(self):
+        original = self.ws / 'original.txt'
+        original.write_text('preserved')
+        result = run_in_scratch(self.manager, {'argv': [sys.executable, '-B', '-c',
+            "import os,pathlib,tempfile,sys; root=pathlib.Path(os.environ['ADHD_SCRATCH']); "
+            "assert pathlib.Path.cwd()==root; assert pathlib.Path(tempfile.gettempdir())==root; "
+            "pathlib.Path('relative.tmp').write_text('temporary'); "
+            "tempfile.NamedTemporaryFile(delete=False).close(); "
+            "pathlib.Path(sys.argv[1]).write_text('generated'); "
+            "pathlib.Path(sys.argv[2]).write_text('verification passed')",
+            '{scratch}/generated.tmp', '{results}/verification.txt'],
+            'cwd': 'scratch', 'reserved_bytes': 4096, 'minimum_free': 0, 'timeout': 5})
+        self.assertEqual(result['status'], 'complete')
+        self.assertEqual(result['cleanup']['status'], 'cleaned')
+        self.assertFalse((self.manager.scratch_root / result['scratch_id']).exists())
+        self.assertFalse((self.ws / 'relative.tmp').exists())
+        self.assertEqual((self.ws / result['results'] / 'verification.txt').read_text(), 'verification passed')
+        self.assertEqual(original.read_text(), 'preserved')
+
+    def test_timeout_cleans_generated_files_and_preserves_report(self):
+        result = run_in_scratch(self.manager, {'argv': [sys.executable, '-B', '-c',
+            "import pathlib,time; pathlib.Path('partial.tmp').write_text('x'); time.sleep(10)"],
+            'cwd': 'scratch', 'reserved_bytes': 4096, 'minimum_free': 0, 'timeout': .3})
+        self.assertEqual((result['status'], result['reason']), ('failed', 'timeout'))
+        self.assertEqual(result['cleanup']['status'], 'cleaned')
+        self.assertFalse((self.manager.scratch_root / result['scratch_id']).exists())
+        self.assertTrue((self.ws / result['results'] / 'report.json').exists())
+
+    def test_placeholder_cannot_escape_owned_destination(self):
+        with self.assertRaisesRegex(ValueError, 'relative storage path'):
+            run_in_scratch(self.manager, {'argv': [sys.executable, '{scratch}/../outside'],
+                'cwd': 'scratch', 'reserved_bytes': 4096, 'minimum_free': 0})
+        self.assertEqual(list(self.manager.scratch_root.iterdir()), [])
+        self.assertFalse((self.ws / '.adhd/scratch/outside').exists())
+
+    def test_cleanup_failure_is_explicit_in_retained_receipt(self):
+        import json
+        with patch.object(self.manager, '_clean', return_value=False):
+            with self.assertRaisesRegex(OSError, 'cleanup pending'):
+                self.run_code('pass')
+        reports = list((self.ws / '.adhd/results').glob('*/report.json'))
+        self.assertEqual(len(reports), 1)
+        result = json.loads(reports[0].read_text())
+        self.assertEqual(result['cleanup']['status'], 'cleanup_pending')
+        self.assertNotEqual(result['status'], 'complete')
+
+    def test_launch_failure_cleans_scratch_without_false_log_cleanup_warning(self):
+        import json
+        with self.assertRaises((OSError, RuntimeError)):
+            run_in_scratch(self.manager, {'argv': [str(self.ws / 'missing-diagnostic-tool')],
+                'reserved_bytes': 4096, 'minimum_free': 0})
+        result = json.loads(next((self.ws / '.adhd/results').glob('*/report.json')).read_text())
+        self.assertEqual(result['cleanup']['status'], 'cleaned')
+        self.assertNotIn('cleanup_pending', result['log_retention'])
+        self.assertEqual(list(self.manager.scratch_root.iterdir()), [])
+
     def test_observed_budget_overrun_is_failure(self):
         result = self.run_code("import os,pathlib;pathlib.Path(os.environ['ADHD_SCRATCH'],'copy').write_bytes(b'x'*8192)")
         self.assertEqual(result['status'], 'failed')

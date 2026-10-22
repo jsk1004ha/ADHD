@@ -7,6 +7,7 @@ import ctypes
 import errno
 import hashlib
 import json
+import math
 import os
 from pathlib import Path, PurePosixPath
 import re
@@ -14,6 +15,7 @@ import shutil
 import sqlite3
 import stat
 import sys
+import time
 import uuid
 import zipfile
 
@@ -157,20 +159,23 @@ def _process_state(pid: int, birth: str | None) -> str:
 class WorkspaceStorage:
     """Central SQLite reservations plus scratch owned by one workspace/run."""
 
-    def __init__(self, workspace: Path):
+    def __init__(self, workspace: Path, *, lock_timeout: float = 15):
+        if type(lock_timeout) not in {int, float} or not math.isfinite(lock_timeout) or lock_timeout <= 0:
+            raise ValueError('Storage lock timeout must be positive and finite')
         self.workspace = Path(workspace).expanduser().resolve(strict=True)
         if not self.workspace.is_dir() or _link(self.workspace):
             raise ValueError('Workspace must be a regular directory')
         self.volume = str(self.workspace.stat().st_dev)
         self.catalog = store() / 'workspace-storage.sqlite3'
-        self.lock = FileLock(str(self.catalog) + '.lock', timeout=15)
+        self.lock_timeout = lock_timeout
+        self.lock = FileLock(str(self.catalog) + '.lock', timeout=lock_timeout)
         self.scratch_root = self.workspace / '.adhd' / 'scratch'
 
     @contextmanager
     def _db(self):
         self.catalog.parent.mkdir(parents=True, exist_ok=True)
         with self.lock:
-            with closing(sqlite3.connect(self.catalog, timeout=15)) as db, db:
+            with closing(sqlite3.connect(self.catalog, timeout=self.lock_timeout)) as db, db:
                 db.row_factory = sqlite3.Row
                 db.execute('''CREATE TABLE IF NOT EXISTS reservations (
                     token TEXT PRIMARY KEY, workspace TEXT NOT NULL, volume TEXT NOT NULL,
@@ -377,6 +382,23 @@ class WorkspaceStorage:
             if path is None or not path.exists():
                 self.release(token)
             raise
+
+    def pending_cleanup(self, *, limit: int = 8) -> dict:
+        """Bounded metadata queue; hooks never walk or delete a scratch tree."""
+        if type(limit) is not int or not 1 <= limit <= 256:
+            raise ValueError('Cleanup queue limit must be between 1 and 256')
+        with self._db() as db:
+            deadline = time.monotonic() + .05
+            db.set_progress_handler(lambda: int(time.monotonic() >= deadline), 100)
+            try:
+                rows = db.execute("SELECT id,status,refs!='[]' AS referenced FROM scratch "
+                                  'WHERE workspace=? LIMIT ?',
+                                  (str(self.workspace), limit + 1)).fetchall()
+            finally:
+                db.set_progress_handler(None, 0)
+        return {'status': 'queued' if rows else 'cleaned', 'scope': 'registered scratch',
+                'entries': [dict(row) for row in rows[:limit]], 'more': len(rows) > limit,
+                'execution': 'next owned command rechecks ownership and liveness'}
 
     def sweep(self) -> dict:
         """Recover only registered, unreferenced scratch with dead owners/children."""

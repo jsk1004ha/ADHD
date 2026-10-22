@@ -14,6 +14,17 @@ from .core import atomic_json
 from .runner import terminate_tree
 
 
+def _output_argument(value: str, scratch: Path, results: Path) -> str:
+    """Expand only explicit path arguments, never code or shell expressions."""
+    from .workspace_storage import _relative
+    for marker, root in (('{scratch}', scratch), ('{results}', results)):
+        if value == marker:
+            return str(root)
+        if value.startswith((marker + '/', marker + '\\')):
+            return str(root / _relative(value[len(marker) + 1:].replace('\\', '/')))
+    return value
+
+
 def _usage(root: Path, limit: int) -> int:
     total = count = 0
     for folder, dirs, files in os.walk(root, followlinks=False):
@@ -33,7 +44,7 @@ def _usage(root: Path, limit: int) -> int:
 
 
 def run_in_scratch(manager, request: dict, *, _on_process=None) -> dict:
-    allowed = {'argv', 'reserved_bytes', 'minimum_free', 'timeout', 'owner', 'retain_logs'}
+    allowed = {'argv', 'reserved_bytes', 'minimum_free', 'timeout', 'owner', 'retain_logs', 'cwd'}
     if set(request) - allowed:
         raise ValueError('Unknown scratch command field')
     argv = request.get('argv')
@@ -46,18 +57,22 @@ def run_in_scratch(manager, request: dict, *, _on_process=None) -> dict:
         raise ValueError('A positive scratch byte budget is required')
     if type(request.get('retain_logs',False)) is not bool:
         raise ValueError('retain_logs must be a boolean')
+    cwd_mode = request.get('cwd', 'workspace')
+    if not isinstance(cwd_mode, str) or cwd_mode not in {'workspace', 'scratch'}:
+        raise ValueError('cwd must be workspace or scratch')
     timeout = request.get('timeout', 900)
     if type(timeout) not in {int, float} or not math.isfinite(timeout) or not 0 < timeout <= 86400:
         raise ValueError('Invalid scratch command timeout')
     output = manager.workspace / '.adhd' / 'results' / uuid.uuid4().hex
     output.mkdir(parents=True)
-    result = {'status': 'running', 'exit_code': None, 'peak_observed_bytes': 0,
+    result: dict = {'status': 'running', 'exit_code': None, 'peak_observed_bytes': 0,
               'results': str(output.relative_to(manager.workspace)),
               'stdout': str((output/'stdout.log').relative_to(manager.workspace)),
               'stderr': str((output/'stderr.log').relative_to(manager.workspace)),
               'enforcement': 'observed external writes; not an OS hard quota'}
     log_overflow = threading.Event()
     capture_errors = []
+    scratch = None
     def capture(pipe, destination):
         remaining = 10 * 1024**2
         try:
@@ -72,14 +87,21 @@ def run_in_scratch(manager, request: dict, *, _on_process=None) -> dict:
         finally:
             pipe.close()
     try:
+        # A launch can fail before capture threads exist; empty channels are still
+        # valid receipts and must not look like a failed log-cleanup operation.
+        for name in ('stdout.log', 'stderr.log'):
+            (output / name).write_bytes(b'')
         manager.sweep()
         # Log payload is retained outside scratch, but still consumes the same volume.
         with manager.scratch(request.get('owner', 'verification'), reserved_bytes=budget+20*1024**2,
                              minimum_free=request.get('minimum_free', 2*1024**3)) as scratch:
             result['scratch_id'] = scratch.name
-            env = {**os.environ, 'ADHD_SCRATCH': str(scratch), 'ADHD_RESULTS': str(output)}
+            env = {**os.environ, 'ADHD_SCRATCH': str(scratch), 'ADHD_RESULTS': str(output),
+                   'TMP': str(scratch), 'TEMP': str(scratch), 'TMPDIR': str(scratch)}
+            command = [_output_argument(part, scratch, output) for part in argv]
             from .owned_process import OwnedProcess
-            process = OwnedProcess(argv, cwd=manager.workspace, env=env, stdout=subprocess.PIPE,
+            process = OwnedProcess(command, cwd=scratch if cwd_mode == 'scratch' else manager.workspace,
+                                   env=env, stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
             threads = []
             try:
@@ -126,6 +148,11 @@ def run_in_scratch(manager, request: dict, *, _on_process=None) -> dict:
         result.update(status='failed', error=type(error).__name__)
         raise
     finally:
+        cleanup_status = ('not_created' if scratch is None else
+                          'cleanup_pending' if os.path.lexists(scratch) else 'cleaned')
+        result['cleanup'] = {'status': cleanup_status, 'scope': 'registered invocation scratch'}
+        if cleanup_status == 'cleanup_pending':
+            result['status'] = 'cleanup_pending'
         if result['status'] in {'complete','failed'} and not request.get('retain_logs',False):
             try:
                 result['log_retention']=manager.retain_latest_logs(output,request.get('owner','verification'))

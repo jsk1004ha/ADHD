@@ -2021,6 +2021,8 @@ def context(state: dict, *, bootstrap: bool = True, restore: bool = False) -> st
     if state.get('goal_request'):
         lines.append('Goal execution requested: '+truncate_content(state['goal_request']['outcome'],90)+
                      '. Continue until independent acceptance or explicit stop/limit/blocker.')
+    if routed.get('path') != 'direct':
+        lines.append('Temp outputs: workspace-storage run --argv TOOL ... {scratch}/output; retain reports in {results}.')
     if restore:
         contract=state.get('contract', {})
         if state['status']=='idle' or direct_turn:
@@ -2071,6 +2073,22 @@ def context(state: dict, *, bootstrap: bool = True, restore: bool = False) -> st
             explanation=explanation[:max(0,remaining-3)]+'.'*min(3,remaining)
         text+='\n'+explanation
     return text
+
+
+def queue_terminal_scratch(state: dict, event: str) -> None:
+    """Queue registered leftovers; filesystem recovery runs outside host hooks."""
+    if (event not in {'Stop', 'SessionEnd', 'Interrupt', 'SubagentStop'}
+            or state['status'] in ACTIVE | {'interrupt_pending', 'handoff_pending'}
+            or any(child.get('status') != 'finished' for child in state.get('children', {}).values())):
+        return
+    # Keep ordinary hooks cheap and avoid creating an unused storage catalog.
+    if not (store() / 'workspace-storage.sqlite3').is_file():
+        return
+    try:
+        from .workspace_storage import WorkspaceStorage
+        state['scratch_cleanup'] = WorkspaceStorage(Path(state['workspace']), lock_timeout=.1).pending_cleanup(limit=8)
+    except Exception as error:
+        state['scratch_cleanup'] = {'status': 'cleanup_pending', 'error': type(error).__name__}
 
 
 def handle_event(ev: dict, *, diagnostics=None) -> dict:
@@ -2263,6 +2281,8 @@ def handle_event(ev: dict, *, diagnostics=None) -> dict:
             state['last_stop_decision']=out
         if dispatch_started is not None:
             diagnostics.phases_ns['event_dispatch'] = time.perf_counter_ns() - dispatch_started
+        with diagnostics.phase('scratch_cleanup'):
+            queue_terminal_scratch(state, name)
         with diagnostics.phase('persist'):
             persist(d,state)
         return out

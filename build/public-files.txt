@@ -681,6 +681,7 @@ docs/releases/0.1.5.md
 docs/releases/0.1.6.md
 docs/releases/0.1.7.md
 docs/releases/0.2.0.md
+docs/releases/0.2.1.md
 docs/request-routing.md
 docs/verification-efficiency.md
 docs/workspace-storage.md
@@ -804,6 +805,7 @@ tests/test_native.py
 tests/test_native_goal.py
 tests/test_native_large_release.py
 tests/test_native_progress.py
+tests/test_native_scratch.py
 tests/test_native_termination.py
 tests/test_native_upgrade_build.py
 tests/test_native_v011.py
@@ -837,6 +839,7 @@ tests/test_validation_batch.py
 tests/test_verification_efficiency.py
 tests/test_windows_setup.py
 tests/test_workflow_skills.py
+tests/test_workspace_cli.py
 tests/test_workspace_commands.py
 tests/test_workspace_storage.py
 third_party/Apache-2.0.txt

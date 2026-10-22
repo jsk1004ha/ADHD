@@ -161,6 +161,9 @@ class OwnedProcess:
             if hasattr(self, '_process'):
                 self._process.kill()
                 self._process.wait()
+                for stream in (self._process.stdin, self._process.stdout, self._process.stderr):
+                    if stream is not None:
+                        stream.close()
             self._temp.cleanup()
             raise
         finally:

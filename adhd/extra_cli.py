@@ -13,6 +13,10 @@ def add_parsers(sub):
     q=sub.add_parser('workspace-storage',help='Owned scratch, reservations and bounded archive extraction')
     q.add_argument('action',choices=['sweep','extract','release-cache','run'])
     q.add_argument('--workspace',type=Path,default=Path.cwd());q.add_argument('--payload-file',type=Path)
+    q.add_argument('--max-bytes',type=int,help='Scratch budget for direct --argv runs')
+    q.add_argument('--timeout',type=float,help='Producer timeout for direct --argv runs')
+    q.add_argument('--owner',help='Owner label for direct --argv runs')
+    q.add_argument('--argv',nargs=argparse.REMAINDER,help='Run this explicit argv in owned scratch; put last')
     q=sub.add_parser('objects',help='Explicitly capture completed evidence and manage scoped immutable references')
     q.add_argument('action',choices=['capture','read','export','restore','forget','audit','gc','apply','recover'])
     q.add_argument('--root',type=Path);q.add_argument('--workspace',type=Path,default=Path.cwd())
@@ -88,9 +92,20 @@ def execute(args):
         return co.run(p['card'],p['argv'],wait_seconds=p.get('wait_seconds',10),timeout=p.get('timeout',900))
     if args.command=='workspace-storage':
         from .workspace_storage import WorkspaceStorage
+        direct = getattr(args,'argv',None)
+        options = {name:getattr(args,flag,None) for name,flag in
+                   (('reserved_bytes','max_bytes'),('timeout','timeout'),('owner','owner'))}
+        if direct is not None:
+            if args.action!='run' or args.payload_file:
+                raise ValueError('--argv is only for run and cannot be combined with --payload-file')
+            p={'argv':direct,'cwd':'scratch',**{k:v for k,v in options.items() if v is not None}}
+        elif any(v is not None for v in options.values()):
+            raise ValueError('--max-bytes, --timeout and --owner require --argv')
+        else:
+            p=None
         manager=WorkspaceStorage(args.workspace)
         if args.action=='sweep':return manager.sweep()
-        p=payload(args)
+        p=p if p is not None else payload(args)
         if args.action=='extract':
             path=manager.extract_zip_selected(Path(p['archive']),p['members'],namespace=p['namespace'],
                 tool_version=p['tool_version'],options=p.get('options',{}),max_bytes=p.get('max_bytes',512*1024**2))
