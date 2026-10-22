@@ -1,6 +1,8 @@
 # ADHD — Autonomous Delegation Harness Director
 
-ADHD v0.1.7은 Codex 앱과 CLI에서 실행하는 로컬 하네스입니다. Codex 후크를 통해 계획, 실행 근거, 검토 단계를 연결합니다. 기존 인증, 선택 모델, 라우터, 플러그인, 스킬, 개인 설정을 설치기가 덮어쓰지 않도록 설계했습니다.
+0.2.0은 [작업 저장공간 제한](docs/workspace-storage.md)과 [프로젝트 작업 자동 조정](docs/project-coordination.md)을 추가합니다. [변경 내역](docs/releases/0.2.0.md)을 참고하세요.
+
+ADHD v0.2.0은 Codex 앱과 CLI에서 실행하는 로컬 하네스입니다. Codex 후크를 통해 계획, 실행 근거, 검토 단계를 연결합니다. 기존 인증, 선택 모델, 라우터, 플러그인, 스킬, 개인 설정을 설치기가 덮어쓰지 않도록 설계했습니다.
 
 
 [0.1.7 변경 내역](docs/releases/0.1.7.md)에 필요한 문맥만 조회하는 경로, 공유 불변 저장소, 자원 제한과 선택적인 작업·검사 시간 제한을 정리했습니다. 지속적인 goal 실행과 Obsidian 연결은 [0.1.6](docs/releases/0.1.6.md), 소스 목록·저장공간은 [0.1.5](docs/releases/0.1.5.md), 대규모 실행·종료·프로필·MCP는 [0.1.4](docs/releases/0.1.4.md)를 참고하세요.
@@ -8,7 +10,7 @@ ADHD v0.1.7은 Codex 앱과 CLI에서 실행하는 로컬 하네스입니다. Co
 
 ## 준비와 설치
 
-기존 Codex 앱 또는 CLI가 필요합니다. Windows x64에서는 Python이 포함된 `ADHD-Setup-v0.1.7-windows-x64.exe`를 열고 **Install**을 누르면 됩니다. 설치 중 다운로드나 관리자 권한이 필요하지 않습니다. 설치 후 Codex를 재시작하고 새 명령의 신뢰 여부를 직접 확인하세요. 실행 파일은 서명되지 않았으므로 열기 전에 SHA-256을 확인하세요. 별도 Codex 홈·검증·소스 빌드는 [설치 안내](docs/installation.md)에 있습니다.
+기존 Codex 앱 또는 CLI가 필요합니다. Windows x64에서는 Python이 포함된 `ADHD-Setup-v0.2.0-windows-x64.exe`를 열고 **Install**을 누르면 됩니다. 설치 중 다운로드나 관리자 권한이 필요하지 않습니다. 설치 후 Codex를 재시작하고 새 명령의 신뢰 여부를 직접 확인하세요. 실행 파일은 서명되지 않았으므로 열기 전에 SHA-256을 확인하세요. 별도 Codex 홈·검증·소스 빌드는 [설치 안내](docs/installation.md)에 있습니다.
 
 소스에서 설치할 때는 Python 3.11 이상이 필요합니다. 이 저장소의 코드를 검토한 뒤 PowerShell에서 실행하세요.
 

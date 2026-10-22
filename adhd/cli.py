@@ -157,9 +157,13 @@ def main(argv=None) -> int:
             output(result)
             return 2 if isinstance(result, dict) and result.get('status') in {'needs_repair', 'stale', 'blocked', 'failed', 'budget_exhausted'} else 0
         elif args.command in {'memory','wiki','route','doc','extension','provenance','eval',
-                              'context','experiment','diagnose','snapshot','objects'}:
+                              'context','experiment','diagnose','snapshot','objects','coordinate','workspace-storage'}:
             from .extra_cli import execute
-            output(execute(args))
+            result=execute(args)
+            output(result)
+            if (args.command in {'coordinate','workspace-storage'} and isinstance(result,dict)
+                    and result.get('status') in {'waiting','failed','blocked','cleanup_pending'}):
+                return 2
         elif args.command == 'check':
             from .evidence import run_check
             if not args.spec_file.is_file() or args.spec_file.stat().st_size>200000:

@@ -16,7 +16,8 @@ from . import dependencies as _dependencies  # Activate the shipped offline libr
 from filelock import FileLock
 
 from .core import ROOT, file_hash, home, store
-from .native_install import _find_managed_installation, _validate_release_record
+from .native_install import (_find_managed_installation, _validate_install_record,
+                             _validate_release_record)
 
 RELEASE_NAME = re.compile(r'^(\d+\.\d+\.\d+)-(\d{8}-\d{6})-[0-9a-f]{8}$')
 MAX_REFERENCE_BYTES = 2 * 1024 * 1024
@@ -135,8 +136,8 @@ def _checked_tree(path: Path, base: Path, record: dict) -> dict:
 
 
 def _scan(codex: Path, keep: int) -> tuple[dict, dict[str, dict]]:
-    if type(keep) is not int or keep < 2 or keep > 100:
-        raise ValueError('keep_releases must be 2..100 (current plus rollback)')
+    if type(keep) is not int or keep < 1 or keep > 100:
+        raise ValueError('keep_releases must be 1..100 (current plus explicit extras)')
     managed = _find_managed_installation(codex)
     parent = codex / 'adhd'
     base = parent / 'releases'
@@ -144,6 +145,9 @@ def _scan(codex: Path, keep: int) -> tuple[dict, dict[str, dict]]:
         raise ValueError('An ADHD managed installation is required; upgrade legacy layouts first')
     if _link(parent) or _link(base):
         raise ValueError('Unsafe managed release collection')
+    marker = parent / 'native-install-recovery.json'
+    if marker.exists() or _link(marker):
+        raise ValueError('Incomplete native installation recovery; release cleanup is deferred')
     active = managed[2]
     _validate_release_record(active)
     records = _records(codex, parent, base)
@@ -174,7 +178,39 @@ def _scan(codex: Path, keep: int) -> tuple[dict, dict[str, dict]]:
              'reclaimed_bytes': 0, 'removed': []}, records)
 
 
-def storage(codex_home: Path, *, apply: bool = False, keep_releases: int = 2) -> dict:
+def _prune_releases_locked(codex: Path, keep_releases: int) -> dict:
+    result, records = _scan(codex, keep_releases)
+    result['dry_run'] = False
+    base = codex / 'adhd' / 'releases'
+    for candidate in result['candidates']:
+        path = base / candidate['name']
+        # Refresh references and bytes after planning, before moving anything.
+        refreshed, _ = _scan(codex, keep_releases)
+        fresh = next((row for row in refreshed['candidates'] if row['name'] == path.name), None)
+        if fresh != candidate:
+            result['skipped'].append({'name': path.name, 'reason': 'changed_since_scan'})
+            continue
+        quarantine = base / ('.prune-' + uuid.uuid4().hex)
+        os.replace(path, quarantine)
+        try:
+            proof = _checked_tree(quarantine, base, records[path.name])
+            active = _find_managed_installation(codex)[2]
+            if (proof != {key: candidate[key] for key in proof}
+                    or path.name in _references(codex, active, set(records))):
+                raise ValueError('Release bytes or references changed during cleanup')
+            if _link(quarantine) or quarantine.resolve().parent != base:
+                raise ValueError('Cleanup target changed before deletion')
+            shutil.rmtree(quarantine)
+        except BaseException:
+            if quarantine.exists() and not path.exists():
+                os.replace(quarantine, path)
+            raise
+        result['removed'].append(path.name)
+        result['reclaimed_bytes'] += candidate['bytes']
+    return result
+
+
+def storage(codex_home: Path, *, apply: bool = False, keep_releases: int = 1) -> dict:
     codex = codex_home.expanduser().resolve()
     if not apply:
         return _scan(codex, keep_releases)[0]
@@ -183,43 +219,152 @@ def storage(codex_home: Path, *, apply: bool = False, keep_releases: int = 2) ->
         raise ValueError('Unsafe managed release collection')
     with (FileLock(str(parent / 'native-operation.lock'), timeout=10),
           FileLock(str(parent / 'install-native.lock'), timeout=5)):
-        result, records = _scan(codex, keep_releases)
-        result['dry_run'] = False
-        base = parent / 'releases'
-        for candidate in result['candidates']:
-            path = base / candidate['name']
-            # Refresh references and bytes after planning, before moving anything.
-            refreshed, _ = _scan(codex, keep_releases)
-            fresh = next((row for row in refreshed['candidates'] if row['name'] == path.name), None)
-            if fresh != candidate:
-                result['skipped'].append({'name': path.name, 'reason': 'changed_since_scan'})
-                continue
-            quarantine = base / ('.prune-' + uuid.uuid4().hex)
-            os.replace(path, quarantine)
-            try:
-                proof = _checked_tree(quarantine, base, records[path.name])
-                active = _find_managed_installation(codex)[2]
-                if (proof != {key: candidate[key] for key in proof}
-                        or path.name in _references(codex, active, set(records))):
-                    raise ValueError('Release bytes or references changed during cleanup')
-                if _link(quarantine) or quarantine.resolve().parent != base:
-                    raise ValueError('Cleanup target changed before deletion')
-                # Recheck the resolved absolute target before recursive deletion.
-                shutil.rmtree(quarantine)
-            except BaseException:
-                if quarantine.exists() and not path.exists():
-                    os.replace(quarantine, path)
-                raise
-            result['removed'].append(path.name)
-            result['reclaimed_bytes'] += candidate['bytes']
-        return result
+        return _prune_releases_locked(codex, keep_releases)
+
+
+def _checked_backup(path: Path, base: Path, record: dict) -> dict:
+    """Verify exactly the original files recorded for one managed backup."""
+    if (_link(base) or _link(path) or path.absolute().parent != base
+            or path.resolve().parent != base or not path.is_dir()):
+        raise ValueError('Unsafe backup cleanup path: ' + str(path))
+    original = Path(record['backup'])
+    expected = {}
+    for row in record['files']:
+        backup = Path(row['backup'])
+        if backup.parent != original or not re.fullmatch(r'\d{4}\.original', backup.name):
+            raise ValueError('Backup record contains an unsafe path')
+        if row['existed']:
+            expected[backup.name] = row['old_sha256']
+    if len(expected) != sum(bool(row['existed']) for row in record['files']):
+        raise ValueError('Backup record repeats an original')
+    actual = set()
+    size = 0
+    for directory, dirs, files in os.walk(path, followlinks=False):
+        if dirs or Path(directory) != path:
+            raise ValueError('Backup contains unrecorded directories')
+        for name in files:
+            entry = path / name
+            if _link(entry) or name not in expected or not entry.is_file():
+                raise ValueError('Backup contains an unrecorded or unsafe file')
+            if file_hash(entry) != expected[name]:
+                raise ValueError('Recorded original backup changed')
+            size += entry.stat().st_size
+            actual.add(name)
+    if actual != set(expected):
+        raise ValueError('Recorded original backup is incomplete')
+    return {'bytes': size, 'files': len(actual)}
+
+
+def _scan_backups(codex: Path) -> dict:
+    managed = _find_managed_installation(codex)
+    parent = codex / 'adhd'
+    base = parent / 'backups'
+    if not managed or managed[0] != parent:
+        raise ValueError('An ADHD managed installation is required')
+    if _link(parent) or _link(base) or _link(parent / 'native-install-recovery.json'):
+        raise ValueError('Unsafe or incomplete native installation')
+    if (parent / 'native-install-recovery.json').exists():
+        raise ValueError('Incomplete native installation recovery')
+    active = managed[2]
+    _validate_install_record(active)
+    active_backup = Path(active['backup'])
+    if active_backup.parent != base:
+        raise ValueError('Current backup is outside managed collection')
+    _checked_backup(active_backup, base, active)
+    current_rows = {row['path']: row for row in active['files'] if row['existed']}
+    records = _records(codex, parent, parent / 'releases')
+    old_paths = sorted(parent.glob('native-uninstalled-*.json'))
+    references = _references(codex, active, {path.name for path in base.iterdir()})
+    candidates, protected, skipped = [], [], []
+    seen = set()
+    for record_path in old_paths:
+        old = json.loads(_read(record_path))
+        old_backup = Path(old.get('backup', ''))
+        if (old_backup == active_backup or old_backup.parent != base
+                or Path(old.get('release', '')).name not in records):
+            continue
+        row = {'name': old_backup.name, 'path': str(old_backup), 'record': str(record_path)}
+        if old_backup in seen:
+            continue
+        seen.add(old_backup)
+        if not old_backup.exists():
+            continue
+        if old_backup.name in references:
+            protected.append({**row, 'reason': 'known_reference'})
+            continue
+        if any(old_row['existed'] and (
+                old_row['path'] not in current_rows
+                or old_row['old_sha256'] != current_rows[old_row['path']]['old_sha256'])
+               for old_row in old.get('files', [])):
+            protected.append({**row, 'reason': 'unique_original'})
+            continue
+        try:
+            proof = _checked_backup(old_backup, base, old)
+            candidates.append({**row, **proof})
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            skipped.append({**row, 'reason': str(error)})
+    return {'dry_run': True, 'candidates': candidates, 'protected': protected,
+            'skipped': skipped, 'reclaimable_bytes': sum(row['bytes'] for row in candidates),
+            'reclaimed_bytes': 0, 'removed': []}
+
+
+def _prune_backups_locked(codex: Path) -> dict:
+    result = _scan_backups(codex)
+    result['dry_run'] = False
+    base = codex / 'adhd' / 'backups'
+    for candidate in result['candidates']:
+        refreshed = _scan_backups(codex)
+        fresh = next((row for row in refreshed['candidates']
+                      if row['path'] == candidate['path']), None)
+        if fresh != candidate:
+            result['skipped'].append({**candidate, 'reason': 'changed_since_scan'})
+            continue
+        path = Path(candidate['path'])
+        record = json.loads(_read(Path(candidate['record'])))
+        quarantine = base / ('.prune-backup-' + uuid.uuid4().hex)
+        os.replace(path, quarantine)
+        try:
+            proof = _checked_backup(quarantine, base, record)
+            if proof != {key: candidate[key] for key in proof}:
+                raise ValueError('Backup changed during cleanup')
+            active = _find_managed_installation(codex)[2]
+            if candidate['name'] in _references(codex, active, {candidate['name']}):
+                raise ValueError('Backup references changed during cleanup')
+            if _link(quarantine) or quarantine.resolve().parent != base:
+                raise ValueError('Cleanup target changed before deletion')
+            shutil.rmtree(quarantine)
+        except BaseException:
+            if quarantine.exists() and not path.exists():
+                os.replace(quarantine, path)
+            raise
+        result['removed'].append(candidate['name'])
+        result['reclaimed_bytes'] += candidate['bytes']
+    return result
+
+
+def prune_native_backups(codex_home: Path, *, apply: bool = False) -> dict:
+    codex = codex_home.expanduser().resolve()
+    if not apply:
+        return _scan_backups(codex)
+    parent = codex / 'adhd'
+    with (FileLock(str(parent / 'native-operation.lock'), timeout=10),
+          FileLock(str(parent / 'install-native.lock'), timeout=5)):
+        return _prune_backups_locked(codex)
+
+
+def _prune_after_upgrade_locked(codex: Path) -> dict:
+    """Caller owns native-operation.lock after the new record is committed."""
+    parent = codex / 'adhd'
+    with FileLock(str(parent / 'install-native.lock'), timeout=5):
+        return {'releases': _prune_releases_locked(codex, 1),
+                'backups': _prune_backups_locked(codex)}
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['scan', 'prune'], nargs='?', default='scan')
     parser.add_argument('--codex-home', type=Path, default=home())
-    parser.add_argument('--keep-releases', type=int, default=2)
+    parser.add_argument('--keep-releases', type=int, default=1)
     parser.add_argument('--apply', action='store_true', help='Apply prune; preview is the default')
     args = parser.parse_args(argv)
     from .cli import output

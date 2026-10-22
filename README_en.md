@@ -1,4 +1,4 @@
-# ADHD — Autonomous Delegation Harness Director (v0.1.7)
+# ADHD — Autonomous Delegation Harness Director (v0.2.0)
 
 [한국어](README.md) · [English](README_en.md) · [Quick start in Korean](README.ko.md)
 
@@ -7,10 +7,10 @@
 
 | Item | Specification (measured from this codebase) |
 | :--- | :--- |
-| **Package version** | `v0.1.7` ([adhd/__init__.py](adhd/__init__.py); state schema `v2`; installation record schema `v3`) |
+| **Package version** | `v0.2.0` ([adhd/__init__.py](adhd/__init__.py); state schema `v2`; installation record schema `v3`) |
 | **Runtime requirements** | Python `3.11+` for source installation; the Windows x64 offline installer bundles the official embedded `Python 3.13.16` runtime |
-| **Core engine size** | **63** Python source files (`adhd.py`, `hook.py`, `adhd/*.py`); **19,234 LOC** of core code |
-| **Regression suite** | **72** test modules (`tests/test_*.py`); **12,568 LOC** covering more than 550 unit, subprocess, and packaging checks |
+| **Core engine size** | **67** Python source files (`adhd.py`, `hook.py`, `adhd/*.py`); **21,269 LOC** of core code |
+| **Regression suite** | **77** test modules (`tests/test_*.py`); **13,427 LOC** covering more than 550 unit, subprocess, and packaging checks |
 | **Agent roles** | **Six fixed roles** (`native/agents/*.toml`) across three model tiers: `gpt-6-sol`, `gpt-6-luna`, and `gpt-6-astra` |
 | **Bundled skills and MCP** | **13** core/workflow skills (`skills/adhd*`), **50** public bundled skills (`bundled/skills/`), and **16** MCP recipes (`config/mcp-selection.json`) |
 | **Vendored dependencies** | `filelock` v3.29.0 (Unlicense) and `tomlkit` (MIT), bundled as offline pure-Python dependencies ([adhd/dependencies.py](adhd/dependencies.py)) |
@@ -170,14 +170,14 @@ ADHD/
 ├── schemas/                        # Six JSON schemas (plan, work, review, large-task, native-delivery, wiki-packet)
 ├── build/                          # Package builder (package_adhd.py) and Windows C# launcher (launcher.cs)
 ├── scripts/                        # 11 hook, scope, delivery, time-budget, and Obsidian benchmark scripts
-├── docs/                           # Nine design documents, release notes (0.1.4–0.1.7), measured benchmark JSON
+├── docs/                           # Nine design documents, release notes (0.1.4–0.2.0), measured benchmark JSON
 ├── third_party/                    # Vendored packages (filelock, tomlkit, spec-kit, superpowers) and licenses
-└── tests/                          # 72 integration/regression test modules (12,568 LOC)
+└── tests/                          # 72 integration/regression test modules (13,427 LOC)
 ```
 
 ![LOC across eight subsystems and the ten largest Python modules in the current repository](docs/assets/readme/adhd_architecture_overview.png)
 
-*Current source snapshot: 63 core Python files and 19,234 LOC; 72 test modules and 12,568 LOC. These use the same counting scope as the table below.*
+*Current source snapshot: 63 core Python files and 21,269 LOC; 72 test modules and 13,427 LOC. These use the same counting scope as the table below.*
 
 ### Subsystem size and responsibilities
 
@@ -191,7 +191,7 @@ ADHD/
 | **6. Context indexing and FTS5 memory** | `context_index.py`, `memory.py`, `context_search.py`, `context_session.py`, `fts_migration.py` | 1,918 | 10.0% | Index Python AST symbols; search Korean bigrams, SQLite FTS5, and RRF hybrid memory; track per-actor/epoch context handoffs |
 | **7. Immutable CAS and garbage collection** | `immutable_store.py`, `immutable_gc.py`, `storage.py`, `source_cache.py`, `immutable_policy.py`, `completed_archive.py` | 1,879 | 9.8% | Store completed-run evidence in SHA-256 CAS; enforce policy-based access; prune unreferenced objects/releases after closed-world reference-closure validation |
 | **8. Verification gates, documents, and provenance** | `evidence.py`, `documents.py`, `coding_scope.py`, `provenance.py`, `gates.py`, `review_calibration.py`, `snapshot_reader.py` | 1,773 | 9.2% | Issue execution receipts (`receipt.json`), audit Git change scope, verify Office/PDF/HWP page rendering, check research-number lineage |
-| **Total (Core Python)** | **63 Python source files** | **19,234** | **100.0%** | **Verified alongside 72 test files (`12,568 LOC`), a 1:0.65 ratio** |
+| **Total (Core Python)** | **67 Python source files** | **21,269** | **100.0%** | **Verified alongside 72 test files (`13,427 LOC`), a 1:0.65 ratio** |
 
 ## 4. Seven core operating principles in the code
 
@@ -456,7 +456,7 @@ Before changing files, the ADHD installer ([adhd/native_install.py](adhd/native_
 **Windows (PowerShell or offline installer)**
 ```powershell
 # Option 1: Run the offline installer with embedded Python 3.13.16 (no administrator rights or network required)
-.\ADHD-Setup-v0.1.7-windows-x64.exe
+.\ADHD-Setup-v0.2.0-windows-x64.exe
 
 # Option 2: Diagnose and upgrade from a source checkout
 py -3 .\adhd.py doctor

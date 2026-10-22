@@ -31,17 +31,39 @@ def _new_output(source: Path,out: Path):
 
 def zip_parts(path: Path) -> dict[str,bytes]:
     with zipfile.ZipFile(path) as z:
-        infos=z.infolist()
-        if len(infos)>12000 or sum(i.file_size for i in infos)>MAX_TOTAL:
-            raise ValueError('Document package exceeds inspection budget')
-        names=[i.filename for i in infos]
-        if len(names)!=len(set(names)): raise ValueError('Duplicate ZIP member')
-        for i in infos:
-            name=i.filename.replace('\\','/')
-            if name.startswith('/') or '..' in PurePosixPath(name).parts or re.match(r'^[A-Za-z]:',name):
-                raise ValueError('Unsafe ZIP member')
-            if i.flag_bits&1:raise ValueError('Encrypted document needs authorized native handling')
+        infos=_zip_infos(z)
         return {i.filename:z.read(i) for i in infos if not i.is_dir()}
+
+
+def _zip_infos(z):
+    infos=z.infolist()
+    if len(infos)>12000 or sum(i.file_size for i in infos)>MAX_TOTAL:
+        raise ValueError('Document package exceeds inspection budget')
+    names=[i.filename for i in infos]
+    if len(names)!=len(set(names)):raise ValueError('Duplicate ZIP member')
+    for i in infos:
+        name=i.filename.replace('\\','/')
+        if name.startswith('/') or '..' in PurePosixPath(name).parts or re.match(r'^[A-Za-z]:',name):
+            raise ValueError('Unsafe ZIP member')
+        if i.flag_bits&1:raise ValueError('Encrypted document needs authorized native handling')
+    return infos
+
+
+def _inspection_parts(path):
+    parts={};hashes={}
+    with zipfile.ZipFile(path) as z:
+        for info in _zip_infos(z):
+            if info.is_dir():continue
+            name=info.filename
+            if name.endswith(('.xml','.rels')) or info.file_size<=65536:
+                data=z.read(info);parts[name]=data if name.endswith(('.xml','.rels')) else None
+                hashes[name]=hashlib.sha256(data).hexdigest()
+            else:
+                digest=hashlib.sha256()
+                with z.open(info) as stream:
+                    for chunk in iter(lambda:stream.read(1024*1024),b''):digest.update(chunk)
+                parts[name]=None;hashes[name]=digest.hexdigest()
+    return parts,hashes
 
 
 def _xml(data: bytes):
@@ -51,21 +73,31 @@ def _xml(data: bytes):
     return etree.fromstring(data, etree.XMLParser(resolve_entities=False,no_network=True,remove_blank_text=False))
 
 
-def detect(path: Path) -> str:
+def detect(path: Path, *, validate_payloads=True) -> str:
     with path.open('rb') as f: head=f.read(16)
     if head.startswith(b'%PDF-'): return 'pdf'
     if head.startswith(bytes.fromhex('D0CF11E0A1B11AE1')): return 'cfb_binary_requires_native_or_hwpkit'
     if zipfile.is_zipfile(path):
-        parts=zip_parts(path)
-        if 'word/document.xml' in parts:return 'docx'
-        if 'ppt/presentation.xml' in parts:return 'pptx'
-        if parts.get('mimetype',b'').strip()==b'application/hwp+zip' or any(re.fullmatch(r'Contents/section\d+\.xml',p) for p in parts):return 'hwpx'
-        return 'unknown_zip'
+        with zipfile.ZipFile(path) as z:
+            infos=_zip_infos(z);names={i.filename for i in infos if not i.is_dir()}
+            if validate_payloads:
+                for info in infos:
+                    if not info.is_dir():
+                        with z.open(info) as stream:
+                            while stream.read(1024*1024):pass
+            if 'word/document.xml' in names:return 'docx'
+            if 'ppt/presentation.xml' in names:return 'pptx'
+            if any(re.fullmatch(r'Contents/section\d+\.xml',p) for p in names):return 'hwpx'
+            if 'mimetype' in names:
+                if z.getinfo('mimetype').file_size>256:raise ValueError('Mimetype exceeds inspection budget')
+                if z.read('mimetype').strip()==b'application/hwp+zip':return 'hwpx'
+            return 'unknown_zip'
     return 'unknown'
 
 
 def inspect_document(path: Path) -> dict:
-    path=path.resolve(); kind=detect(path)
+    path=path.resolve(); kind=detect(path,validate_payloads=False)
+    if kind=='unknown_zip':detect(path)
     result={'path':str(path),'sha256':file_hash(path),'detected':kind,
             'visual_verified':False,'warnings':[]}
     if path.suffix.lower().lstrip('.')!=kind:
@@ -77,7 +109,7 @@ def inspect_document(path: Path) -> dict:
             result.update(pages=len(doc),text='\n'.join(p.get_text() for p in doc),fonts=sorted({f[3] for p in doc for f in p.get_fonts()}))
     elif kind in {'docx','pptx','hwpx'}:
         from lxml import etree
-        parts=zip_parts(path); nodes=[]; objects=[]; structure={}; refs=[]
+        parts,part_hashes=_inspection_parts(path); nodes=[]; objects=[]; structure={}; refs=[]
         for name,data in parts.items():
             if not name.endswith(('.xml','.rels')): continue
             root=_xml(data)
@@ -112,7 +144,7 @@ def inspect_document(path: Path) -> dict:
                 for node in root:
                     if node.get('TargetMode')=='External':refs.append(node.get('Target'))
         result.update(text='\n'.join(n['text'] for n in nodes),text_nodes=nodes,objects=objects,
-            package_parts=len(parts),part_hashes={k:hashlib.sha256(v).hexdigest() for k,v in parts.items()},
+            package_parts=len(parts),part_hashes=part_hashes,
             xml_node_counts=structure,external_links=refs,
             slides=len([p for p in parts if re.fullmatch('ppt/slides/slide[0-9]+.xml',p)]) if kind=='pptx' else None)
         result['warnings'] += ['XML validity does not establish pagination or layout fidelity',

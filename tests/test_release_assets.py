@@ -24,6 +24,9 @@ class ReleaseAssetsTests(unittest.TestCase):
             'scripts/benchmark_obsidian.py', 'tests/fixtures/obsidian/evaluation.json',
             'docs/verification-efficiency.md', 'scripts/benchmark_verification_efficiency.py',
             'tests/test_verification_efficiency.py',
+            'adhd/coordination.py','adhd/owned_process.py','adhd/workspace_storage.py',
+            'adhd/workspace_commands.py','docs/project-coordination.md','docs/workspace-storage.md',
+            'docs/releases/0.2.0.md','scripts/benchmark_workspace_resources.py',
         }
         required.update('adhd/obsidian_assets/templates/' + name + '.md'
                         for name in ('common', 'decision', 'incident', 'success', 'procedure'))

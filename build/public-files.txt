@@ -6,6 +6,7 @@ LICENSE
 LICENSE-RAIBIT-MIT
 README.ko.md
 README.md
+README_en.md
 THIRD_PARTY_NOTICES.md
 adhd.py
 adhd/__init__.py
@@ -17,6 +18,7 @@ adhd/completed_archive.py
 adhd/context_index.py
 adhd/context_search.py
 adhd/context_session.py
+adhd/coordination.py
 adhd/core.py
 adhd/delivery_policy.py
 adhd/dependencies.py
@@ -63,6 +65,7 @@ adhd/obsidian_assets/templates/success.md
 adhd/obsidian_assets/views/ADHD 검토.base
 adhd/obsidian_assets/views/ADHD 절차.base
 adhd/obsidian_index.py
+adhd/owned_process.py
 adhd/provenance.py
 adhd/recovery.py
 adhd/request_routing.py
@@ -82,6 +85,8 @@ adhd/vendor/__init__.py
 adhd/vendor/smolagents_context.py
 adhd/wiki.py
 adhd/windows_setup.py
+adhd/workspace_commands.py
+adhd/workspace_storage.py
 build/build_windows_installer.py
 build/package_adhd.py
 build/public-files.txt
@@ -670,12 +675,15 @@ docs/large-tasks.md
 docs/loop-steering.md
 docs/obsidian.md
 docs/optimization.md
+docs/project-coordination.md
 docs/releases/0.1.4.md
 docs/releases/0.1.5.md
 docs/releases/0.1.6.md
 docs/releases/0.1.7.md
+docs/releases/0.2.0.md
 docs/request-routing.md
 docs/verification-efficiency.md
+docs/workspace-storage.md
 examples/agent-task-card.md
 examples/astra-brief.md
 examples/batch-checks.json
@@ -717,6 +725,7 @@ scripts/benchmark_obsidian.py
 scripts/benchmark_scope_inventory.py
 scripts/benchmark_time_budget.py
 scripts/benchmark_verification_efficiency.py
+scripts/benchmark_workspace_resources.py
 scripts/compare_delivery_efficiency.py
 scripts/evaluate_context_components.py
 scripts/test_audit_local_install.py
@@ -769,8 +778,10 @@ tests/test_context_index.py
 tests/test_context_search.py
 tests/test_context_session.py
 tests/test_context_startup.py
+tests/test_coordination.py
 tests/test_delivery_efficiency.py
 tests/test_document_evidence.py
+tests/test_document_streaming.py
 tests/test_editable_elements.py
 tests/test_execution_profiles.py
 tests/test_experience.py
@@ -800,6 +811,7 @@ tests/test_obsidian.py
 tests/test_obsidian_integration.py
 tests/test_optimization_cli.py
 tests/test_optimization_diagnostics.py
+tests/test_owned_process.py
 tests/test_path_identity.py
 tests/test_personal_eval.py
 tests/test_public_package.py
@@ -825,6 +837,8 @@ tests/test_validation_batch.py
 tests/test_verification_efficiency.py
 tests/test_windows_setup.py
 tests/test_workflow_skills.py
+tests/test_workspace_commands.py
+tests/test_workspace_storage.py
 third_party/Apache-2.0.txt
 third_party/DISTRIBUTIONS.json
 third_party/filelock-LICENSE

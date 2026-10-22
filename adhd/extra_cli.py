@@ -7,6 +7,12 @@ from .core import atomic_json
 
 
 def add_parsers(sub):
+    q=sub.add_parser('coordinate',help='Automatically serialize conflicting project tasks')
+    q.add_argument('action',choices=['register','acquire','finish','message','status','run'])
+    q.add_argument('--workspace',type=Path,default=Path.cwd());q.add_argument('--payload-file',type=Path)
+    q=sub.add_parser('workspace-storage',help='Owned scratch, reservations and bounded archive extraction')
+    q.add_argument('action',choices=['sweep','extract','release-cache','run'])
+    q.add_argument('--workspace',type=Path,default=Path.cwd());q.add_argument('--payload-file',type=Path)
     q=sub.add_parser('objects',help='Explicitly capture completed evidence and manage scoped immutable references')
     q.add_argument('action',choices=['capture','read','export','restore','forget','audit','gc','apply','recover'])
     q.add_argument('--root',type=Path);q.add_argument('--workspace',type=Path,default=Path.cwd())
@@ -70,6 +76,29 @@ def payload(args):
 
 
 def execute(args):
+    if args.command=='coordinate':
+        from .coordination import Coordinator
+        co=Coordinator(args.workspace)
+        if args.action=='status':return co.status()
+        p=payload(args)
+        if args.action=='register':return co.register(p)
+        if args.action=='acquire':return co.acquire(p['task_id'],owner=p.get('owner'))
+        if args.action=='finish':return co.finish(p['task_id'],p['generation'],owner=p['owner'],success=p.get('success',True))
+        if args.action=='message':return co.negotiate(p['conflict_id'],p['message'])
+        return co.run(p['card'],p['argv'],wait_seconds=p.get('wait_seconds',10),timeout=p.get('timeout',900))
+    if args.command=='workspace-storage':
+        from .workspace_storage import WorkspaceStorage
+        manager=WorkspaceStorage(args.workspace)
+        if args.action=='sweep':return manager.sweep()
+        p=payload(args)
+        if args.action=='extract':
+            path=manager.extract_zip_selected(Path(p['archive']),p['members'],namespace=p['namespace'],
+                tool_version=p['tool_version'],options=p.get('options',{}),max_bytes=p.get('max_bytes',512*1024**2))
+            return {'cache_path':str(path.relative_to(manager.workspace))}
+        if args.action=='release-cache':
+            return manager.release_cache(manager.workspace/Path(p['cache_path']))
+        from .workspace_commands import run_in_scratch
+        return run_in_scratch(manager,p)
     if args.command=='objects':
         from .immutable_store import ImmutableStore
         if args.action=='apply' and not args.operation_id:

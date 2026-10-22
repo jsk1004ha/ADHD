@@ -2,7 +2,7 @@
 name: adhd-native
 description: ADHD Codex App/CLI workflow for substantive research, study, document editing, coding and games when this harness is the selected owner. Task-sized plans, bounded delegation and artifact verification.
 ---
-# ADHD — Autonomous Delegation Harness Director v0.1.7 — map, not a giant prompt
+# ADHD — Autonomous Delegation Harness Director v0.2.0 — map, not a giant prompt
 On an idle request, use the hook's initial route in view.json. A high-confidence self-contained question, translation, status request, or isolated text correction can be answered directly with appropriate checking, without native begin, a durable plan, or independent acceptance. Inspect uncertain scope briefly; begin a native run if it is substantive. A direct request that grows into substantive work can use native begin after scope is understood. The rule-based route is guidance, not general language understanding; see `ADHD_ROOT/docs/request-routing.md`. Use Luna only when a separate call is worthwhile. Substantive work: use the native hook's SESSION/view path and read `ADHD_ROOT/skills/adhd-native/references/protocol-quickstart.md`; open a section of `protocol.md` or `v12-gates.md` only when the quickstart's table names it or the hook rejects a request. Missing hooks, role tools or acknowledgements are real capability failures; never simulate success.
 
 The first hook context supplies the begin entrypoint and common rules. Repeated
@@ -91,3 +91,19 @@ For numerical research and reports, use a declared provenance manifest and a cur
 After actual checks, submit candidate and wait for acknowledgement. Spawn the independent Sol verifier against the exact digest; only its observed fresh review can complete the task. Rejected work loops through repair/reverification; budgets or missing auth/tools end as blocked/unfinished, not success. Pause, cancellation and budget exhaustion retain the writer lease until the final running child stops. Progress uses fresh requirement/test/plan outcomes and actual target content changes; output timestamps do not count. No background execution after closing the App.
 
 Need a capability added? Read `ADHD_ROOT/skills/adhd-extensions/SKILL.md` and perform the reviewed staged workflow; do not merely recommend it. Need source memory or prior feedback? Read `ADHD_ROOT/skills/adhd-memory/SKILL.md`. Need documents? Read `ADHD_ROOT/skills/adhd-documents/SKILL.md`. Keep all existing skills available.
+
+## Working storage and project cooperation
+For generated document copies, extracts and test profiles, use `workspace-storage run`
+with an explicit argv/budget and have the producer use `ADHD_SCRATCH`; put only
+required final evidence in `ADHD_RESULTS`. Stop owned producers before cleanup.
+The runner sweeps only registered recoverable scratch. Reuse selected ZIP entries
+and declared inputs; avoid another full workspace/runtime copy for each receipt.
+See `ADHD_ROOT/docs/workspace-storage.md` for byte reservations and ownership APIs.
+Large-task dispatch coordinates project resources automatically. For ordinary
+standalone commands without an active native/legacy workspace writer, use
+`coordinate run` with requirement-bound cards. Same-checkout arbitrary writers
+are serialized; isolated assigned workers may run disjoint scopes. Existing native
+leases remain authoritative. Rules need zero model calls; optional conflict replies
+are limited to two short messages and cannot expand authority or replace the original
+requirements. See `ADHD_ROOT/docs/project-coordination.md`. Do not repeat an
+unchanged conflict negotiation or ask users to approve routine sequencing.

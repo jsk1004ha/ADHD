@@ -40,12 +40,12 @@ class StorageTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def test_preview_is_read_only_and_keeps_current_plus_rollback(self):
+    def test_preview_is_read_only_and_keeps_current(self):
         before = sorted(path.relative_to(self.codex).as_posix() for path in self.codex.rglob('*'))
         report = cleanup.storage(self.codex)
         self.assertTrue(report['dry_run'])
-        self.assertEqual([row['name'] for row in report['candidates']], [path.name for path in self.releases[:2]])
-        self.assertEqual({row['name'] for row in report['protected']}, {path.name for path in self.releases[2:]})
+        self.assertEqual([row['name'] for row in report['candidates']], [path.name for path in self.releases[:3]])
+        self.assertEqual({row['name'] for row in report['protected']}, {self.releases[3].name})
         self.assertEqual(report['reclaimed_bytes'], 0)
         self.assertEqual(before, sorted(path.relative_to(self.codex).as_posix() for path in self.codex.rglob('*')))
 
@@ -56,7 +56,7 @@ class StorageTests(unittest.TestCase):
         backup.write_bytes(b'original settings')
         report = cleanup.storage(self.codex, apply=True)
         self.assertEqual(report['reclaimed_bytes'], preview['reclaimable_bytes'])
-        self.assertEqual(report['removed'], [path.name for path in self.releases[:2]])
+        self.assertEqual(report['removed'], [path.name for path in self.releases[:3]])
         self.assertEqual(backup.read_bytes(), b'original settings')
         self.assertFalse(any(path.name.startswith('.prune-') for path in self.base.iterdir()))
         self.assertEqual(cleanup.storage(self.codex, apply=True)['removed'], [])
@@ -79,7 +79,9 @@ class StorageTests(unittest.TestCase):
         skill = self.codex / 'skills' / 'custom' / 'SKILL.md'
         skill.parent.mkdir(parents=True)
         skill.write_text(str(self.releases[0]), encoding='utf-8')
-        self.assertEqual(cleanup.storage(self.codex, apply=True)['removed'], [])
+        report = cleanup.storage(self.codex, apply=True)
+        self.assertTrue(all(path.exists() for path in self.releases[:2]))
+        self.assertEqual(report['removed'], [self.releases[2].name])
 
     def test_executing_old_release_is_preserved(self):
         with patch.object(cleanup, 'ROOT', self.releases[0]):
@@ -99,6 +101,40 @@ class StorageTests(unittest.TestCase):
         (unknown / 'keep.txt').write_text('user data')
         cleanup.storage(self.codex, apply=True)
         self.assertEqual((unknown / 'keep.txt').read_text(), 'user data')
+
+    def test_backup_prune_keeps_latest_verified_original_and_unknown_data(self):
+        original = b'original settings'
+        config = self.codex / 'config.toml'
+        config.write_bytes(b'model = "installed"\n')
+        for index, release in enumerate(self.releases, 1):
+            filename = ('native-installation.json' if index == 4
+                        else f'native-uninstalled-{index:08x}.json')
+            record_path = self.parent / filename
+            record = json.loads(record_path.read_text())
+            backup = self.parent / 'backups' / ('native-' + release.name)
+            backup.mkdir(parents=True)
+            original_file = backup / '0000.original'
+            original_file.write_bytes(original)
+            record['backup'] = str(backup)
+            record['files'] = [{'path': str(config), 'existed': True,
+                                'backup': str(original_file),
+                                'old_sha256': hashlib.sha256(original).hexdigest(),
+                                'installed_sha256': hashlib.sha256(config.read_bytes()).hexdigest(),
+                                'selector': {'kind': 'file'}}]
+            record_path.write_text(json.dumps(record))
+        unknown = self.parent / 'backups' / 'user-backup'
+        unknown.mkdir()
+        (unknown / 'keep').write_bytes(b'unrelated')
+        modified = self.parent / 'backups' / ('native-' + self.releases[0].name) / '0000.original'
+        modified.write_bytes(b'user edit')
+        preview = cleanup.prune_native_backups(self.codex)
+        self.assertEqual(len(preview['candidates']), 2)
+        report = cleanup.prune_native_backups(self.codex, apply=True)
+        self.assertEqual(len(report['removed']), 2)
+        self.assertEqual((self.parent / 'backups' / ('native-' + self.releases[3].name)
+                          / '0000.original').read_bytes(), original)
+        self.assertEqual(modified.read_bytes(), b'user edit')
+        self.assertEqual((unknown / 'keep').read_bytes(), b'unrelated')
 
     def test_unrecorded_empty_directory_is_preserved(self):
         (self.releases[0] / 'user-directory').mkdir()
@@ -150,16 +186,23 @@ class StorageTests(unittest.TestCase):
             cleanup.storage(self.codex, apply=True)
         self.assertTrue(all(path.exists() for path in self.releases))
 
+    def test_recovery_marker_blocks_release_pruning(self):
+        (self.parent / 'native-install-recovery.json').write_text('{}')
+        with self.assertRaisesRegex(ValueError, 'recovery'):
+            cleanup.storage(self.codex, apply=True)
+        self.assertTrue(all(path.exists() for path in self.releases))
+
     def test_oversized_reference_fails_before_deletion(self):
         (self.codex / 'AGENTS.md').write_text('x' * (cleanup.MAX_REFERENCE_BYTES + 1))
         with self.assertRaisesRegex(ValueError, 'bounded scan'):
             cleanup.storage(self.codex, apply=True)
         self.assertTrue(all(path.exists() for path in self.releases))
 
-    def test_retention_cannot_remove_only_rollback(self):
-        for keep in (0, 1, 101, True):
+    def test_retention_keeps_current_by_default(self):
+        for keep in (0, 101, True):
             with self.assertRaises(ValueError):
                 cleanup.storage(self.codex, apply=True, keep_releases=keep)
+        self.assertEqual(len(cleanup.storage(self.codex, keep_releases=1)['candidates']), 3)
         self.assertEqual(cleanup.storage(self.codex, keep_releases=4)['candidates'], [])
 
     def test_new_reference_between_plan_and_move_prevents_deletion(self):

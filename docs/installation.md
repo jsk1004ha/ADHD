@@ -2,14 +2,14 @@
 
 ## Windows x64 setup file
 
-Download the reviewed `ADHD-Setup-v0.1.7-windows-x64.exe` artifact and open it on a machine with Codex already installed. The setup window shows the detected Codex home. Select **Install**, wait for the result, then restart Codex. Review and trust the new commands if Codex asks. The executable is unsigned, so Windows may show a publisher warning; verify its published SHA-256 before opening it.
+Download the reviewed `ADHD-Setup-v0.2.0-windows-x64.exe` artifact and open it on a machine with Codex already installed. The setup window shows the detected Codex home. Select **Install**, wait for the result, then restart Codex. Review and trust the new commands if Codex asks. The executable is unsigned, so Windows may show a publisher warning; verify its published SHA-256 before opening it.
 
 The setup file contains the official Python 3.13.16 Windows x64 embeddable runtime, ADHD source, and existing vendored dependencies. Installation needs no system Python, network download, elevation, or Codex login. It installs the runtime inside the immutable managed ADHD release, so hooks keep working after the setup file and its temporary extraction are removed. The original Python `LICENSE.txt` and runtime change note are included. The source package retains its Python 3.11+ install path on Windows, macOS, and Linux.
 
 For an isolated Codex home or automated verification, use:
 
 ```powershell
-& .\ADHD-Setup-v0.1.7-windows-x64.exe --codex-home C:\path\to\codex-home --quiet --report C:\path\to\setup-report.json
+& .\ADHD-Setup-v0.2.0-windows-x64.exe --codex-home C:\path\to\codex-home --quiet --report C:\path\to\setup-report.json
 ```
 
 The selected home must already exist. Without `--codex-home`, setup uses `CODEX_HOME` when set, then the standard user `.codex` folder; it checks for an existing Codex home before installing. `--quiet` returns a process exit code and `--report` records the result. A second run validates the managed installation and returns `already_installed` when its source digest matches. To inspect the installation, run the installed release's `runtime\python.exe adhd.py doctor --codex-home PATH`. `rollback-native` uses the same managed backup checks and refuses to overwrite later edits.

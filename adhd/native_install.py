@@ -34,10 +34,10 @@ NATIVE_SCHEMA_VERSION=3
 MAX_STATE_READER_VERSION=2
 INSTALL_SUBDIR='adhd'
 RELEASE_DIRS=('adhd','skills','native','schemas','third_party','tests','config','bundled','runtime')
-RELEASE_FILES=('adhd.py','hook.py','LICENSE','LICENSE-RAIBIT-MIT','THIRD_PARTY_NOTICES.md','requirements-documents.txt','README.md','README.ko.md','ADHD_PROVENANCE.md',
-               'docs/installation.md','docs/request-routing.md','docs/large-tasks.md','docs/obsidian.md','docs/delivery-efficiency.md','docs/verification-efficiency.md','docs/optimization.md','docs/loop-steering.md','docs/releases/0.1.4.md','docs/releases/0.1.5.md','docs/releases/0.1.6.md','docs/releases/0.1.7.md',
+RELEASE_FILES=('adhd.py','hook.py','LICENSE','LICENSE-RAIBIT-MIT','THIRD_PARTY_NOTICES.md','requirements-documents.txt','README.md','README.ko.md','README_en.md','ADHD_PROVENANCE.md',
+               'docs/installation.md','docs/request-routing.md','docs/large-tasks.md','docs/obsidian.md','docs/delivery-efficiency.md','docs/verification-efficiency.md','docs/optimization.md','docs/loop-steering.md','docs/workspace-storage.md','docs/project-coordination.md','docs/releases/0.1.4.md','docs/releases/0.1.5.md','docs/releases/0.1.6.md','docs/releases/0.1.7.md','docs/releases/0.2.0.md',
                'examples/large-task.json','examples/large-limits.json','examples/batch-checks.json',
-               'examples/obsidian/config.json','examples/obsidian/feedback.json','scripts/benchmark_delivery_efficiency.py','scripts/benchmark_verification_efficiency.py','scripts/benchmark_obsidian.py','scripts/compare_delivery_efficiency.py','scripts/evaluate_context_components.py')
+               'examples/obsidian/config.json','examples/obsidian/feedback.json','scripts/benchmark_delivery_efficiency.py','scripts/benchmark_verification_efficiency.py','scripts/benchmark_obsidian.py','scripts/compare_delivery_efficiency.py','scripts/evaluate_context_components.py','scripts/benchmark_workspace_resources.py')
 RELEASE_EXCLUDED_COMPONENTS=frozenset({'.git','.adhd','.omx','.venv','__pycache__',
     '.pytest_cache','.mypy_cache','.ruff_cache','node_modules','.tox','.nox',
     'cache','.cache','tmp','temp','scratch'})
@@ -819,7 +819,16 @@ def upgrade_native(target:Path,agents_home:Path|None=None,compact:bool=False,mig
         try:
             result=_install_native(target,destination_agents,compact,migrate_models,fixture_mode,
                                    managed_workflows=managed_workflows,role_effort=role_effort)
-            result['upgraded_from']=old['version'];return result
+            result['upgraded_from']=old['version']
+            # The new installation record is committed. Retention is best effort:
+            # a cleanup failure cannot undo installed files or the new backup.
+            try:
+                from .storage import _prune_after_upgrade_locked
+                result['retention'] = _prune_after_upgrade_locked(target)
+            except (OSError, ValueError, RuntimeError) as cleanup_error:
+                result['retention'] = {'status': 'cleanup_pending',
+                                       'reason': str(cleanup_error)}
+            return result
         except BaseException:
             marker=parent/'native-install-recovery.json'
             if marker.exists() or marker.is_symlink():

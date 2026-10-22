@@ -136,6 +136,18 @@ class LargeIntegrationTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 validate_snapshot(ws,snapshot)
 
+    def test_failed_submission_releases_stopped_writer(self):
+        with tempfile.TemporaryDirectory() as temp,patch.dict(os.environ,{'ADHD_HOME':str(Path(temp)/'state')}):
+            ws=Path(temp)/'project';ws.mkdir()
+            store=LargeTaskStore(ws,'failure-run');spec=self.spec('failure-run')
+            spec['tasks']=spec['tasks'][:1];store.initialize(spec)
+            binary=[sys.executable,str(ROOT/'tests/fake_large_worker.py')]
+            with patch('adhd.large_execution.preflight',return_value=binary),patch.object(store,'submit',side_effect=ValueError('scope regression fixture')):
+                result=run_workers(store,limits={k:1 for k in ('host_slots','policy_slots','resource_slots','budget_slots')})
+            self.assertEqual(result['status'],'needs_repair')
+            self.assertEqual(store.status()['tasks']['A']['state'],'needs_repair')
+            self.assertEqual(store._coordinator().status()['tasks'][0]['status'],'failed')
+
     def test_actual_cli_batch_reports_failure_exit_and_full_logs(self):
         with tempfile.TemporaryDirectory() as temp:
             ws = Path(temp)

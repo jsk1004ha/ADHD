@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 import uuid
+from unittest.mock import patch
 
 from adhd.core import digest
 from adhd.large_tasks import LargeTaskStore
@@ -30,6 +31,9 @@ class LargeTaskTests(unittest.TestCase):
         self.root = Path(self.temp.name) / 'project'
         self.root.mkdir()
         self.run_id = 'fixture-' + uuid.uuid4().hex[:12]
+        environment = patch.dict(os.environ, {'ADHD_HOME': str(Path(self.temp.name)/'state')})
+        environment.start()
+        self.addCleanup(environment.stop)
 
     def repository(self):
         git(self.root, 'init', '-q')
@@ -63,6 +67,21 @@ class LargeTaskTests(unittest.TestCase):
     def limits(self, slots=6):
         return {'host_slots': slots, 'policy_slots': slots, 'resource_slots': slots,
                 'budget_slots': slots, 'integration_backlog_limit': slots}
+
+    def verify_shared(self,store,expected):
+        frozen=store.freeze();stage=Path(frozen['staging_workspace'])
+        code='from pathlib import Path; p=Path("a.txt"); assert (p.read_text() if p.exists() else None)=='+repr(expected)
+        plan={'run_id':store.run_id,'contract_revision':1,'contract_hash':frozen['contract_hash'],
+              'assembly_digest':frozen['snapshot_digest'],'snapshot_paths':list(frozen['files']),
+              'requirements':['R1'],'mandatory_checks':['shared'],
+              'checks':[{'id':'shared','argv':[sys.executable,'-c',code],
+                         'subject_paths':['a.txt'] if expected is not None else [],'requirements':['R1']}]}
+        # Deleted-file validation still binds the entire frozen input snapshot.
+        if expected is None:plan['checks'][0]['subject_paths']=['witness.txt']
+        store.declare_validation_plan(plan)
+        batch=run_batch(plan,stage)
+        self.assertEqual(batch['status'],'passed',batch)
+        store.mark_verified(frozen['snapshot_digest'],batch['report'])
 
     def test_final_acceptance_dependency_is_rejected_before_dispatch(self):
         spec = self.spec()
@@ -199,6 +218,97 @@ class LargeTaskTests(unittest.TestCase):
         store.stage('B')
         frozen = store.freeze()
         self.assertEqual((Path(frozen['staging_workspace']) / 'a.txt').read_text(), 'second\n')
+
+    def test_separate_runs_inherit_serialized_writer_changes(self):
+        for git_mode in (False, True):
+            with self.subTest(git=git_mode):
+                self.root = Path(self.temp.name)/('git-project' if git_mode else 'file-project')
+                self.root.mkdir()
+                (self.root/'a.txt').write_text('base')
+                if git_mode:self.repository()
+                stores=[]
+                for suffix in ('first','second'):
+                    self.run_id='cross-'+suffix+'-'+uuid.uuid4().hex[:8]
+                    tasks=[{'id':'A','package':'a','objective':'Append to shared file',
+                            'requirements':['R1'],'write_paths':['a.txt']}]
+                    stores.append(self.store(self.spec(tasks=tasks,requirement_ids=('R1',))))
+                first,second=stores
+                a=first.dispatch('director',self.limits())[0]
+                self.assertEqual(second.dispatch('director',self.limits()),[])
+                worker=Path(a['workspace'])
+                (worker/'a.txt').write_text('base+A')
+                commit=None
+                if git_mode:
+                    git(worker,'add','a.txt');git(worker,'commit','-qm','append A')
+                    commit=git(worker,'rev-parse','HEAD')
+                first.submit('A',a['generation'],commit)
+                first.stage('A')
+                self.assertEqual(second.dispatch('director',self.limits()),[])
+                self.verify_shared(first,'base+A')
+                b=second.dispatch('director',self.limits())[0]
+                worker=Path(b['workspace'])
+                self.assertEqual((worker/'a.txt').read_text(),'base+A')
+                (worker/'a.txt').write_text('base+A+B')
+                commit=None
+                if git_mode:
+                    git(worker,'add','a.txt');git(worker,'commit','-qm','append B')
+                    commit=git(worker,'rev-parse','HEAD')
+                second.submit('A',b['generation'],commit)
+                second.stage('A')
+                frozen=second.freeze()
+                self.assertEqual((Path(frozen['staging_workspace'])/'a.txt').read_text(),'base+A+B')
+                self.assertEqual((self.root/'a.txt').read_text(),'base')
+
+    def test_separate_file_runs_inherit_deletion(self):
+        (self.root/'a.txt').write_text('base')
+        (self.root/'witness.txt').write_text('preserved input')
+        stores=[]
+        for suffix in ('first','second'):
+            self.run_id='deletion-'+suffix+'-'+uuid.uuid4().hex[:8]
+            task=self.spec()['tasks'][0];task['read_paths']=['witness.txt']
+            stores.append(self.store(self.spec(tasks=[task],requirement_ids=('R1',))))
+        first,second=stores
+        card=first.dispatch('director',self.limits())[0]
+        (Path(card['workspace'])/'a.txt').unlink()
+        first.submit('A',card['generation']);first.stage('A')
+        self.assertEqual(second.dispatch('director',self.limits()),[])
+        self.verify_shared(first,None)
+        card=second.dispatch('director',self.limits())[0]
+        self.assertFalse((Path(card['workspace'])/'a.txt').exists())
+        self.assertEqual((self.root/'a.txt').read_text(),'base')
+
+    def test_coordination_outbox_recovers_before_freeze(self):
+        tasks=[self.spec()['tasks'][0]]
+        store=self.store(self.spec(tasks=tasks,requirement_ids=('R1',)))
+        card=store.dispatch('director',self.limits())[0]
+        self.assertNotIn('owner',store.status()['tasks']['A']['coordination'])
+        self.assertIn('owner',store._read_state()['tasks']['A']['coordination'])
+        (Path(card['workspace'])/'a.txt').write_text('ready')
+        store.submit('A',card['generation'])
+        with patch.object(store._coordinator(),'finish',side_effect=OSError('coordinator unavailable')):
+            with self.assertRaises(OSError):store.stage('A')
+        self.assertTrue(store.status()['tasks']['A']['coordination_pending'])
+        with self.assertRaisesRegex(ValueError,'unfinished'):store.freeze()
+        self.assertEqual(store.reconcile()['coordination_recovered'],['A'])
+        self.assertFalse(store.status()['tasks']['A']['coordination_pending'])
+        self.assertTrue(store.freeze()['snapshot_digest'])
+
+    def test_integrated_worker_is_compacted_and_patch_replays(self):
+        for git_mode in (False,True):
+            with self.subTest(git=git_mode):
+                self.root=Path(self.temp.name)/('compact-git' if git_mode else 'compact-files');self.root.mkdir()
+                if git_mode:self.repository()
+                self.run_id='compact-'+uuid.uuid4().hex[:8]
+                store=self.store(self.spec(tasks=[self.spec()['tasks'][0]],requirement_ids=('R1',)))
+                card=store.dispatch('director',self.limits())[0];worker=Path(card['workspace'])
+                (worker/'a.txt').write_text('replayable');commit=None
+                if git_mode:
+                    git(worker,'add','a.txt');git(worker,'commit','-qm','worker');commit=git(worker,'rev-parse','HEAD')
+                store.submit('A',card['generation'],commit);store.stage('A')
+                self.assertFalse(worker.exists(),store.status()['tasks']['A'].get('worker_cleanup'))
+                with store._transaction() as (_,state):
+                    state['staging_dirty']=True
+                self.assertEqual((Path(store.freeze()['staging_workspace'])/'a.txt').read_text(),'replayable')
 
     def test_ownership_and_dirty_user_work_are_preserved(self):
         self.repository()

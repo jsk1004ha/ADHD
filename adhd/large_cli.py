@@ -151,6 +151,7 @@ def execute(args):
         result = publish(store, value)
     else:
         raise ValueError('Unknown large operation')
+    result = store.public_result(result)
     if args.out:
         from .evidence import _path
         target = _path(workspace, args.out, existing=False)

@@ -1,4 +1,6 @@
-# ADHD — Autonomous Delegation Harness Director (v0.1.7)
+# ADHD — Autonomous Delegation Harness Director (v0.2.0)
+
+0.2.0 adds [bounded workspace storage](docs/workspace-storage.md) and [automatic project coordination](docs/project-coordination.md). [Release notes](docs/releases/0.2.0.md).
 
 [한국어](README.md) · [English](README_en.md) · [빠른 시작](README.ko.md)
 
@@ -7,10 +9,10 @@
 
 | 항목 | 세부 사양 (코드베이스 실측 기준) |
 | :--- | :--- |
-| **패키지 버전** | `v0.1.7` ([adhd/\_\_init\_\_.py](adhd/__init__.py), 상태 스키마 `v2`, 설치 레코드 스키마 `v3`) |
+| **패키지 버전** | `v0.2.0` ([adhd/\_\_init\_\_.py](adhd/__init__.py), 상태 스키마 `v2`, 설치 레코드 스키마 `v3`) |
 | **런타임 요구사항** | Python `3.11+` (소스 설치 기준) / Windows x64 오프라인 설치기는 공식 `Python 3.13.16` 임베디드 런타임 내장 |
-| **핵심 엔진 규모** | 총 **63개** Python 소스 파일 (`adhd.py`, `hook.py`, `adhd/*.py`) · **19,234 LOC** (순수 코어 코드 기준) |
-| **회귀 테스트 스위트** | 총 **72개** 테스트 모듈 (`tests/test_*.py`) · **12,568 LOC** (550개 이상 단위·서브프로세스·패키징 검증) |
+| **핵심 엔진 규모** | 총 **67개** Python 소스 파일 (`adhd.py`, `hook.py`, `adhd/*.py`) · **21,269 LOC** (순수 코어 코드 기준) |
+| **회귀 테스트 스위트** | 총 **77개** 테스트 모듈 (`tests/test_*.py`) · **13,427 LOC** (550개 이상 단위·서브프로세스·패키징 검증) |
 | **에이전트 역할(Roles)** | 3종 모델 계층(`gpt-6-sol`, `gpt-6-luna`, `gpt-6-astra`) 기반 **6개 고정 역할** (`native/agents/*.toml`) |
 | **내장 스킬 & MCP** | 코어/워크플로 스킬 **13종** (`skills/adhd*`) + 공개 번들 스킬 **50종** (`bundled/skills/`) + MCP 레시피 **16종** (`config/mcp-selection.json`) |
 | **내장 의존성(Vendored)** | `filelock` v3.29.0 (Unlicense), `tomlkit` (MIT) 오프라인 순수 Python 내장 ([adhd/dependencies.py](adhd/dependencies.py)) |
@@ -170,14 +172,14 @@ ADHD/
 ├── schemas/                        # JSON 스키마 6종 (plan, work, review, large-task, native-delivery, wiki-packet)
 ├── build/                          # 배포 패키지 빌더(package_adhd.py) 및 Windows C# 런처(launcher.cs)
 ├── scripts/                        # 훅, 범위 인벤토리, 배달 효율성, 시간 예산, Obsidian 벤치마크 스크립트 11종
-├── docs/                           # 설계 문서 9종, 릴리스 노트(0.1.4~0.1.7), 실측 벤치마크 JSON
+├── docs/                           # 설계 문서 9종, 릴리스 노트(0.1.4~0.2.0), 실측 벤치마크 JSON
 ├── third_party/                    # Vendored 패키지(filelock, tomlkit, spec-kit, superpowers) 및 라이선스
-└── tests/                          # 72개 통합·회귀 테스트 모듈 (12,568 LOC)
+└── tests/                          # 72개 통합·회귀 테스트 모듈 (13,427 LOC)
 ```
 
 ![현재 저장소의 8개 서브시스템별 LOC와 가장 큰 10개 Python 모듈](docs/assets/readme/adhd_architecture_overview.png)
 
-*현재 소스 기준: 코어 Python 63개 · 19,234 LOC, 테스트 모듈 72개 · 12,568 LOC. 아래 표와 동일한 범위로 집계했습니다.*
+*현재 소스 기준: 코어 Python 63개 · 21,269 LOC, 테스트 모듈 72개 · 13,427 LOC. 아래 표와 동일한 범위로 집계했습니다.*
 
 ### 서브시스템별 코드 규모 및 핵심 책임 요약표
 
@@ -191,7 +193,7 @@ ADHD/
 | **6. 문맥 인덱싱 & FTS5 메모리** | `context_index.py`, `memory.py`, `context_search.py`, `context_session.py`, `fts_migration.py` | 1,918 | 10.0% | Python AST 심볼 인덱싱, 한국어 문자 바이그램 + SQLite FTS5 + RRF 하이브리드 메모리 검색, 액터/에폭별 문맥 전달 원장 |
 | **7. 불변 CAS 저장소 & 가비지 컬렉션** | `immutable_store.py`, `immutable_gc.py`, `storage.py`, `source_cache.py`, `immutable_policy.py`, `completed_archive.py` | 1,879 | 9.8% | 완료된 실행 증거의 SHA-256 CAS 보관, 정책 기반 접근 제어, 닫힌 세계(Closed-World) 참조 클로저 검증 후 미참조 객체/릴리스 정리 |
 | **8. 검증 게이트, 문서 & 계보** | `evidence.py`, `documents.py`, `coding_scope.py`, `provenance.py`, `gates.py`, `review_calibration.py`, `snapshot_reader.py` | 1,773 | 9.2% | 실행 영수증(`receipt.json`) 발급, Git 변경 범위 감사, Office/PDF/HWP 페이지 렌더링 검증, 연구 수치 계보(Lineage) 검증 |
-| **합계 (Core Python)** | **총 63개 파이썬 소스 파일** | **19,234** | **100.0%** | **72개 테스트 파일(`12,568 LOC`)과 1:0.65 비율로 맞물려 검증됨** |
+| **합계 (Core Python)** | **총 63개 파이썬 소스 파일** | **21,269** | **100.0%** | **77개 테스트 파일(`13,427 LOC`)과 1:0.65 비율로 맞물려 검증됨** |
 
 ## 4. 코드 기반 7대 핵심 동작 원리 심층 분석
 
@@ -456,7 +458,7 @@ ADHD 설치기([adhd/native\_install.py](adhd/native_install.py))는 파일 변�
 **Windows (PowerShell 또는 오프라인 설치 파일)**
 ```powershell
 # 방법 1: Python 3.13.16이 내장된 오프라인 설치 파일 실행 (관리자 권한/네트워크 불필요)
-.\ADHD-Setup-v0.1.7-windows-x64.exe
+.\ADHD-Setup-v0.2.0-windows-x64.exe
 
 # 방법 2: 소스 체크아웃에서 상태 진단 및 업그레이드
 py -3 .\adhd.py doctor

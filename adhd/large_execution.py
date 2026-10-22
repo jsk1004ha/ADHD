@@ -18,6 +18,7 @@ from .large_prompts import worker_prompt
 from .large_tasks import _covers
 from .models import route
 from .runner import executable_command, terminate_tree, usage_from_log
+from .owned_process import OwnedProcess
 from filelock import FileLock
 
 
@@ -91,14 +92,13 @@ def _run_workers(store, *, codex: str = 'codex', limits: dict | None = None,
                 'exec', '--sandbox', 'workspace-write', '--json',
                 '--skip-git-repo-check', '-C', card['workspace'],
                 '-o', str(prefix.with_suffix('.answer.txt')), '-']
-        kwargs = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == 'nt' else {'start_new_session': True}
         nonce = uuid.uuid4().hex
         proc = None
         try:
             # Existing installed releases also recognize this exclusion marker.
             # It excludes child ADHD loops; this is not a legacy run owner.
-            proc = subprocess.Popen(argv, cwd=card['workspace'], stdin=stdin, stdout=stdout, stderr=stderr,
-                                    env={**os.environ, 'ADHD_EXEC_OWNER': 'legacy', 'ADHD_LARGE_WORKER': '1'}, **kwargs)
+            proc = OwnedProcess(argv, cwd=card['workspace'], stdin=stdin, stdout=stdout, stderr=stderr,
+                                env={**os.environ, 'ADHD_EXEC_OWNER': 'legacy', 'ADHD_LARGE_WORKER': '1'})
             store.attach_process(task_id, generation, proc.pid, nonce)
             atomic_json(prefix.with_suffix('.process.json'), {'pid': proc.pid, 'nonce': nonce,
                         'argv': argv, 'workspace': card['workspace'], 'task_id': task_id,
@@ -108,6 +108,7 @@ def _run_workers(store, *, codex: str = 'codex', limits: dict | None = None,
         except BaseException:
             if proc is not None:
                 terminate_tree(proc)
+                proc.close()
             for stream in (stdin, stdout, stderr):
                 stream.close()
             raise
@@ -118,6 +119,7 @@ def _run_workers(store, *, codex: str = 'codex', limits: dict | None = None,
             raise ValueError('Cannot release a live worker')
         for stream in item['streams']:
             stream.close()
+        proc.close()
         store.record_termination(card['task_id'], card['generation'], item['nonce'], proc.returncode)
         usage, measured = usage_from_log(item['prefix'].with_suffix('.stdout.jsonl'))
         row = {'task_id': card['task_id'], 'generation': card['generation'],
@@ -137,7 +139,11 @@ def _run_workers(store, *, codex: str = 'codex', limits: dict | None = None,
                 row.update(status='provisionally_staged', commit=commit)
             except (ValueError, OSError, subprocess.SubprocessError) as error:
                 row.update(status='needs_repair', detail=str(error)[:1800])
-                # Scope/integration faults remain visible; never auto-resolve them.
+                current=store.status()['tasks'][card['task_id']]
+                if current['state'] in {'running','submitted'}:
+                    store.fail_task(card['task_id'],str(error))
+                # A committed provisional stage retains its release outbox for
+                # reconcile. Failed patches remain available for explicit repair.
         outcomes.append(row)
         atomic_json(item['prefix'].with_suffix('.result.json'), row)
 

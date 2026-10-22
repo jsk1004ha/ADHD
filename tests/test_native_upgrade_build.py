@@ -136,9 +136,47 @@ class NativeUpgradeBuildTests(unittest.TestCase):
 
     def test_same_digest_returns_noop(self):
         installed=install_native(self.codex,self.agents,fixture_mode=True)
+        backups_before={path.name for path in (self.codex/'adhd'/'backups').iterdir()}
         result=upgrade_native(self.codex,self.agents,fixture_mode=True)
         self.assertEqual(result['status'],'already_installed');self.assertEqual(result['release_identity'],installed['release_identity'])
+        self.assertEqual({path.name for path in (self.codex/'adhd'/'backups').iterdir()},backups_before)
         rollback_native(self.codex)
+
+    def test_changed_upgrade_keeps_one_verified_backup(self):
+        fixture=self._minimal_failure_source()
+        source=self.root/'failure-source'/'hook.py'
+        with fixture:
+            install_native(self.codex,self.agents,fixture_mode=True)
+            source.write_text('# changed hook\n',encoding='utf-8')
+            result=upgrade_native(self.codex,self.agents,fixture_mode=True)
+            self.assertNotEqual(result.get('status'),'already_installed')
+            self.assertNotEqual(result['retention'].get('status'),'cleanup_pending')
+            backups=[path for path in (self.codex/'adhd'/'backups').iterdir() if path.is_dir()]
+            self.assertEqual(len(backups),1)
+            record=json.loads((self.codex/'adhd'/'native-installation.json').read_text(encoding='utf-8'))
+            self.assertEqual(Path(record['backup']),backups[0])
+            hooks_row=next(row for row in record['files'] if row['path']==str(self.codex/'hooks.json'))
+            self.assertEqual(Path(hooks_row['backup']).read_bytes(),b'{"hooks": {}}')
+            for _ in range(20):
+                self.assertEqual(upgrade_native(self.codex,self.agents,fixture_mode=True)['status'],
+                                 'already_installed')
+            self.assertEqual(len(list((self.codex/'adhd'/'backups').iterdir())),1)
+            rollback_native(self.codex)
+
+    def test_cleanup_failure_does_not_rollback_committed_upgrade(self):
+        fixture=self._minimal_failure_source()
+        source=self.root/'failure-source'/'hook.py'
+        with fixture:
+            first=install_native(self.codex,self.agents,fixture_mode=True)
+            source.write_text('# next hook\n',encoding='utf-8')
+            with patch('adhd.storage._prune_after_upgrade_locked',side_effect=OSError('cleanup denied')):
+                upgraded=upgrade_native(self.codex,self.agents,fixture_mode=True)
+            self.assertEqual(upgraded['retention']['status'],'cleanup_pending')
+            self.assertNotEqual(upgraded['release'],first['release'])
+            record=json.loads((self.codex/'adhd'/'native-installation.json').read_text(encoding='utf-8'))
+            self.assertEqual(record['release'],upgraded['release'])
+            self.assertTrue(Path(record['backup']).is_dir())
+            rollback_native(self.codex)
 
     def test_new_install_uses_adhd_executable_path(self):
         installed=install_native(self.codex,self.agents,fixture_mode=True)

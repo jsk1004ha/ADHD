@@ -17,6 +17,7 @@ import shutil
 import sqlite3
 import subprocess
 import time
+import uuid
 from typing import Any, Iterator
 
 from .core import atomic_json, digest, file_hash
@@ -377,10 +378,23 @@ class LargeTaskStore:
             db.execute('INSERT INTO state(id,value) VALUES(1,?)', (json.dumps(new, ensure_ascii=False, sort_keys=True),))
             return copy.deepcopy(new)
 
-    def status(self) -> dict:
+    @staticmethod
+    def public_result(value):
+        """Expose task state without the director's private coordinator capability."""
+        if isinstance(value,list):return [LargeTaskStore.public_result(row) for row in value]
+        if not isinstance(value,dict):return value
+        result={key:LargeTaskStore.public_result(row) for key,row in value.items()}
+        if isinstance(result.get('coordination'),dict):
+            result['coordination'].pop('owner',None)
+        return result
+
+    def _read_state(self) -> dict:
         with closing(self._connect()) as db:
             row = db.execute('SELECT value FROM state WHERE id=1').fetchone()
         return copy.deepcopy(self._need_state(json.loads(row[0]) if row else None))
+
+    def status(self) -> dict:
+        return self.public_result(self._read_state())
 
     def events(self, after_id: int = 0, limit: int = 100) -> list[dict]:
         with closing(self._connect()) as db:
@@ -590,6 +604,23 @@ class LargeTaskStore:
         return result
 
     def dispatch(self, owner: str, limits: dict | None = None) -> list[dict]:
+        self._dispatch_coordination = []
+        try:
+            return self._dispatch(owner, limits)
+        except BaseException:
+            # dispatch never launches a process; release only this failed call's
+            # reservations, not leases from a prior admitted writer.
+            for token in self._dispatch_coordination:
+                self._coordinator().finish(token['task_id'], token['generation'], owner=token['owner'], success=False)
+            raise
+
+    def _coordinator(self):
+        from .coordination import Coordinator
+        if not hasattr(self, '_project_coordinator'):
+            self._project_coordinator = Coordinator(self.workspace)
+        return self._project_coordinator
+
+    def _dispatch(self, owner: str, limits: dict | None = None) -> list[dict]:
         _clean_id(owner, 'dispatcher owner')
         limits = limits or {}
         if not isinstance(limits, dict):
@@ -641,6 +672,24 @@ class LargeTaskStore:
                 resources = set(row['spec'].get('shared_resources', []))
                 if resources & occupied:
                     continue
+                coordination = self._coordinator()
+                coordination_id = self.run_id + ':' + row['id']
+                coordination.register({'task_id': coordination_id,
+                    'contract_revision': row['generation'] + 1,
+                    'requirements': row['spec']['requirements'],
+                    'run_id': self.run_id,
+                    'read_paths': row['spec'].get('read_paths', []),
+                    'write_paths': row['spec']['write_paths'],
+                    'resources': row['spec'].get('shared_resources', []),
+                    'base_revision': state['base_commit'] or digest(state['source_inputs'])})
+                token = coordination.acquire(coordination_id, isolated=True)
+                if token['status'] != 'running':
+                    self._event(db, 'coordination_wait', {'task_id': row['id'],
+                                'waiting_for': token.get('waiting_for', [])})
+                    continue
+                token = {'task_id': coordination_id, 'generation': token['generation'], 'owner': token['owner']}
+                self._dispatch_coordination.append(token)
+                row['coordination'] = token
                 if row['state'] == 'superseded':
                     row['interfaces'] = {}
                     row['commit'] = None
@@ -652,7 +701,11 @@ class LargeTaskStore:
                 row['dependency_versions'] = self._dependency_versions(state, row)
                 row['process'] = None
                 row['termination'] = None
+                for key in ('recovery_ready','patch_workspace','patch_manifest','patch_ref','worker_cleanup'):
+                    row.pop(key,None)
                 row['superseded_reason'] = None
+                self._stage_workspace(state)
+                self._seed_coordination_inputs(state,row)
                 if state['mode'] == 'git':
                     stage = self._stage_workspace(state)
                     base = _git(stage, 'rev-parse', 'HEAD').decode().strip()
@@ -714,6 +767,10 @@ class LargeTaskStore:
             row = self._current(state, task_id, generation, {'running'})
             if row['process'] is not None:
                 raise ValueError('Process already attached')
+            if row.get('coordination'):
+                token = row['coordination']
+                self._coordinator().assert_owner(token['task_id'], token['generation'], owner=token['owner'])
+                self._coordinator().attach_process(token['task_id'], token['generation'], pid, owner=token['owner'])
             row['process'] = {'pid': pid, 'nonce_sha256': hashlib.sha256(nonce.encode()).hexdigest(),
                               'attached_at': _now()}
             self._event(db, 'process_attached', {'task_id': task_id, 'generation': generation, 'pid': pid})
@@ -802,11 +859,15 @@ class LargeTaskStore:
             return copy.deepcopy(publication)
 
     def _changed_git(self, row: dict, *, allow_empty: bool = False) -> list[str]:
-        cwd = Path(row['workspace'])
-        if _git(cwd, 'rev-parse', 'HEAD').decode().strip() != row['commit']:
-            raise ValueError('Worker HEAD moved after submission')
-        if _git(cwd, 'status', '--porcelain', '-z', '--untracked-files=all'):
-            raise ValueError('Worker has unsubmitted file changes')
+        cwd = self.workspace if row.get('recovery_ready') else Path(row['workspace'])
+        if row.get('recovery_ready'):
+            if _git(cwd,'rev-parse',row['patch_ref']).decode().strip()!=row['commit']:
+                raise ValueError('Retained worker commit changed')
+        else:
+            if _git(cwd, 'rev-parse', 'HEAD').decode().strip() != row['commit']:
+                raise ValueError('Worker HEAD moved after submission')
+            if _git(cwd, 'status', '--porcelain', '-z', '--untracked-files=all'):
+                raise ValueError('Worker has unsubmitted file changes')
         names = sorted(set(_names(_git(cwd, 'diff', '--no-renames', '--name-only', '-z',
                                        row['base_commit'], row['commit'], '--'))))
         if not names and not allow_empty:
@@ -840,6 +901,9 @@ class LargeTaskStore:
             row = self._current(state, task_id, generation, {'running'})
             if owner is not None and row['owner'] != owner:
                 raise ValueError('Task lease owner mismatch')
+            if row.get('coordination'):
+                token = row['coordination']
+                self._coordinator().assert_owner(token['task_id'], token['generation'], owner=token['owner'])
             if row['process'] and (not row['termination'] or row['termination']['exit_code'] != 0):
                 raise ValueError('Attached writer process has not exited successfully')
             if state['mode'] == 'git':
@@ -871,7 +935,7 @@ class LargeTaskStore:
         self._changed_git(row, allow_empty=bool(row.get('no_op_reason')))
         if row.get('no_op_reason'):
             return _git(stage, 'rev-parse', 'HEAD').decode().strip()
-        patch = _git(Path(row['workspace']), 'diff', '--binary', '--full-index',
+        patch = _git(self.workspace if row.get('recovery_ready') else Path(row['workspace']), 'diff', '--binary', '--full-index',
                      row['base_commit'], row['commit'], '--')
         if _git(stage, 'status', '--porcelain', '-z', '--untracked-files=all'):
             raise ValueError('Staging workspace has unexpected changes')
@@ -893,8 +957,11 @@ class LargeTaskStore:
     def _copy_files_inputs(self, state: dict, row: dict, target: Path, *, include_staging: bool = True) -> None:
         roots = [self.workspace]
         if include_staging and state.get('staging_workspace'):
-            roots.append(Path(state['staging_workspace']))
+            # The stage contains the declared input union. Falling back to the
+            # original source would resurrect a deletion made by an earlier task.
+            roots = [Path(state['staging_workspace'])]
         named = row['spec'].get('read_paths', []) + row['spec']['write_paths']
+        selected = {}
         for pattern in named:
             _relative(pattern, pattern=True)
             for root in roots:
@@ -904,27 +971,85 @@ class LargeTaskStore:
                         continue
                     if not folder.is_dir():
                         raise ValueError('Read path prefix is not a directory')
-                    files = [p for p in folder.rglob('*') if p.is_file()]
-                    if len(files) > 20_000:
-                        raise ValueError('File copy input exceeds 20000 files')
-                    for source in files:
+                    for source in folder.rglob('*'):
+                        if not source.is_file():
+                            continue
                         rel = source.relative_to(root).as_posix()
                         _safe_member(root, rel)
-                        dest = _safe_member(target, rel)
-                        dest.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(source, dest)
+                        selected[rel] = source
+                        if len(selected) > 20_000:
+                            raise ValueError('File copy input exceeds 20000 files')
                 else:
                     source = _safe_member(root, pattern)
                     if source.is_file():
-                        dest = _safe_member(target, pattern)
-                        dest.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(source, dest)
+                        selected[pattern] = source
+        from .workspace_storage import bounded_copy
+        bounded_copy(selected, target, workspace=self.workspace)
+
+    def _seed_coordination_inputs(self,state,row):
+        token=row.get('coordination')
+        if not token:return
+        shared=self._coordinator().inputs(token['task_id'],token['generation'],owner=token['owner'])
+        if not shared:return
+        from .workspace_storage import WorkspaceStorage
+        stage=Path(state['staging_workspace'])
+        total=sum(Path(p['path']).stat().st_size for p in shared.values() if p['path'] is not None)
+        if total>64*1024**2:raise ValueError('Shared input transfer exceeds 64 MiB')
+        manager=WorkspaceStorage(self.workspace)
+        reservation=manager.reserve('coordinated-inputs',total)
+        imported=[]
+        copied=0
+        try:
+            for name,proof in shared.items():
+                target=_safe_member(stage,name)
+                if target.is_file() and file_hash(target)==proof['sha256']:continue
+                if state['mode']=='git':
+                    # Hash the base blob as a stream instead of retaining it in RAM.
+                    with subprocess.Popen(['git','-C',str(self.workspace),'show',state['base_commit']+':'+name],
+                                          stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,
+                                          env={k:v for k,v in os.environ.items() if not k.startswith('GIT_')}) as check:
+                        expected=hashlib.file_digest(check.stdout,'sha256').hexdigest()
+                        if check.wait(timeout=15):expected=None
+                else:expected=state['source_inputs'].get(name)
+                if target.exists() and (not target.is_file() or file_hash(target)!=expected):
+                    raise ValueError('Shared input would overwrite a changed staging file')
+                if proof.get('deleted'):
+                    if target.exists():
+                        target.unlink();imported.append(name)
+                    continue
+                source=Path(proof['path'])
+                target.parent.mkdir(parents=True,exist_ok=True)
+                temporary=target.with_name('.'+target.name+'.coordination-'+uuid.uuid4().hex)
+                try:
+                    hashed=hashlib.sha256()
+                    with source.open('rb') as reader,temporary.open('xb') as output:
+                        for chunk in iter(lambda:reader.read(1024*1024),b''):
+                            copied+=len(chunk)
+                            if copied>total:raise ValueError('Shared input grew beyond reservation')
+                            hashed.update(chunk);output.write(chunk)
+                    if hashed.hexdigest()!=proof['sha256']:raise ValueError('Shared input changed during copy')
+                    _safe_member(stage,name)
+                    os.replace(temporary,target);imported.append(name)
+                finally:temporary.unlink(missing_ok=True)
+            if imported and state['mode']=='git':
+                _git(stage,'add','--',*imported)
+                _git(stage,'-c','commit.gpgsign=false','-c','user.name=ADHD Worker',
+                     '-c','user.email=adhd@localhost','commit','-qm','ADHD verified shared inputs')
+                state['staging_commit']=_git(stage,'rev-parse','HEAD').decode().strip()
+            row['coordination_inputs']={name:proof['sha256'] for name,proof in shared.items()}
+        finally:manager.release(reservation)
 
     def _apply_files_patch(self, state: dict, stage: Path, row: dict) -> str:
-        if row.get('submitted_manifest') != _manifest(Path(row['workspace']), git=False):
-            raise ValueError('Submitted file workspace changed before staging')
-        names = self._changed_files(row, allow_empty=bool(row.get('no_op_reason')))
-        worker = Path(row['workspace'])
+        if row.get('recovery_ready'):
+            worker=Path(row['patch_workspace'])
+            if row['patch_manifest']!=_manifest(worker,git=False):
+                raise ValueError('Retained worker patch changed')
+            names=row['changed_paths']
+        else:
+            worker=Path(row['workspace'])
+            if row.get('submitted_manifest') != _manifest(worker, git=False):
+                raise ValueError('Submitted file workspace changed before staging')
+            names = self._changed_files(row, allow_empty=bool(row.get('no_op_reason')))
         for name in names:
             source = _safe_member(worker, name)
             dest = _safe_member(stage, name)
@@ -936,6 +1061,73 @@ class LargeTaskStore:
         return digest(_manifest(stage, git=False))
 
     def stage(self, task_id: str) -> dict:
+        from filelock import FileLock
+        co = self._coordinator()
+        with FileLock(str(co.path)+'.integration-'+co.project_id+'.lock', timeout=30):
+            current = self._read_state()['tasks'].get(task_id)
+            if current and current.get('coordination_pending') and current['state']=='provisionally_staged':
+                row=current
+            else:
+                row=self._stage(task_id)
+            if row.get('coordination_pending'):
+                token=row['coordination']
+                stage=Path(self.status()['staging_workspace'])
+                co.finish(token['task_id'],token['generation'],owner=token['owner'],
+                    outputs={name:stage/name if (stage/name).is_file() else None for name in row['changed_paths']},
+                    _publication={'run_id':self.run_id,'task_id':task_id,
+                                  'state_db':str(self.db_path),'contract_hash':row['contract_hash']})
+                # Durable local outbox is cleared only after the coordinator
+                # commit. A crash at either boundary is idempotently recoverable.
+                with self._transaction() as (_,state):
+                    state['tasks'][task_id]['coordination_pending']=False
+                row['coordination_pending']=False
+            self._compact_worker(task_id)
+            return self.status()['tasks'][task_id]
+
+    def _compact_worker(self,task_id):
+        """Keep a replayable patch instead of a full successfully integrated checkout."""
+        state=self._read_state();row=state['tasks'][task_id]
+        if row['state'] not in STAGED or row.get('coordination_pending'):return
+        path=Path(row['workspace']);expected=self.worktrees/f'{task_id}-g{row["generation"]}'
+        if not path.exists():return
+        if row.get('worker_cleanup',{}).get('blocked'):return
+        try:
+            if (path!=expected or path.resolve()!=expected.absolute()
+                    or not path.resolve().is_relative_to(self.worktrees.resolve())):
+                raise ValueError('Worker cleanup path changed')
+            if row.get('process') and (not row.get('termination') or self._pid_alive(row['process']['pid'])):
+                raise ValueError('Worker termination remains unconfirmed')
+            if state['mode']=='git':
+                self._changed_git({**row,'recovery_ready':False},allow_empty=bool(row.get('no_op_reason')))
+                ref='refs/adhd/patches/'+digest([self.run_id,task_id,row['generation']])
+                _git(self.workspace,'update-ref',ref,row['commit'])
+                proof={'patch_ref':ref}
+            else:
+                if row['submitted_manifest']!=_manifest(path,git=False):
+                    raise ValueError('Worker changed after integration')
+                if any((path/name).exists() for name in FORBIDDEN):
+                    raise ValueError('Unrecorded worker control data is protected')
+                patch=self.directory/'patches'/f'{task_id}-g{row["generation"]}'
+                patch.mkdir(parents=True,exist_ok=True)
+                from .workspace_storage import bounded_copy
+                bounded_copy({name:_safe_member(path,name) for name in row['changed_paths']
+                              if _safe_member(path,name).is_file()},patch,workspace=self.workspace)
+                proof={'patch_workspace':str(patch),'patch_manifest':_manifest(patch,git=False)}
+            # Persist replay evidence before removing the exact owned working copy.
+            with self._transaction() as (_,current):
+                now=current['tasks'][task_id]
+                if now['generation']!=row['generation'] or now['state'] not in STAGED:return
+                now.update(recovery_ready=True,worker_cleanup={'status':'cleanup_pending'},**proof)
+            if state['mode']=='git':_git(self.workspace,'worktree','remove',str(path))
+            else:shutil.rmtree(path)
+            result={'status':'removed','retained':'commit reference' if state['mode']=='git' else 'changed files only'}
+        except (OSError,ValueError) as error:
+            result={'status':'cleanup_pending','reason':str(error)[:300], 'blocked':isinstance(error,PermissionError)}
+        with self._transaction() as (_,current):
+            if current['tasks'][task_id]['generation']==row['generation']:
+                current['tasks'][task_id]['worker_cleanup']=result
+
+    def _stage(self, task_id: str) -> dict:
         with self._transaction() as (db, maybe_state):
             state = self._need_state(maybe_state)
             row = state['tasks'].get(task_id)
@@ -951,6 +1143,8 @@ class LargeTaskStore:
             state['staged_order'].append(task_id)
             row['staged_commit'] = commit
             row['state'] = 'provisionally_staged'
+            if row.get('coordination'):
+                row['coordination_pending'] = True
             state['frozen'] = None
             state['updated_at'] = _now()
             self._event(db, 'provisionally_staged', {'task_id': task_id, 'commit': commit})
@@ -1013,6 +1207,9 @@ class LargeTaskStore:
             row['owner'] = None
             row['staged_commit'] = None
             row['cancelled_at'] = _now()
+            if row.get('coordination'):
+                token = row['coordination']
+                self._coordinator().finish(token['task_id'], token['generation'], owner=token['owner'], success=False)
             self._event(db, 'cancel_confirmed', {'task_id': task_id, 'generation': generation,
                                                  'evidence': evidence or row['termination']})
             return copy.deepcopy(row)
@@ -1031,12 +1228,25 @@ class LargeTaskStore:
             row['owner'] = None
             row['superseded_reason'] = 'host launch failed: ' + reason[:300]
             state['dispatch_count'] = max(0, state['dispatch_count'] - 1)
+            if row.get('coordination'):
+                token = row['coordination']
+                self._coordinator().finish(token['task_id'], token['generation'], owner=token['owner'], success=False)
             self._event(db, 'dispatch_abandoned', {'task_id': task_id, 'generation': generation,
                                                    'reason': reason[:300]})
             return copy.deepcopy(row)
 
     def reconcile(self) -> dict:
         """Observe durable leases and files after restart; never guess a writer exited."""
+        recovered=[]
+        for ident,row in self.status()['tasks'].items():
+            if row.get('worker_cleanup',{}).get('status')=='cleanup_pending':
+                self._compact_worker(ident)
+            if row.get('coordination_failure_pending'):
+                self.fail_task(ident,row.get('failure_reason','Interrupted failure release'))
+                recovered.append(ident)
+            if row.get('coordination_pending') and row['state']=='provisionally_staged':
+                self.stage(ident)
+                recovered.append(ident)
         with self._transaction() as (db, maybe_state):
             state = self._need_state(maybe_state)
             issues = []
@@ -1062,8 +1272,27 @@ class LargeTaskStore:
                         row['state'] = 'cancel_requested'
             if issues:
                 self._event(db, 'reconciled', {'issues': issues})
-            return {'issues': issues, 'reassignable': [ident for ident, row in state['tasks'].items()
+            return {'issues': issues, 'coordination_recovered': recovered,
+                    'reassignable': [ident for ident, row in state['tasks'].items()
                                                        if row['state'] in REQUEUEABLE]}
+
+    def fail_task(self,task_id:str,reason:str) -> dict:
+        """Preserve a failed patch but release its stopped writer through an outbox."""
+        with self._transaction() as (db,maybe_state):
+            state=self._need_state(maybe_state);row=state['tasks'][task_id]
+            if row['state'] not in {'running','submitted','needs_repair'}:
+                raise ValueError('Only an unfinished failed task can release its writer')
+            if row.get('process') and (not row.get('termination') or self._pid_alive(row['process']['pid'])):
+                raise ValueError('Failed writer termination has not been observed')
+            row.update(state='needs_repair',failure_reason=reason[:1800],coordination_failure_pending=bool(row.get('coordination')))
+            state['staging_dirty']=True
+            self._event(db,'task_failed',{'task_id':task_id,'reason':reason[:300]})
+            token=row.get('coordination')
+        if token:
+            self._coordinator().finish(token['task_id'],token['generation'],owner=token['owner'],success=False)
+            with self._transaction() as (_,state):
+                state['tasks'][task_id]['coordination_failure_pending']=False
+        return self.status()['tasks'][task_id]
 
     def amend(self, spec: dict) -> dict:
         spec = _validate_spec(spec, self.run_id)
@@ -1218,7 +1447,8 @@ class LargeTaskStore:
             state = self._need_state(maybe_state)
             if state['mode'] == 'files' and self._source_inputs(state['spec']) != state['source_inputs']:
                 raise ValueError('Declared non-Git source inputs changed before freeze')
-            pending = [ident for ident, row in state['tasks'].items() if row['state'] not in STAGED]
+            pending = [ident for ident, row in state['tasks'].items()
+                       if row['state'] not in STAGED or row.get('coordination_pending')]
             if pending:
                 raise ValueError('Cannot freeze with unfinished tasks: ' + ', '.join(sorted(pending)))
             if state['staging_dirty']:
