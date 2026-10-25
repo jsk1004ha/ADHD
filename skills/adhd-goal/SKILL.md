@@ -8,14 +8,19 @@ Read the actual user goal, inputs and current native bridge view. Use the existi
 ADHD owner and [native protocol](../adhd-native/references/protocol.md); do not
 launch another loop. Preserve the selected model, effort, permissions and scope.
 
-The native hook recognizes a message beginning with `/goal` or `$adhd-goal`,
-followed by whitespace and the outcome. The host's built-in `/goal` bypasses
+The native hook recognizes a message beginning with `/goal`, `$adhd-goal`, or
+an explicit `[$adhd-goal](../adhd-goal/SKILL.md)` link, followed by whitespace
+and the outcome. A trailing block of explicit skill invocations separated from
+the task by a comma, semicolon or newline also works, including a goal link
+beside other selected skills. Inline explanations and quoted/code examples do
+not select goal mode. The host's built-in `/goal` bypasses
 UserPromptSubmit: ADHD binds its real `thread_goal_updated` event from the
 host-supplied, session-matched transcript instead. For example:
 
 ```text
 $adhd-goal Fix the bug, pass the regression tests and produce the working result.
 /goal Finish the report with all required sections and verified source evidence.
+Finish the implementation and checks, [$adhd-goal](../adhd-goal/SKILL.md)
 ```
 
 1. Translate the user's outcome into observable acceptance criteria while
@@ -26,7 +31,10 @@ $adhd-goal Fix the bug, pass the regression tests and produce the working result
 2. For an idle task, capture coding scope where required and submit `native begin`
    with `loop_mode: "goal"`, criteria, artifacts and a requirement-covered plan.
    Read the acknowledgement and confirm `loop_mode` is `goal` in the view.
-   An observed leading command or active host thread goal authorizes this mode.
+   An observed command or active host thread goal authorizes this mode. If an
+   older parser missed the last recorded invocation, supported `begin`/`goal`
+   operations recheck that original prompt. They still require the correct
+   observed source turn and normal intent/state checks; never edit state flags.
 3. For an active task, reconcile the observed pending command using `sync-intent`:
    a bare `/goal` retains the current contract with `no_change`; changed outcome
    text needs the actual amendment or new-task transition. For the same active

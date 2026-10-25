@@ -682,6 +682,7 @@ docs/releases/0.1.6.md
 docs/releases/0.1.7.md
 docs/releases/0.2.0.md
 docs/releases/0.2.1.md
+docs/releases/0.2.2.md
 docs/request-routing.md
 docs/verification-efficiency.md
 docs/workspace-storage.md

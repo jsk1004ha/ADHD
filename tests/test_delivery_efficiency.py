@@ -380,6 +380,33 @@ class DeliveryEfficiencyTests(unittest.TestCase):
         self.assertEqual(goal_command(r'[$adhd-goal](C:\Users\example\.codex\skills\adhd-goal\SKILL.md) 구현시작'), '구현시작')
         self.assertIsNone(goal_command('Explain [$adhd-goal](skill://adhd-goal)'))
 
+    def test_trailing_explicit_skill_clause_selects_goal(self):
+        goal = r'[$adhd-goal](C:\Users\example\\.codex\skills\adhd-goal\SKILL.md)'
+        team = '[$team](skill://team)'
+        research = '[$autoresearch](skill://autoresearch)'
+        for separator in (', ', '; ', '\n'):
+            with self.subTest(separator=separator):
+                self.assertEqual(goal_command('결과를 구현하고 검증해줘' + separator + goal),
+                                 '결과를 구현하고 검증해줘')
+        for skills in ((goal, team, research), (team, goal, research)):
+            with self.subTest(skills=skills):
+                self.assertEqual(goal_command('결과를 완성해, ' + ' '.join(skills)),
+                                 '결과를 완성해 ' + team + ' ' + research)
+        self.assertEqual(goal_command('결과를 완성해, $adhd-goal'), '결과를 완성해')
+
+    def test_trailing_skill_mentions_in_literals_do_not_select_goal(self):
+        goal = '[$adhd-goal](skill://adhd-goal)'
+        for prompt in (f'Explain {goal}', f'Explain "작업, {goal}"',
+                       f'> Example, {goal}', f'> example\n> {goal}',
+                       f'```text\nExample, {goal}\n```', f'```text\nExample, {goal}',
+                       f'~~~text\nExample, {goal}', f'Example `code, {goal}`',
+                       f'Example ``code, {goal}', f'    Example, {goal}',
+                       '결과를 구현해, [$adhd-goal](skill://team)',
+                       '결과를 구현해, [$team](skill://team)', '결과를 구현해, /goalpost'):
+            with self.subTest(prompt=prompt):
+                self.assertIsNone(goal_command(prompt))
+        self.assertEqual(goal_command('```text\nExample\n```\n구현해, ' + goal), '```text\nExample\n```\n구현해')
+
 
 class NativeDeliveryFlowTests(unittest.TestCase):
     def setUp(self):

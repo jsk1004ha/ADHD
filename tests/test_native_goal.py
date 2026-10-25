@@ -265,6 +265,71 @@ class NativeGoalTests(unittest.TestCase):
         self.assertIn('adhd-goal', self.event('UserPromptSubmit', prompt='status')
                       ['hookSpecificOutput']['additionalContext'])
 
+    def test_trailing_skill_links_arm_goal_and_preserve_original(self):
+        prompt = ('구현과 검증을 마쳐줘, [$adhd-goal](skill://adhd-goal) '
+                  '[$team](skill://team) [$autoresearch](skill://autoresearch)')
+        self.begin(prompt)
+        state = self.state()
+        self.assertEqual(state['loop_mode'], 'goal')
+        self.assertEqual(state['prompts'][-1]['text'], prompt)
+        self.assertEqual(state['goal_request']['source_turn_id'], state['prompts'][-1]['turn_id'])
+
+    def test_begin_recovers_last_observed_command_missed_by_old_parser(self):
+        prompt = '원래 결과를 완성해, [$adhd-goal](skill://adhd-goal)'
+        with patch('adhd.native.goal_command', return_value=None):
+            self.event('UserPromptSubmit', prompt=prompt)
+        self.assertIsNone(self.state()['goal_request'])
+        result = self.request('begin', {'mode': 'coding', 'loop_mode': 'goal',
+            'criteria': [{'id': 'R1', 'text': 'Verified result', 'kind': 'test'}],
+            'artifacts': ['answer.txt']})
+        self.assertTrue(result['ok'], result)
+        self.assertEqual(self.state()['loop_mode'], 'goal')
+
+    def test_goal_recovers_omitted_command_only_through_valid_operation(self):
+        prompt = '원래 결과를 완성해, [$adhd-goal](skill://adhd-goal)'
+        with patch('adhd.native.goal_command', return_value=None):
+            self.begin(prompt)
+        state = self.state()
+        self.assertEqual(state['loop_mode'], 'bounded')
+        self.assertIsNone(state['goal_request'])
+        turn = state['prompts'][-1]['turn_id']
+        contract = state['contract_hash']
+        rejected = self.request('goal', {'source_turn_id': 'unobserved-turn'})
+        self.assertFalse(rejected['ok'])
+        self.assertEqual(self.state()['loop_mode'], 'bounded')
+        self.assertIsNone(self.state()['goal_request'])
+        accepted = self.request('goal', {'source_turn_id': turn})
+        self.assertTrue(accepted['ok'], accepted)
+        self.assertEqual(self.state()['loop_mode'], 'goal')
+        self.assertEqual(self.state()['contract_hash'], contract)
+        self.assertEqual(self.state()['goal_request']['source_turn_id'], turn)
+
+    def test_goal_cannot_recover_an_explanatory_mention(self):
+        self.begin('Explain [$adhd-goal](skill://adhd-goal)')
+        turn = self.state()['prompts'][-1]['turn_id']
+        self.assertFalse(self.request('goal', {'source_turn_id': turn})['ok'])
+        self.assertEqual(self.state()['loop_mode'], 'bounded')
+
+    def test_goal_recovery_does_not_reinterpret_host_objective_as_user_command(self):
+        self.begin('Implement the requested result')
+        state = self.state()
+        state['prompts'][-1].update(text='$adhd-goal old objective', source='host_thread_goal')
+        self.save(state)
+        turn = state['prompts'][-1]['turn_id']
+        self.assertFalse(self.request('goal', {'source_turn_id': turn})['ok'])
+        self.assertEqual(self.state()['loop_mode'], 'bounded')
+
+    def test_goal_recovery_does_not_reuse_a_turn_before_stop_and_resume(self):
+        with patch('adhd.native.goal_command', return_value=None):
+            self.begin('Finish the original result, [$adhd-goal](skill://adhd-goal)')
+        turn = self.state()['prompts'][-1]['turn_id']
+        self.event('UserPromptSubmit', prompt='stop')
+        self.event('UserPromptSubmit', prompt='resume')
+        self.assertNotEqual(self.state()['prompt_turns'][-1], turn)
+        result = self.request('goal', {'source_turn_id': turn})
+        self.assertFalse(result['ok'])
+        self.assertEqual(self.state()['loop_mode'], 'bounded')
+
     def test_mentions_and_prefix_collisions_keep_bounded_mode(self):
         self.begin('Explain /goal and $adhd-goal, including /goalpost')
         self.assertEqual(self.state()['loop_mode'], 'bounded')

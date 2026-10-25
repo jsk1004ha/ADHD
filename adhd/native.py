@@ -111,9 +111,52 @@ GOAL_IMPLICIT_LIMITS = frozenset({'max_rounds', 'max_seconds', 'max_stagnation',
 
 
 def goal_command(prompt: str) -> str | None:
-    """Only a leading human command selects persistence; mentions are ordinary text."""
-    match = re.match(r'^\s*(?:/goal|\$adhd-goal|\[\$adhd-goal\]\((?:skill://adhd-goal|[^\s)]*[\\/]adhd-goal(?:[\\/]SKILL\.md)?)\))(?=\s|$)\s*([\s\S]*)$', prompt)
-    return match.group(1).strip() if match else None
+    """Accept leading commands or a separate trailing skill-invocation clause."""
+    command = r'(?:/goal|\$adhd-goal|\[\$adhd-goal\]\((?:skill://adhd-goal|[^\s)]*[\\/]adhd-goal(?:[\\/]SKILL\.md)?)\))'
+    match = re.match(r'^\s*' + command + r'(?=\s|$)\s*([\s\S]*)$', prompt)
+    if match:
+        return match.group(1).strip()
+    token = r'(?:\$[a-z][a-z0-9-]*|\[\$[a-z][a-z0-9-]*\]\([^\s)]+\))'
+    suffix = re.search(r'[,;\n][ \t]*((?:' + token + r'\s*)+)$', prompt)
+    if not suffix:
+        return None
+    tokens = re.findall(token, suffix.group(1))
+    if not any(re.fullmatch(command, value) for value in tokens):
+        return None
+    # A trailing example inside Markdown code/quotation is still only a mention.
+    prefix = prompt[:suffix.start(1)]
+    fence = ''
+    for line in prefix.splitlines():
+        marker = re.match(r'^ {0,3}(`{3,}|~{3,})(.*)$', line)
+        if marker:
+            if not fence:
+                fence = marker[1]
+            elif marker[1][0] == fence[0] and len(marker[1]) >= len(fence) and not marker[2].strip():
+                fence = ''
+    line = prefix.rsplit('\n', 1)[-1]
+    inline = ''
+    for marker in re.findall(r'(?<!\\)`+', line):
+        if not inline:
+            inline = marker
+        elif marker == inline:
+            inline = ''
+    if fence or inline or line.lstrip().startswith('>') or line.startswith(('    ', '\t')):
+        return None
+    outcome = prompt[:suffix.start()].rstrip()
+    others = [value for value in tokens if not re.fullmatch(command, value)]
+    return ' '.join([outcome, *others]).strip()
+
+
+def _observed_goal_request(state: dict) -> dict | None:
+    """Recover a missed invocation from the last host-recorded prompt, never payload."""
+    if state.get('goal_request'):
+        return state['goal_request']
+    latest = (state.get('prompts') or [{}])[-1]
+    outcome = goal_command(latest.get('text', ''))
+    if (outcome is not None and latest.get('turn_id') and latest.get('source') is None
+            and latest['turn_id'] == (state.get('prompt_turns') or [None])[-1]):
+        return {'source_turn_id': latest['turn_id'], 'outcome': outcome}
+    return None
 
 
 def limit_enabled(state: dict, name: str) -> bool:
@@ -967,12 +1010,13 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             raise ValueError('Only a new user task in idle state may begin; use checkpoint, sync-intent, or user-authorized resume')
         if not state['prompts']:
             raise ValueError('No original user prompt recorded by Codex hook')
-        loop_mode = payload.get('loop_mode', 'goal' if state.get('goal_request') else 'bounded')
+        goal_request = _observed_goal_request(state)
+        loop_mode = payload.get('loop_mode', 'goal' if goal_request else 'bounded')
         if loop_mode not in {'bounded', 'goal'}:
             raise ValueError('Invalid loop_mode; use bounded or goal')
-        if loop_mode == 'goal' and not state.get('goal_request'):
+        if loop_mode == 'goal' and not goal_request:
             raise ValueError('Goal mode requires an observed /goal or $adhd-goal user command')
-        if state.get('goal_request') and loop_mode != 'goal':
+        if goal_request and loop_mode != 'goal':
             raise ValueError('An observed goal command cannot be downgraded to bounded execution')
         began_at = time.time()
         time_budget = begin_time_budget(payload, began_at)
@@ -1035,7 +1079,7 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             mode=mode, rounds=0, astra_calls=0,total_children=0,children={},reservations={},
             seen_stops=[],halt_emitted=False,last_stop_decision={},feedback='',candidate=None,stagnation=0,last_progress=None,checkpoints=[],
             progress_initialized=False,seen_progress=[],verified_progress=[],test_outcomes={},
-            policy=policy, loop_mode=loop_mode,
+            policy=policy, loop_mode=loop_mode, goal_request=goal_request,
             explicit_policy_keys=sorted(local_policy), plan=None,
             plan_required=profile['plan_depth']!='optional', execution_profile=profile,
             pending_turn_ids=[],epoch=1,review_children=0,lifetime_children=0,lifetime_rounds=0)
@@ -1101,10 +1145,11 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         record_action_outcome(state,row,observed,ref,None)
         return 'Action outcome recorded from failed execution receipt; identical denied retry held.'
     if op=='goal':
-        request = state.get('goal_request')
+        request = _observed_goal_request(state)
         if (not request or payload.get('source_turn_id') != request['source_turn_id']
                 or state['status'] not in ACTIVE or state.get('pending_turn_ids')):
             raise ValueError('Goal needs an active contract and a reconciled observed goal command')
+        state['goal_request'] = request
         state['loop_mode']='goal'
         state['feedback']='Goal loop enabled. Continue until fresh independent acceptance or an explicit stop/limit/blocker.'
         return state['feedback']

@@ -35,7 +35,7 @@ MAX_STATE_READER_VERSION=2
 INSTALL_SUBDIR='adhd'
 RELEASE_DIRS=('adhd','skills','native','schemas','third_party','tests','config','bundled','runtime')
 RELEASE_FILES=('adhd.py','hook.py','LICENSE','LICENSE-RAIBIT-MIT','THIRD_PARTY_NOTICES.md','requirements-documents.txt','README.md','README.ko.md','README_en.md','ADHD_PROVENANCE.md',
-               'docs/installation.md','docs/request-routing.md','docs/large-tasks.md','docs/obsidian.md','docs/delivery-efficiency.md','docs/verification-efficiency.md','docs/optimization.md','docs/loop-steering.md','docs/workspace-storage.md','docs/project-coordination.md','docs/releases/0.1.4.md','docs/releases/0.1.5.md','docs/releases/0.1.6.md','docs/releases/0.1.7.md','docs/releases/0.2.0.md','docs/releases/0.2.1.md',
+               'docs/installation.md','docs/request-routing.md','docs/large-tasks.md','docs/obsidian.md','docs/delivery-efficiency.md','docs/verification-efficiency.md','docs/optimization.md','docs/loop-steering.md','docs/workspace-storage.md','docs/project-coordination.md','docs/releases/0.1.4.md','docs/releases/0.1.5.md','docs/releases/0.1.6.md','docs/releases/0.1.7.md','docs/releases/0.2.0.md','docs/releases/0.2.1.md','docs/releases/0.2.2.md',
                'examples/large-task.json','examples/large-limits.json','examples/batch-checks.json',
                'examples/obsidian/config.json','examples/obsidian/feedback.json','scripts/benchmark_delivery_efficiency.py','scripts/benchmark_verification_efficiency.py','scripts/benchmark_obsidian.py','scripts/compare_delivery_efficiency.py','scripts/evaluate_context_components.py','scripts/benchmark_workspace_resources.py')
 RELEASE_EXCLUDED_COMPONENTS=frozenset({'.git','.adhd','.omx','.venv','__pycache__',
