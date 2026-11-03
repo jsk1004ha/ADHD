@@ -6,6 +6,7 @@ from pathlib import Path
 import shutil
 import signal
 import subprocess
+import sys
 import time
 import uuid
 from typing import Any
@@ -14,6 +15,7 @@ from .core import (ROOT, atomic_json, atomic_text, bounded, config, digest, envi
                    file_hash, home, quarantine, read_json, recipes, safe_path, save_recipe,
                    skill_search, store, workspace_fingerprint)
 from . import leases
+from .owned_process import OwnedProcess
 
 TERMINAL = {'complete', 'blocked', 'cancelled', 'budget_exhausted', 'failed'}
 
@@ -112,14 +114,16 @@ def _execute_process(argv: list[str], cwd: Path, prefix: Path, *, owner: str,
     inpath = prefix.with_suffix('.input.txt')
     inpath.write_text(input_text, encoding='utf-8')
     start = time.monotonic()
-    kwargs: dict[str, Any] = {}
-    if os.name == 'nt':
-        kwargs['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
-    else:
-        kwargs['start_new_session'] = True
+    owns_descendants = os.name == 'nt' or sys.platform.startswith('linux')
     with inpath.open('rb') as src, prefix.with_suffix('.stdout.jsonl').open('wb') as out, prefix.with_suffix('.stderr.log').open('wb') as err:
-        proc = subprocess.Popen(argv, cwd=cwd, stdin=src, stdout=out, stderr=err,
-                                env={**os.environ, 'ADHD_EXEC_OWNER': owner}, **kwargs)
+        launch = dict(cwd=cwd, stdin=src, stdout=out, stderr=err,
+                      env={**os.environ, 'ADHD_EXEC_OWNER': owner})
+        if owns_descendants:
+            proc = OwnedProcess(argv, **launch)
+        else:
+            # Keep the existing POSIX path on macOS, where OwnedProcess has no
+            # process-group liveness backend yet.
+            proc = subprocess.Popen(argv, start_new_session=True, **launch)
         try:
             while proc.poll() is None:
                 if stop_file and stop_file.exists():
@@ -129,8 +133,12 @@ def _execute_process(argv: list[str], cwd: Path, prefix: Path, *, owner: str,
                 time.sleep(.15)
             return int(proc.returncode)
         except BaseException:
-            terminate_tree(proc)
+            if not owns_descendants:
+                terminate_tree(proc)
             raise
+        finally:
+            if owns_descendants:
+                proc.close()
 
 
 def execute(argv: list[str], cwd: Path, prefix: Path, *, input_text: str = '',
