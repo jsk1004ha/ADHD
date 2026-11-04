@@ -8,7 +8,24 @@ import time
 import unittest
 from unittest.mock import patch
 
-from adhd.owned_process import OwnedProcess
+from adhd.owned_process import OwnedProcess, _linux_group_live
+
+
+class LinuxGroupScanTests(unittest.TestCase):
+    def test_process_reaped_during_stat_read_does_not_hide_live_child(self):
+        # /proc can open successfully, then return ESRCH when another thread
+        # reaps that process before the read. Continue checking the whole group.
+        with patch('adhd.owned_process.Path.iterdir', return_value=[
+                Path('/proc/111'), Path('/proc/222')]), \
+                patch('adhd.owned_process.Path.read_text', side_effect=[
+                    ProcessLookupError(3, 'No such process'), '222 (child) S 1 42 0']):
+            self.assertTrue(_linux_group_live(42))
+
+    def test_inaccessible_stat_does_not_report_group_stopped(self):
+        with patch('adhd.owned_process.Path.iterdir', return_value=[Path('/proc/111')]), \
+                patch('adhd.owned_process.Path.read_text', side_effect=PermissionError):
+            with self.assertRaises(PermissionError):
+                _linux_group_live(42)
 
 
 class OwnedProcessTests(unittest.TestCase):

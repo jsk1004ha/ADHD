@@ -88,7 +88,8 @@ def _linux_group_live(pgid: int) -> bool:
             continue
         try:
             fields = (entry / 'stat').read_text().rsplit(') ', 1)[1].split()
-        except FileNotFoundError:
+        except (FileNotFoundError, ProcessLookupError):
+            # The process can be reaped after open() but before read() (ESRCH).
             continue
         if int(fields[2]) == pgid and fields[0] not in {'Z', 'X', 'x'}:
             return True
