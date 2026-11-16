@@ -937,7 +937,8 @@ def result_valid(state: dict, rows: Any, *, require_execution: bool = False,
             for ref in refs:
                 if not isinstance(ref, str):
                     raise ValueError('Invalid execution evidence path')
-                identity=(row['id'],ref)
+                prior=state.get('reusable_execution',{}).get(row['id'],{}).get(ref) or {}
+                identity=(ref,prior.get('revision',state['intent_version']),prior.get('sha256'))
                 if identity not in validated_receipts:
                     result_receipt(state,row['id'],ref)
                     validated_receipts.add(identity)

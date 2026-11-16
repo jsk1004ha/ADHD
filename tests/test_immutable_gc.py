@@ -88,6 +88,17 @@ class ImmutableGCTests(unittest.TestCase):
         ImmutableStore.restore(export, destination, self.access)
         self.assertEqual(destination.read_bytes(), self.source.read_bytes())
 
+    def test_remaining_work_still_protects_a_completed_root(self):
+        state = json.loads(self.state.read_text(encoding='utf-8'))
+        state['remaining_work'] = ['Finish requested delivery']
+        self._state(state)
+        with ImmutableStore(self.base / 'pending-store', native_root=self.native) as store:
+            store.register_root(self.workspace, self.key, self.run)
+            ref = store.put(self.source, self.metadata)
+            store.forget(ref['ref_id'], self.access)
+            self.assertEqual(store.gc()['status'], 'blocked')
+            self.assertTrue(store._blob(ref['hash']).exists())
+
     def test_pin_requires_published_manifest_disposal_before_release(self):
         ref = self.store.put(self.source, self.metadata)
         pin = self.store.pin(ref["ref_id"], self.access)

@@ -40,7 +40,8 @@ seen_stops seen_target_digests stagnation started status test_outcomes tool_obse
 total_children usage verified_failure_counts verified_progress version wait_observations
 workspace completed_at session_helper_profiles session_verifier_profile session_reader
 last_assistant_message view_hint_sig host_policy_version last_action_decision
- progress_last_gained_at churn ladder_stage time_budget""".split())
+ progress_last_gained_at churn ladder_stage time_budget remaining_work prior_failures
+ learning learned_digest failure_learning_digest""".split())
 
 
 def _generation(store) -> int:
@@ -97,7 +98,7 @@ def _state(store, row) -> dict:
             or state.get("pending_turn_ids") or state.get("reservations") or state.get("context_refs")
             or any(state.get(name) for name in ("batch_report", "pending_terminal",
                                                   "host_resume_pending", "worktree", "backup",
-                                                  "archived_runs", "pending_context_deltas"))):
+                                                  "archived_runs", "pending_context_deltas", "remaining_work"))):
         raise ValueError("native-root-has-protected-work")
     if set(state) - NATIVE_STATE_FIELDS:
         raise ValueError("native-root-has-unclassified-fields")

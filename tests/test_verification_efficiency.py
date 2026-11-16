@@ -181,6 +181,26 @@ class VerificationEfficiencyTests(unittest.TestCase):
                 native.result_valid(state, rows, require_execution=True)
             self.assertEqual(validations.call_count, 3)
 
+    def test_shared_reuse_keeps_revision_and_digest_checks_scoped_to_each_criterion(self):
+        receipt = run_check({'run_id': 'count-test', 'contract_revision': 1,
+                             'argv': [sys.executable, '-c', 'print("ok")'],
+                             'subject_paths': ['f0.txt']}, self.ws)['receipt']
+        pinned = {'revision': 1, 'sha256': file_hash(self.ws / receipt)}
+        state = {'workspace': str(self.ws), 'run_id': 'count-test', 'intent_version': 2,
+                 'contract': {'criteria': [{'id': cid, 'kind': 'test'} for cid in ('R1', 'R2')]},
+                 'reusable_execution': {cid: {receipt: dict(pinned)} for cid in ('R1', 'R2')}}
+        rows = [{'id': cid, 'pass': True, 'evidence': 'shared unchanged check',
+                 'evidence_ids': [receipt]} for cid in ('R1', 'R2')]
+        with patch.object(native, 'validate_execution', wraps=validate_execution) as validations:
+            native.result_valid(state, rows, require_execution=True)
+            self.assertEqual(validations.call_count, 1)
+        state['reusable_execution']['R2'][receipt]['sha256'] = '0' * 64
+        with self.assertRaisesRegex(ValueError, 'Reusable execution receipt changed'):
+            native.result_valid(state, rows, require_execution=True)
+        state['reusable_execution'].pop('R2')
+        with self.assertRaisesRegex(ValueError, 'another run or revision'):
+            native.result_valid(state, rows, require_execution=True)
+
     def test_executable_hash_is_deduplicated_only_inside_each_fresh_phase(self):
         checks = [self.check(i) for i in range(8)]
         executable = Path(sys.executable).resolve()
