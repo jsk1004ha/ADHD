@@ -46,6 +46,8 @@ class NativeProgressTests(unittest.TestCase):
                              'cwd': str(self.ws), 'turn_id': str(self.turn), **kw})
 
     def request(self, op, payload):
+        if op == 'begin':
+            payload = {'execution_profile': 'standard', **payload}
         result = submit_request(self.key, self.ws, op, payload)
         self.event('PostToolUse', tool_name='Bash')
         return read_json(Path(result['receipt']))

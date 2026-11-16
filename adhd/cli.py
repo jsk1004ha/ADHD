@@ -89,7 +89,7 @@ def parser() -> argparse.ArgumentParser:
     q.add_argument('--request-id', help='Reuse a 32-hex request ID after a lost acknowledgment')
     q.add_argument('--workspace', type=Path, default=Path.cwd())
     q.add_argument('--payload-file', type=Path)
-    q.add_argument('--profile', choices=['simple', 'standard', 'deep'], help='Explicit execution intensity for begin; preserves selected models and effort')
+    q.add_argument('--profile', choices=['auto', 'simple', 'standard', 'deep'], help='auto: direct work and relevant checks (default); other profiles require independent review')
     q.add_argument('--time-limit-seconds', type=float, help='Explicit total wall-time budget for native begin, including goal mode')
     q.add_argument('--review-reserve-seconds', type=float, help='Reserve time for verification/review within the explicit total budget')
     q.add_argument('--classification', choices=['no_change', 'new_task'], help='Payload-free native sync-intent control after expiry')

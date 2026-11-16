@@ -149,6 +149,8 @@ class RecoveryTests(unittest.TestCase):
             (ws/'subject.txt').write_text('input',encoding='utf-8')
             with patch.dict(os.environ,{'CODEX_HOME':str(codex),'ADHD_EXEC_OWNER':''}):
                 state=initial('0'*24,ws);state.update(status='working',run_id='run-auth',intent_version=1)
+                from adhd.models import execution_profile
+                state['execution_profile']=execution_profile('standard')
                 state['contract']={'criteria':[],'artifacts':[],'intent_version':1}
                 state['contract_hash']=digest(state['contract'])
                 ordinary=run_check({'run_id':'run-auth','contract_revision':1,
@@ -173,6 +175,7 @@ class RecoveryTests(unittest.TestCase):
     def test_repeated_test_failure_requires_changed_plan(self):
         from adhd.native import apply_request, initial
         from adhd.evidence import run_check
+        from adhd.models import execution_profile
         with tempfile.TemporaryDirectory() as directory:
             base=Path(directory);ws=base/'workspace';ws.mkdir()
             codex=base/'codex';codex.mkdir()
@@ -184,6 +187,7 @@ class RecoveryTests(unittest.TestCase):
                             'requirements':['R1']}]}
             with patch.dict(os.environ,{'CODEX_HOME':str(codex),'ADHD_EXEC_OWNER':''}):
                 state=initial('0'*24,ws);state.update(status='working',run_id='run-retry',intent_version=1)
+                state['execution_profile']=execution_profile('standard')
                 state['contract']={'criteria':[{'id':'R1','kind':'test','text':'Pass'}],
                                    'artifacts':['subject.txt'],'intent_version':1}
                 state['contract_hash']=digest(state['contract'])

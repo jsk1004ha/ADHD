@@ -148,7 +148,7 @@ class PlanTests(Isolated):
   sid='v12plan';key=session_key(sid)
   def ev(name,**kwargs):return handle_event({'hook_event_name':name,'session_id':sid,'cwd':str(self.ws),'model':'gpt-6-sol',**kwargs})
   ev('UserPromptSubmit',prompt='Implement a feature and test it')
-  req=submit_request(key,self.ws,'begin',{'mode':'coding','artifacts':['a.txt'],'criteria':[{'id':'R1','text':'Correct','kind':'behavior'}]});ev('PostToolUse',tool_name='Bash');self.assertTrue(read_json(Path(req['receipt']))['ok'])
+  req=submit_request(key,self.ws,'begin',{'execution_profile':'standard','mode':'coding','artifacts':['a.txt'],'criteria':[{'id':'R1','text':'Correct','kind':'behavior'}]});ev('PostToolUse',tool_name='Bash');self.assertTrue(read_json(Path(req['receipt']))['ok'])
   (self.ws/'a.txt').write_text('file');r=submit_request(key,self.ws,'candidate',{'files':['a.txt'],'criterion_results':[{'id':'R1','pass':True,'evidence':'x'}]});ev('PostToolUse',tool_name='Bash');self.assertFalse(read_json(Path(r['receipt']))['ok'])
   denied=ev('PreToolUse',tool_name='spawn_agent',tool_input={'agent_type':'adhd-implementer','message':'Implement'})
   self.assertEqual(denied['hookSpecificOutput']['permissionDecision'],'deny')
@@ -216,6 +216,7 @@ class NativeDocumentFlowTests(Isolated):
  def event(self,name,**kwargs):
   self.turn+=1;return handle_event({'hook_event_name':name,'session_id':self.sid,'cwd':str(self.ws),'model':'gpt-6-sol','turn_id':str(self.turn),**kwargs})
  def req(self,op,data):
+  if op=='begin': data={'execution_profile':'standard',**data}
   q=submit_request(self.key,self.ws,op,data);self.event('PostToolUse',tool_name='Bash');return read_json(Path(q['receipt']))
  def begin(self):
   (self.ws/'original.txt').write_text('Do not change this original')

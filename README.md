@@ -1,11 +1,13 @@
 # ADHD — Autonomous Delegation Harness Director (v0.2.0)
 
+> 기본 실행은 **auto**입니다. 사용자 요청과 결과물 품질을 우선하며 필요한 검사 후 완료합니다. 계획·별도 검토자는 필요할 때 사용하고, 반복 승인은 기존 승인을 유지합니다. 엄격한 검토는 `--profile standard` 또는 `deep`으로 선택하며 진행 중인 작업은 기존 프로필을 유지합니다.
+
 0.2.0 adds [bounded workspace storage](docs/workspace-storage.md) and [automatic project coordination](docs/project-coordination.md). [Release notes](docs/releases/0.2.0.md).
 
 [한국어](README.md) · [English](README_en.md) · [빠른 시작](README.ko.md)
 
 > **Codex App 및 CLI 환경을 위한 로컬 자율 위임·검증 하네스 오케스트레이터**<br>
-> 사용자의 기존 인증(`auth.json`), 모델 선택, 라우터, 플러그인 및 개인 설정(`config.toml`)을 침해하지 않으면서, <strong>요구사항 기반 계획(Planning) → 범위가 제한된 위임(Bounded Delegation) → 실행 영수증 검증(Execution Receipts) → 독립 검증자 게이트(Independent Review Gate)</strong>를 Codex 생명주기 훅(Lifecycle Hooks)으로 결합합니다.
+> 사용자의 기존 인증(`auth.json`), 모델 선택, 라우터, 플러그인 및 개인 설정(`config.toml`)을 침해하지 않으면서, <strong>사용자 요청 파악 → 실행 → 필요한 검사 → 결과 전달</strong>를 Codex 생명주기 훅(Lifecycle Hooks)으로 결합합니다.
 
 | 항목 | 세부 사양 (코드베이스 실측 기준) |
 | :--- | :--- |
@@ -18,7 +20,7 @@
 | **내장 의존성(Vendored)** | `filelock` v3.29.0 (Unlicense), `tomlkit` (MIT) 오프라인 순수 Python 내장 ([adhd/dependencies.py](adhd/dependencies.py)) |
 | **라이선스** | `Apache-2.0` ([LICENSE](LICENSE)) · 상위 Raibit Harness v1.2 계보 `MIT` 고지 보존 ([LICENSE-RAIBIT-MIT](LICENSE-RAIBIT-MIT)) |
 
-> 구성 흐름: Codex lifecycle hooks → ADHD native controller/task runner → 검증된 결과물과 독립 검토.
+> 구성 흐름: Codex lifecycle hooks → ADHD native controller/task runner → 검증된 결과물과 선택적 독립 검토.
 
 ## 1. 프로젝트 개요 및 핵심 설계 철학
 
@@ -36,8 +38,8 @@
    * 계획·통합·구현·검증은 `gpt-6-sol`(`effort="max"`), 탐색·경량 추출은 `gpt-6-luna`(`effort="max"`, 선택적 `"low"` 허용), 고난도 설계 자문은 `gpt-6-astra`(`effort="low"`, 과업당 최대 1회)로 고정되며, 계정/라우터 오류 시 임의로 하위 모델로 대체(Silent Fallback)하지 않습니다([adhd/models.py](adhd/models.py)).
 4. **관측된 실행 영수증 기반 진전 판정 (Evidence-Bound Progress)**
    * 단순 텍스트 요약이나 타임스탬프 변경은 진전(Progress)으로 인정되지 않습니다. 오직 [adhd/evidence.py](adhd/evidence.py)가 기록한 **입력 파일 해시 고정 실행 영수증(`receipt.json`)**, 통과한 요구사항 증가, 실패 테스트 감소, 또는 실제 타깃 아티팩트 해시 변경만이 정체 카운터(`stagnation`)를 초기화합니다.
-5. **독립 검증자 게이트 통과 필수 (Mandatory Independent Acceptance)**
-   * 작성자(Parent Director 또는 `adhd-implementer`)는 자신의 결과물을 스스로 완료(`complete`) 처리할 수 없습니다. 모든 후보(`candidate`) 스냅샷은 읽기 전용 샌드박스에서 실행되는 독립 에이전트 <strong>`adhd-verifier`</strong>가 원본 프롬프트(`prompts`), 계약 해시(`contract_hash`), 후보 다이제스트(`candidate.digest`), 실행 영수증을 직접 대조하여 `{"verdict": "approve"}`를 반환했을 때만 `SubagentStop` 훅에서 최종 완료로 전이됩니다.
+5. **결과에 비례하는 검증과 선택적 독립 검토**
+   * 기본 `auto`는 요구사항과 현재 실행 근거를 확인하면 완료합니다. 작업 도중 `independent_review: true`로 별도 검토를 요청할 수 있고, `simple`·`standard`·`deep`은 기존 독립 검증자 절차를 유지합니다.
 
 ## 2. 전체 시스템 아키텍처 및 데이터 흐름
 
@@ -221,10 +223,10 @@ ADHD/
 
 | 라우팅 경로 (`path`) | 판정 조건 (`adhd/request_routing.py`) | 권장 프로필 | 네이티브 컨트롤러 후속 동작 |
 | :--- | :--- | :---: | :--- |
-| **`direct`** | 인사말(`_GREETING`), 상태 질문(`_STATUS`), 외부 파일 참조 없는 순수 번역(`_TRANSLATION`), 단일 문장/단어 오타 수정(`_TYPO` + `_ISOLATED`), 저장소 참조 없는 일반 개념 설명(`_EXPLANATION` without `_REPO_REFERENCE`) | `simple` | **`native begin` 생략**: 내구성 계획이나 독립 검증 루프 없이 즉시 답변 (작업 범위 확대 시 `begin`으로 승격 가능) |
-| **`simple`** | 단일 파일·함수·테스트에 국한된(`_BOUNDED`) 소규모 수정 액션(`_SMALL_ACTION`) | `simple` | `native begin --profile simple`: 계획서(`plan`) 선택 사항, 직접 수정 또는 최대 1개 작업 자식 위임, **최종 독립 검증(`adhd-verifier`)은 필수** |
-| **`inspect`** | 범위가 불명확한 액션, 저장소 의존 질문(`_REPO_REFERENCE`), 민감 키워드(`_SENSITIVE`: DB, 인증, 결제, 삭제, 배포, 보안 등), 후속 액션이 결합된 번역/설명 | `standard` | 관련 파일과 문맥을 먼저 짧게 탐색한 뒤, 실질적 작업이면 `native begin` (기본 `standard`: 요구사항 커버리지 계획 + 자동 검사 + 독립 검증) 실행 |
-| **`deep`** | 아키텍처 개편, 마이그레이션, 연구, 운영 배포, 엔드투엔드 시스템, 보안 감사(`_DEEP`) | `deep` | `native begin --profile deep`: 대안(`alternatives`)·위험(`risks`)·사전점검(`preflight`)을 포함한 심층 계획 필수 + **모든 타깃 아티팩트를 커버하는 최신 실행 영수증(`deep_evidence`) 및 심층 리뷰 필수** |
+| **`direct`** | 인사말(`_GREETING`), 상태 질문(`_STATUS`), 외부 파일 참조 없는 순수 번역(`_TRANSLATION`), 단일 문장/단어 오타 수정(`_TYPO` + `_ISOLATED`), 저장소 참조 없는 일반 개념 설명(`_EXPLANATION` without `_REPO_REFERENCE`) | `auto` | **`native begin` 생략**: 내구성 계획이나 독립 검증 루프 없이 즉시 답변 (작업 범위 확대 시 `begin`으로 승격 가능) |
+| **`simple`** | Bounded local edit | `auto` | Execute directly and check relevant behavior; native tracking is optional |
+| **`inspect`** | Inspect scope and relevant inputs | `auto` | Use native tracking for substantial work; plan and independent review are optional |
+| **`deep`** | Broad or consequential scope | `auto` | Inspect risks and choose sufficient checks; opt into `deep` explicitly when detailed planning and independent review help |
 
 * **짧은 승인 상속 (`is_brief_approval`)**: 사용자가 `"ㅇㅇ 그렇게 해줘"`, `"진행해줘"`, `"go ahead"`처럼 짧은 승인만 입력하면 직전의 실질적 요청(`is_substantive_request_source`)의 라우팅 경로와 본문을 `effective_prompt`로 자동 상속합니다.
 * **활성 계약 중 사용자 개입 동기화 (`sync-intent` & [adhd/intent.py](adhd/intent.py))**: 작업 진행 중에 사용자가 새 메시지를 보내면 `pending_turn_ids`에 등록되어 최종 리뷰가 보류됩니다. 에이전트는 해당 턴을 `no_change`(단순 상태 질문), `amend`(기존 계약의 `criteria`, `artifacts`, `documents`, `protected_inputs` 증분 수정 및 실행 중인 자식에게 `pending_context_deltas` 전파), 또는 `new_task`(기존 실행 아카이브 후 신규 계약 준비)로 명시적 분류해야 합니다.
@@ -236,6 +238,7 @@ stateDiagram-v2
     direction TB
     [*] --> idle
     idle --> working: native begin
+    working --> complete: auto · current checks
     working --> reviewing: native candidate
     reviewing --> complete: 독립 검증 승인
     reviewing --> revising: 반려 또는 검증 실패
@@ -408,7 +411,7 @@ ADHD는 강제적인 고정 파이프라인 대신, 현재 작업의 필요 지�
 | **`$adhd-memory`** | [skills/adhd-memory/SKILL.md](skills/adhd-memory/SKILL.md) | 코어 | 프로젝트 범위 로컬 메모리(`memory-v2.sqlite3`) 및 Obsidian 위키 문맥 조회/기록 규율 |
 | **`$adhd-documents`** | [skills/adhd-documents/SKILL.md](skills/adhd-documents/SKILL.md) | 코어 | Office(`.docx`, `.pptx`, `.xlsx`), PDF, 한글(`.hwp`, `.hwpx`) 보호 원본 스냅샷 및 전 페이지 렌더링 검수 |
 | **`$adhd-extensions`** | [skills/adhd-extensions/SKILL.md](skills/adhd-extensions/SKILL.md) | 코어 | 외부 스킬·MCP 확장의 스테이징(`stage`), 불변 핀 검증, 읽기 전용 프로브(`probe`), 롤백 관리 |
-| **`$adhd-goal`** | [skills/adhd-goal/SKILL.md](skills/adhd-goal/SKILL.md) | 워크플로 | `/goal` 또는 `$adhd-goal` 진입점. 암묵적 라운드/시간/정체 컷오프를 해제하고 독립 검증 통과 시까지 구현·점검·수리 반복 |
+| **`$adhd-goal`** | [skills/adhd-goal/SKILL.md](skills/adhd-goal/SKILL.md) | 워크플로 | `/goal` 또는 `$adhd-goal` 진입점. 암묵적 라운드/시간/정체 컷오프를 해제하고 선택한 프로필의 검사 통과 시까지 구현·점검·수리 반복 |
 | **`$adhd-shape`** | [skills/adhd-shape/SKILL.md](skills/adhd-shape/SKILL.md) | 워크플로 | 모호한 아이디어를 문제 정의, 첫 완결 범위, 제약 조건, 검증 가능한 완료 기준(`criteria`) 브리프로 구체화 |
 | **`$adhd-challenge`** | [skills/adhd-challenge/SKILL.md](skills/adhd-challenge/SKILL.md) | 워크플로 | 계획의 중대한 미검증 가정과 실패 위험을 도출하고 결정을 바꿀 수 있는 최소 판별 검사(Discriminating Check) 설계 |
 | **`$adhd-decide`** | [skills/adhd-decide/SKILL.md](skills/adhd-decide/SKILL.md) | 워크플로 | 실질적 대안들을 비교하여 선택 근거, 트레이드오프, 재검토 조건(Revisit Conditions)을 기록 |

@@ -19,8 +19,8 @@ candidate and active file owners. Read [the shared handoff and native limits](..
 4. In a native run, submit supported `sync-intent` with the pending user turn,
    matching contract intent version and actual allowed operations. Read the
    acknowledgement. Never directly modify the exported view or canonical state.
-5. After amendment, resubmit a plan for the current intent version and recheck
-   affected behavior. Reuse unaffected evidence only if its subject and conditions
+5. After amendment, recheck affected behavior. Auto needs no plan rewrite;
+   update changed plan coverage only when using a strict profile. Reuse unaffected evidence only if its subject and conditions
    remain current. Submit a new candidate and independent review when applicable.
 
 Return the real message locator, changed/retained requirements, affected owners

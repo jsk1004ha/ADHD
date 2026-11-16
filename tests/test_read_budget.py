@@ -124,19 +124,17 @@ class VerifierCardTests(unittest.TestCase):
 class QuickstartTests(unittest.TestCase):
     def test_every_section_it_points_to_exists(self):
         text = QUICKSTART.read_text(encoding='utf-8')
-        protocol_headings = set(re.findall(r'(?m)^## .+$', PROTOCOL.read_text(encoding='utf-8')))
-        gate_headings = set(re.findall(r'(?m)^## .+$', (REFS / 'v12-gates.md').read_text(encoding='utf-8')))
-        pointers = re.findall(r'`(## [^`]+)`', text)
-        self.assertGreaterEqual(len(pointers), 5)
-        for heading in pointers:
-            self.assertTrue(heading in protocol_headings or heading in gate_headings, heading)
+        pointers = re.findall(r'\[[^\]]+\]\(([^)]+)\)', text)
+        self.assertTrue(pointers)
+        for target in pointers:
+            self.assertTrue((REFS / target).is_file(), target)
 
     def test_it_names_every_transport_operation_and_stays_small(self):
         text = QUICKSTART.read_text(encoding='utf-8')
         for operation in ('begin', 'plan', 'checkpoint', 'candidate', 'sync-intent', 'pause', 'blocked', 'status'):
             self.assertIn('`' + operation + '`', text)
         self.assertIn('adhd-verifier', text)
-        self.assertIn('Coding scope', text)
+        self.assertIn('coding_scope', text)
         self.assertLess(len(text.encode()), 5000)
 
     def test_skill_entrypoint_reads_the_quickstart_first(self):

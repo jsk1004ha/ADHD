@@ -1,12 +1,13 @@
 {
   "note": "Examples only, not automatically loaded. Native execution profiles are selected by begin execution_profile or --profile; model pins are preserved in adhd/models.py.",
   "native": {
-    "default": "standard",
+    "default": "auto",
     "simple": "Direct work or one limited work child, optional plan, independent acceptance",
     "standard": "Brief requirement-covered plan, automatic checks and independent review",
     "deep": "Deep plan, fresh target-covering execution evidence and independent evidence review",
     "model_policy": "Preserve selected model and effort; no automatic fallback",
-    "evaluation": "Fixture coverage only; live quality, latency and cost require separate measurement"
+    "evaluation": "Fixture coverage only; live quality, latency and cost require separate measurement",
+    "auto": "User outcome first: direct work, optional plan, relevant checks, no mandatory review child"
   },
   "inherit": {
     "effort": "inherit",
@@ -21,6 +22,6 @@
     "max_tokens": 80000
   },
   "small_task": "Use direct Codex native response; delegate to Luna only when the additional call is worthwhile.",
-  "quality_priority": "Use the locally supported best model, appropriate domain validation and independent review; do not remove budgets.",
+  "quality_priority": "Deliver requested behavior with proportionate checks; use independent review when useful or requested.",
   "warning": "Observed CLI usage is not a hard monetary spending limit."
 }

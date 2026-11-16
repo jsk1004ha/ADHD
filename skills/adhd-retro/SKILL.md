@@ -1,6 +1,6 @@
 ---
 name: adhd-retro
-description: Turn feedback on an ADHD outcome into scoped repair criteria and sourced lessons. Use for 결과 회고 or expectation mismatch; distinguish verified correctness from user satisfaction and require explicit consent for long-term memory writes.
+description: Apply outcome feedback to the current result and retain useful project lessons, successful procedures and failed attempts.
 ---
 # Convert outcome feedback into next actions
 
@@ -24,10 +24,12 @@ Finish with the requested analysis. If repair was also authorized, hand contract
 preserving fixes to the current owner and real requirement changes to steer.
 Do not overwrite the record of a completed run; use the actual new-request lifecycle.
 
-Write long-term memory only if the human explicitly requests retention, following
-the installed memory policy and scoped provenance. “This looks wrong” is not an
-instruction to rewrite global preferences. Proposed lessons are not independently
-verified procedures and cannot be inserted as controller-only successful records.
+Native completion already saves reusable project procedures, and observed failures
+are retained automatically. Use those records instead of requesting another
+learning approval. Apply authorized repairs and attach their outcome to the failure.
+Broader personal/global memory follows its own retention policy; project feedback
+does not automatically rewrite global preferences. Describe a completed result as
+success, and keep any unresolved learning-storage issue separate from that result.
 
 Example: “검증은 통과했는데 원문 열기가 불편해.” Inspect the interaction and
 express the requested repair as an observable source-opening behavior; record

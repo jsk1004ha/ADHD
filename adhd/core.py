@@ -249,6 +249,15 @@ def discover_skills(workspace: Path|None=None, *, host_catalog=None) -> list[dic
             fallback = Path(str(row.get('fallback', ''))).expanduser().resolve()
             if fallback.is_relative_to(managed_root.resolve()) and fallback.is_file():
                 candidates.append((fallback, 'adhd-bundled-fallback', 'user'))
+    generated = store() / 'recipes'
+    if generated.is_dir() and not generated.is_symlink():
+        from .memory import Memory
+        with Memory() as memory:
+            active = memory.active_procedure_ids(workspace, digest(environment_signature(workspace)))
+        for rid in sorted(active):
+            skill = generated / rid / 'SKILL.md'
+            if skill.is_file() and not skill.is_symlink() and skill.resolve().is_relative_to(generated.resolve()):
+                candidates.append((skill, 'adhd-learned', str(workspace)))
     result=[];seen:set[str]=set()
     for p,origin,scope in candidates[:20000]:
         try:
@@ -322,7 +331,12 @@ def recipes(workspace: Path, mode: str, goal: str, limit: int = 3) -> list[dict[
     from .memory import Memory
     with Memory() as memory:
         memory.migrate_legacy_recipes(store()/'memory.sqlite3')
-        return memory.procedure_recipes(workspace,mode,goal,env,limit)
+        found=memory.procedure_recipes(workspace,mode,goal,env,limit)
+    for row in found:
+        path=store()/'recipes'/row['id']/'SKILL.md'
+        if path.is_file():
+            row['skill_path']=str(path)
+    return found
 
 
 def prepare_wiki_context(workspace: Path, goal: str) -> dict|None:
@@ -361,7 +375,7 @@ def prepare_wiki_context(workspace: Path, goal: str) -> dict|None:
 
 
 def save_recipe(workspace: Path, mode: str, goal: str, steps: list[str], evidence: str,
-                bundle: dict|None=None) -> str | None:
+                bundle: dict|None=None, *, source_run: str|None=None) -> str | None:
     clean = [redact(s)[:800] for s in steps if isinstance(s, str) and s.strip()][:10]
     if not clean:
         return None
@@ -371,16 +385,61 @@ def save_recipe(workspace: Path, mode: str, goal: str, steps: list[str], evidenc
     from .memory import Memory
     with Memory() as memory:
         memory.migrate_legacy_recipes(store()/'memory.sqlite3')
-        rid=memory.save_procedure(workspace,mode,redact(goal),clean,evidence,env,bundle=clean_bundle)
+        rid=memory.save_procedure(workspace,mode,redact(goal),clean,evidence,env,
+                                  bundle=clean_bundle,source_run=source_run)
     folder = store() / 'recipes' / rid
-    atomic_text(folder / 'SKILL.md', '---\nname: recipe-' + rid + '\ndescription: Verified project-local procedure; check environment and current request before reuse.\n---\n\n' +
+    description='Verified project-local procedure for '+redact(goal).replace('\n',' ')[:180]
+    atomic_text(folder / 'SKILL.md', '---\nname: recipe-' + rid + '\ndescription: ' +
+                json.dumps(description,ensure_ascii=False) + '\n---\n\n' +
                 '\n'.join(f'{i+1}. {s}' for i, s in enumerate(clean)) +
                 ('\n\nProcedure bundle:\n'+json.dumps(clean_bundle,ensure_ascii=False,indent=2) if clean_bundle else '')+
                 '\n\nEvidence: ' + evidence + '\n')
-    # Capture only published independent completion; defer while the enclosing
+    # Capture only published native completion; defer while the enclosing
     # native controller has not flushed status=complete yet.
     capture_wiki_completion(workspace,evidence)
     return rid
+
+
+def learn_success(state: dict, directory: Path) -> dict:
+    """Learn once from the published, current native completion."""
+    if state.get('status') != 'complete' or not isinstance(state.get('candidate'), dict):
+        return {}
+    candidate=state['candidate']
+    if state.get('learned_digest') == candidate.get('digest'):
+        return {}
+    from .experience_procedures import _completion
+    workspace=Path(state['workspace']).resolve()
+    directory=Path(directory).resolve()
+    if directory != (store()/'native'/state['key']).resolve():
+        raise ValueError('Learning requires the canonical native session')
+    completed=_completion(workspace,{'session_key':state['key'],'run_id':state['run_id']},current=True)
+    published=completed['state']
+    if published['candidate']['digest'] != candidate.get('digest') or published['contract_hash'] != state.get('contract_hash'):
+        raise ValueError('Learning candidate differs from published completion')
+    steps=list(candidate.get('procedure') or [])
+    if not steps:
+        goal=next((row.get('text','') for row in state.get('prompts',[]) if row.get('text')), '')
+        artifacts=', '.join(state['contract']['artifacts'][:4])
+        steps=['Complete the request '+redact(goal).replace('\n',' ')[:180]+'; inspect '+artifacts+'.']
+        for result in candidate.get('criterion_results',[])[:3]:
+            criterion=next((r for r in state['contract']['criteria'] if r['id']==result['id']),None)
+            if criterion:
+                steps.append('Confirm '+redact(criterion['text'])[:160]+': '+redact(result['evidence'])[:180])
+        for ref in list(candidate.get('execution_receipts',{}))[:2]:
+            receipt=read_json(safe_path(workspace,ref),{})
+            argv=receipt.get('invocation',{}).get('argv',[])
+            if isinstance(argv,list) and argv:
+                program=Path(str(argv[0])).name
+                steps.append('Repeat the observed '+program+' check recorded in '+ref+
+                             '; inspect its exact command and current inputs before reuse.')
+    goal=next((row.get('text','') for row in state.get('prompts',[]) if row.get('text')), '')
+    rid=save_recipe(workspace,state['mode'],goal,steps,completed['receipt'],
+                    bundle=candidate.get('procedure_bundle'),
+                    source_run=digest([state['run_id'],candidate['digest']]))
+    return {'recipe_saved':rid, 'learned_digest':candidate['digest'],
+            'learning':{'method':('checked' if state.get('completion_receipt',{}).get('method')=='checked'
+                                  else 'independent'), 'source':'current_native_completion',
+                        'skill_path':str(store()/'recipes'/rid/'SKILL.md')}}
 
 
 def capture_wiki_completion(workspace: Path, evidence: str) -> dict|None:
@@ -416,9 +475,11 @@ def capture_wiki_completion(workspace: Path, evidence: str) -> dict|None:
     if not references:return None
     receipts=[{'kind':'receipt','path':name,'run_id':run_id,'contract_revision':state['intent_version']}
               for name in final.get('execution_receipts',{})][:8]
+    independently_reviewed=state.get('completion_receipt',{}).get('method')!='checked'
+    method='독립 검토' if independently_reviewed else '현재 결과 확인'
     event={'task_id':run_id,'artifact_revision':final['digest'],'kind':'success','project':workspace.name,
-           'title':'검증한 ADHD 작업','summary':'독립 검증으로 완료된 작업. 정본과 실제 검사 근거를 참조한다.',
-           'verification_scope':'현재 완료 계약의 로컬 검사와 독립 검증 범위','reusable':True,
+           'title':'검증한 ADHD 작업','summary':method+'로 완료된 작업. 정본과 실제 검사 근거를 참조한다.',
+           'verification_scope':'현재 완료 계약의 로컬 검사와 '+method+' 범위','reusable':True,
            'artifacts':references[:8],'receipts':receipts,'source_ids':['run:'+run_id]}
     result=candidate(workspace,event)
     record_usage(workspace,{'call_id':'native-completion:'+run_id,'task_id':run_id,'phase':'capture',

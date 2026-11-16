@@ -1,5 +1,10 @@
 # Coding discipline
 
+Auto is the default: deliver the user request with relevant checks. Formal plans,
+standalone scope audits, batch manifests and independent review below apply when
+explicitly selected or required; strict profiles retain their existing gates.
+A bounded local task may be executed and checked directly.
+
 Read this reference for code edits and reviews. Apply it within the user's actual
 request and the selected workflow; simple tasks need only proportionate checks.
 

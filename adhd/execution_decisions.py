@@ -66,6 +66,9 @@ def authorize_action(state: dict, key: str, *, turn_id: str, prompt: str) -> dic
     prompts = state.get('prompts', [])
     if not prompts or prompts[-1].get('turn_id') != turn_id or prompts[-1].get('text') != prompt:
         raise ValueError('Authorization needs the latest observed user turn')
+    if action.get('authorized'):
+        # A repeated approval cannot erase the first grant or a later host outcome.
+        return action
     if is_brief_approval(prompt):
         # This is scoped to the sole pending action. The host still owns permission.
         pending = [row for row in state['actions'].values() if not row.get('authorized') and not row.get('revoked_by')]
@@ -90,6 +93,8 @@ def classify_denial(response: object) -> str:
             return 'host_policy_denied'
         response = response.get('message', response.get('error', response))
     text = str(response).lower()
+    if 'blocked by policy' in text:
+        return 'host_policy_denied'
     if any(word in text for word in ('credential missing', 'authentication required', 'login required')):
         return 'credential_missing'
     if any(word in text for word in ('permission denied', 'access denied', 'eacces', 'eperm')):
@@ -126,11 +131,12 @@ def action_decision(state: dict, action: dict, policy_version: str | None) -> di
         return {'retry_allowed': False, 'reason': 'needs_scoped_user_authorization', 'evidence_refs': [],
                 'limits_of_observation': 'Conversation authorization cannot grant host permission'}
     for prior in reversed(row.get('attempts', [])):
-        if prior['outcome'] in DENIALS and (not policy_version or not prior['policy_version']
-                                           or prior['policy_version'] == policy_version):
+        policy_changed=(prior['outcome']=='host_policy_denied' and policy_version
+                        and prior['policy_version'] and prior['policy_version']!=policy_version)
+        if prior['outcome'] in DENIALS and not policy_changed:
             return {'retry_allowed': False, 'reason': 'same_denial_without_policy_change',
                     'evidence_refs': [prior['evidence_ref']],
-                    'limits_of_observation': 'Only a new observed host capability or policy version permits reevaluation'}
+                    'limits_of_observation': 'Policy changes only reevaluate host policy denials, not OS, credential or unknown failures'}
     return {'retry_allowed': True, 'reason': 'no_identical_observed_denial',
             'evidence_refs': [], 'limits_of_observation': 'Preflight does not guarantee execution permission'}
 
@@ -153,13 +159,39 @@ def observe_action_host_result(state: dict, event: dict) -> dict | None:
     if not row or not row.get('authorized') or not isinstance(tool_id, str) or not tool_id or response is None:
         return None
     if isinstance(response, dict):
-        is_error = response.get('isError') is True or response.get('status') in {'denied', 'blocked', 'error'}
-        is_error = is_error or response.get('permissionDecision') == 'deny'
+        status = response.get('status')
+        status = status.lower() if isinstance(status, str) else None
+        code = str(response.get('code', '')).lower()
+        exit_code = response.get('exit_code')
+        observed_exit = isinstance(exit_code, int) and not isinstance(exit_code, bool)
+        explicit_denial = (status in {'denied', 'blocked'}
+                           or response.get('permissionDecision') == 'deny'
+                           or response.get('host_policy_denied') is True
+                           or code in {'host_policy_denied', 'policy_denied'})
+        failed = (response.get('isError') is True or explicit_denial
+                  or status in {'error', 'failed'} or observed_exit and exit_code != 0
+                  or bool(response.get('error')))
+        succeeded = (response.get('isError') is False or status in {'success', 'succeeded', 'ok', 'completed'}
+                     or observed_exit and exit_code == 0)
+        if (not failed and not observed_exit and
+                (status in {'running', 'pending', 'queued', 'in_progress'}
+                 or response.get('session_id') is not None and
+                    status not in {'success', 'succeeded', 'ok', 'completed'})):
+            return None
+        if not failed and not succeeded:
+            return None
     else:
-        text = str(response).lower()
-        is_error = any(term in text for term in ('blocked by policy', 'permission denied',
-                                                 'access denied', 'authentication required'))
-    outcome = classify_denial(response) if is_error else 'succeeded'
+        failed = any(term in str(response).lower() for term in
+                     ('blocked by policy', 'permission denied', 'access denied', 'authentication required'))
+        if not failed:
+            return None
+        explicit_denial = True
+    if failed:
+        denial = classify_denial(response)
+        outcome = (denial if denial != 'unknown_denial' or explicit_denial
+                   or 'blocked by policy' in str(response).lower() else 'failed')
+    else:
+        outcome = 'succeeded'
     policy = event.get('policy_version')
     if not isinstance(policy, str) or not policy:
         policy = None

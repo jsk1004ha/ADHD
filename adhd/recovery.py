@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import time
 import re
-from .core import digest
+from pathlib import Path
+from .core import atomic_json, digest, read_json, redact, safe_path
 
 
 ACTIONS = {
@@ -53,7 +54,7 @@ def verified_failure_signature(output: str) -> str:
 
 
 def record_failure(state: dict, category: str, detail: str, evidence_ref: str,
-                   *, verified_signature: str | None = None) -> dict:
+                   *, verified_signature: str | None = None, command_id: str | None = None) -> dict:
     if category not in ACTIONS or not isinstance(detail, str) or not detail.strip():
         raise ValueError('Failure needs a known category and concrete detail')
     if not isinstance(evidence_ref, str) or not evidence_ref.strip() or len(evidence_ref) > 1000:
@@ -84,8 +85,111 @@ def record_failure(state: dict, category: str, detail: str, evidence_ref: str,
            'detail': detail[:2000],
            'evidence_ref': evidence_ref, 'next_action': next_action,
            'retry_allowed': retry_allowed, 'observed_at': time.time()}
+    if command_id:
+        row['command_id'] = command_id
     state['failure_history'] = (state.get('failure_history', []) + [row])[-30:]
+    if state.get('workspace') and state.get('run_id'):
+        try:
+            identity = digest([category, command_id, verified_signature or redact(detail)])[:24]
+            path = safe_path(Path(state['workspace']), '.adhd/failures/' + identity + '.json')
+            prior = read_json(path, {})
+            if not isinstance(prior, dict):
+                prior = {}
+            observation = digest([state['run_id'], evidence_ref])
+            observed = prior.get('observations', [])
+            if not isinstance(observed, list):
+                observed = []
+            if observation not in observed:
+                retained = {'id': identity, 'category': category, 'detail': redact(detail)[:1600],
+                    'next_action': next_action, 'evidence_ref': redact(evidence_ref),
+                    'mode': state.get('mode'), 'run_id': state['run_id'], 'command_id': command_id,
+                    'status': 'open', 'updated_at': row['observed_at'],
+                    'occurrences': prior.get('occurrences', 0) + 1,
+                    'observations': (observed + [observation])[-100:]}
+                atomic_json(path, retained)
+            row['retained_path'] = str(path.relative_to(Path(state['workspace']).resolve()))
+        except (OSError, ValueError, TypeError) as error:
+            state['memory_warning'] = 'Failure record: ' + str(error)[:300]
     return row
+
+
+def recover_failures(state: dict, command_id: str | None, evidence_ref: str,
+                     *, scan_records: bool = False) -> None:
+    """Keep the original failure; attach an observed recovery or task completion."""
+    seen = set()
+    history = list(state.get('failure_history', []))
+    try:
+        root = safe_path(Path(state['workspace']), '.adhd/failures') if scan_records and state.get('workspace') else None
+    except (OSError, ValueError) as error:
+        state['memory_warning'] = 'Failure recovery record: ' + str(error)[:300]
+        return
+    if root and root.is_dir():
+        for path in root.glob('*.json'):
+            if re.fullmatch(r'[0-9a-f]{24}\.json', path.name) and not path.is_symlink():
+                try:
+                    retained = read_json(path, {})
+                    if isinstance(retained, dict) and retained.get('run_id') == state.get('run_id'):
+                        history.append({**retained, 'retained_path': str(path.relative_to(Path(state['workspace']).resolve()))})
+                except (OSError, ValueError, TypeError):
+                    continue
+    for row in history:
+        relative = row.get('retained_path')
+        if not relative or relative in seen or (command_id and row.get('command_id') != command_id):
+            continue
+        seen.add(relative)
+        try:
+            path = safe_path(Path(state['workspace']), relative)
+            retained = read_json(path, {})
+            if not isinstance(retained, dict) or retained.get('run_id') != state.get('run_id') or retained.get('status') != 'open':
+                continue
+            retained.update(status='recovered' if command_id else 'task_completed', updated_at=time.time())
+            retained['recovery_evidence' if command_id else 'completion_receipt'] = redact(evidence_ref)
+            atomic_json(path, retained)
+        except (OSError, ValueError, TypeError) as error:
+            state['memory_warning'] = 'Failure recovery record: ' + str(error)[:300]
+
+
+def recent_failures(workspace: Path, mode: str, limit: int = 2) -> list[dict]:
+    """A small project-local reminder, separate from successful procedures."""
+    try:
+        root = safe_path(workspace, '.adhd/failures')
+    except (OSError, ValueError):
+        return []
+    if not root.is_dir():
+        return []
+    rows = []
+    for path in root.glob('*.json'):
+        if not re.fullmatch(r'[0-9a-f]{24}\.json', path.name) or path.is_symlink():
+            continue
+        try:
+            row = read_json(safe_path(workspace, str(path.relative_to(workspace))), {})
+            if isinstance(row, dict) and row.get('mode') in {None, mode}:
+                rows.append({key: row.get(key) for key in
+                             ('id', 'category', 'detail', 'next_action', 'status', 'updated_at')})
+        except (OSError, ValueError, TypeError):
+            continue
+    return sorted(rows, key=lambda row: row.get('updated_at') or 0, reverse=True)[:limit]
+
+
+def retain_check_result(workspace: Path, receipt_path: Path, receipt: dict) -> None:
+    """Retain actual check outcomes even when the caller did not submit a checkpoint."""
+    from .loop_guard import _redact_diagnostic
+    invocation = receipt['invocation']
+    command_id = digest([invocation['argv'], invocation['cwd']])
+    state = {'workspace': str(workspace.resolve()), 'run_id': receipt['run_id'], 'mode': None}
+    reference = str(receipt_path.relative_to(workspace.resolve())).replace('\\', '/')
+    if receipt['result']['exit_code'] == 0:
+        recover_failures(state, command_id, reference, scan_records=True)
+    else:
+        output = ''
+        for name in ('check.stderr.log', 'check.stdout.jsonl'):
+            with (receipt_path.parent / name).open('rb') as stream:
+                output += stream.read(4096).decode('utf-8', errors='replace') + '\n'
+        record_failure(state, classify_failure(output), _redact_diagnostic(output).strip() or
+                       'Check exited with code ' + str(receipt['result']['exit_code']), reference,
+                       verified_signature=verified_failure_signature(output), command_id=command_id)
+    if state.get('memory_warning'):
+        raise OSError(state['memory_warning'])
 
 
 def diagnosis(workspace, failure_ref: str, *, run_id: str, revision: int, facts: list[dict],

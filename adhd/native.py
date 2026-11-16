@@ -24,7 +24,7 @@ from . import DISPLAY_NAME, __version__
 from . import dependencies as _dependencies
 from filelock import FileLock
 from .core import (ROOT, MODES, atomic_json, digest, file_hash, home, read_json, safe_path,
-                   store, recipes, save_recipe, quarantine, select_mode)
+                   store, recipes, quarantine, select_mode)
 from .models import ROLES, route, execution_profile, validate_role_effort, EFFORT_OVERRIDABLE
 from .request_routing import (classify_request, is_brief_approval, is_status_followup,
                               is_substantive_request_source)
@@ -39,7 +39,8 @@ from .execution_decisions import (register_action, authorize_action, action_deci
                                   matched_host_action, observe_action_host_result)
 from .evidence import (validate_execution, observe_host_tool, validate_tool_observations,
                        receipt_test_failures)
-from .recovery import classify_failure, record_failure, verified_failure_signature
+from .recovery import (classify_failure, record_failure, verified_failure_signature,
+                       recent_failures, recover_failures)
 from .loop_guard import (CHURN_GRACE, observe_tool_loop, repeated_review_rejection,
                          reset_loop, steer_if_stuck)
 from .memory import validate_procedure_bundle
@@ -105,6 +106,7 @@ DEFAULTS = {'max_rounds': 8, 'max_seconds': 3600, 'max_children': 3,
             'max_review_children': 3, 'max_epochs': 3,
             'max_lifetime_children': 36, 'max_lifetime_rounds': 24}
 MAX_PROGRESS_AGE = 3600
+MCP_FIRST_GUIDANCE = 'Prefer suitable available MCPs; request compact results. Use local tools when needed.'
 GOAL_IMPLICIT_LIMITS = frozenset({'max_rounds', 'max_seconds', 'max_stagnation',
     'max_total_children', 'max_review_children', 'max_epochs',
     'max_lifetime_children', 'max_lifetime_rounds'})
@@ -160,7 +162,9 @@ def _observed_goal_request(state: dict) -> dict | None:
 
 
 def limit_enabled(state: dict, name: str) -> bool:
-    return (state.get('loop_mode', 'bounded') != 'goal'
+    persistent = (state.get('loop_mode') == 'goal'
+                  or state.get('execution_profile', {}).get('name') == 'auto')
+    return (not persistent
             or name not in GOAL_IMPLICIT_LIMITS
             or name in state.get('explicit_policy_keys', []))
 
@@ -753,6 +757,25 @@ def export_view(state: dict) -> None:
 def persist(d: Path, state: dict) -> None:
     remaining_time_budget(state)
     atomic_json(d/'state.json', state)
+    if state.get('status') == 'complete' and state.get('candidate'):
+        from .core import learn_success
+        try:
+            learned = learn_success(state, d)
+            if learned:
+                state.update(learned)
+                if state.get('memory_warning', '').startswith('Success retained; skill storage:'):
+                    state.pop('memory_warning', None)
+                atomic_json(d/'state.json', state)
+        except Exception as error:
+            state['memory_warning'] = 'Success retained; skill storage: ' + str(error)[:300]
+            atomic_json(d/'state.json', state)
+        if state.get('failure_learning_digest') != state['candidate']['digest']:
+            try:
+                recover_failures(state, None, str(d/('completion-'+state['run_id']+'.json')), scan_records=True)
+            except Exception as error:
+                state['memory_warning'] = 'Success retained; failure history: ' + str(error)[:300]
+            state['failure_learning_digest'] = state['candidate']['digest']
+            atomic_json(d/'state.json', state)
     export_view(state)
 
 def append_event(d: Path, event: str, data: dict) -> None:
@@ -770,7 +793,7 @@ def initial(key: str, ws: Path) -> dict:
             'astra_calls':0,'total_children':0, 'feedback':'', 'candidate':None,
             'pending_turn_ids':[], 'intent_history':[], 'host_capabilities':{'observed_events':[]},
             'failure_history':[], 'failure_counts':{}, 'needs_replan':False,
-            'model_calls':[], 'tool_observations':[],
+            'model_calls':[], 'tool_observations':[], 'execution_profile':execution_profile(),
             'epoch':1, 'review_children':0, 'lifetime_children':0, 'lifetime_rounds':0,
             'loop_mode':'bounded', 'goal_request':None, 'explicit_policy_keys':[],
             'policy':load_policy(), 'usage':{'observed':False,'tokens':None,
@@ -795,7 +818,7 @@ def migrate_state(state: dict, d: Path) -> None:
         state.setdefault('verified_progress',[])
         state.setdefault('seen_progress',[])
         state.setdefault('test_outcomes',{})
-        state.setdefault('execution_profile', execution_profile())
+        state.setdefault('execution_profile', execution_profile('standard'))
         state.setdefault('needs_replan',False)
         state.setdefault('model_calls',[])
         state.setdefault('tool_observations',[])
@@ -806,6 +829,7 @@ def migrate_state(state: dict, d: Path) -> None:
         atomic_json(backup,state)
     state['schema_version']=2
     state['version']=__version__
+    state.setdefault('execution_profile', execution_profile('standard'))
     state.setdefault('pending_turn_ids',[])
     state.setdefault('intent_history',[])
     state.setdefault('host_capabilities',{'observed_events':[]})
@@ -855,6 +879,39 @@ def criteria_valid(rows: Any) -> list[dict]:
         ids.add(row['id'])
     return rows
 
+def result_receipt(state: dict, criterion_id: str, ref: str) -> dict:
+    """Reuse only controller-pinned evidence for an unchanged requirement."""
+    revision=state['intent_version']
+    prior=state.get('reusable_execution',{}).get(criterion_id,{}).get(ref)
+    if prior:
+        path=checked_path(Path(state['workspace']),ref,existing=True)
+        if file_hash(path)!=prior['sha256']:
+            raise ValueError('Reusable execution receipt changed')
+        revision=prior['revision']
+    return validate_execution(Path(state['workspace']),ref,run_id=state['run_id'],revision=revision)
+
+
+def reusable_execution(state: dict, updated: dict, changed: list[str]) -> dict:
+    if (state.get('execution_profile',{}).get('name')!='auto' or
+            any(not target.startswith('criteria/') for target in changed)):
+        return {}
+    original={r['id']:r for r in state['contract']['criteria']}
+    unchanged={r['id'] for r in updated['criteria'] if original.get(r['id'])==r}
+    results=(state.get('candidate') or {}).get('criterion_results',[])
+    reused={cid:dict(refs) for cid,refs in state.get('reusable_execution',{}).items() if cid in unchanged}
+    for row in results:
+        if row['id'] not in unchanged:
+            continue
+        for ref in row.get('evidence_ids',[]):
+            try:
+                receipt=result_receipt(state,row['id'],ref)
+            except (ValueError,OSError):
+                continue
+            reused.setdefault(row['id'],{})[ref]={'revision':receipt['contract_revision'],
+                'sha256':file_hash(checked_path(Path(state['workspace']),ref,existing=True))}
+    return reused
+
+
 def result_valid(state: dict, rows: Any, *, require_execution: bool = False,
                  allow_failure: bool = False) -> None:
     if not isinstance(rows,list):
@@ -872,17 +929,18 @@ def result_valid(state: dict, rows: Any, *, require_execution: bool = False,
             raise ValueError('Every requirement must pass with concrete evidence')
         if len(row['evidence']) > 6000:
             raise ValueError('Evidence too long; reference a local file instead')
-        if require_execution and kinds[row['id']] in {'test','provenance'}:
-            refs = row.get('evidence_ids')
-            if not isinstance(refs, list) or not refs or len(refs) > 12:
+        if require_execution:
+            refs = row.get('evidence_ids', [])
+            if (not isinstance(refs, list) or len(refs) > 12 or
+                    kinds[row['id']] in {'test','provenance'} and not refs):
                 raise ValueError('Test/provenance criterion needs an observed execution receipt')
             for ref in refs:
                 if not isinstance(ref, str):
                     raise ValueError('Invalid execution evidence path')
-                if ref not in validated_receipts:
-                    validate_execution(Path(state['workspace']), ref, run_id=state['run_id'],
-                                       revision=state['intent_version'])
-                    validated_receipts.add(ref)
+                identity=(row['id'],ref)
+                if identity not in validated_receipts:
+                    result_receipt(state,row['id'],ref)
+                    validated_receipts.add(identity)
         if kinds[row['id']] in {'browser','mcp'}:
             observations=row.get('observation_ids')
             if not isinstance(observations,list):
@@ -911,7 +969,7 @@ def is_fresh(state: dict) -> bool:
     if (not c or c.get('evidence_schema') != 1 or
             c['intent_version'] != state['intent_version'] or
             c.get('contract_hash') != state.get('contract_hash') or
-            state.get('pending_turn_ids')):
+            state.get('pending_turn_ids') or state.get('remaining_work')):
         return False
     try:
         ws=Path(state['workspace'])
@@ -923,7 +981,8 @@ def is_fresh(state: dict) -> bool:
         for ref, sha in c.get('execution_receipts', {}).items():
             if file_hash(checked_path(ws,ref,existing=True)) != sha:
                 return False
-            validate_execution(ws,ref,run_id=state['run_id'],revision=state['intent_version'])
+            validate_execution(ws,ref,run_id=state['run_id'],
+                               revision=c.get('execution_revisions',{}).get(ref,state['intent_version']))
         current={r['id']:r for r in state.get('tool_observations',[])}
         if any(current.get(row['id'])!=row for row in c.get('tool_observations',[])):
             return False
@@ -1003,6 +1062,14 @@ def archive_for_new_task(state: dict, d: Path, turn_id: str) -> None:
     state.clear();state.update(fresh)
 
 
+def remaining_work(state: dict, payload: dict) -> list[str]:
+    items = payload.get('remaining_work', state.get('remaining_work', []))
+    if (not isinstance(items, list) or len(items) > 30 or
+            any(not isinstance(item, str) or not item.strip() or len(item) > 1000 for item in items)):
+        raise ValueError('remaining_work must be a short list of unfinished requested work')
+    return list(dict.fromkeys(item.strip() for item in items))
+
+
 def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
     ws=Path(state['workspace'])
     if op=='begin':
@@ -1029,6 +1096,7 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             if not isinstance(values,list) or len(values)>50 or any(not isinstance(v,str) or len(v)>4000 for v in values):
                 raise ValueError(field+' must be a bounded list of strings')
         criteria=criteria_valid(payload.get('criteria'))
+        unfinished=remaining_work({},payload)
         metadata=validate_contract_metadata(payload,criteria)
         if metadata and not _current_session_reader(state):
             raise ValueError('New contract metadata requires a current SessionStart reader; reopen the managed session first')
@@ -1037,7 +1105,7 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
                            *(metadata[name] for name in ('delivery_target','runtime_context','deadline') if name in metadata)]):
             raise ValueError('Contract metadata needs a recorded user source turn')
         routed=state.get('request_route') or {}
-        profile=execution_profile(payload.get('execution_profile', routed.get('suggested_profile', 'standard')))
+        profile=execution_profile(payload.get('execution_profile', routed.get('suggested_profile', 'auto')))
         effective_prompt=routed.get('effective_prompt') or state['prompts'][-1]['text']
         mode=payload.get('mode',select_mode(effective_prompt))
         if mode not in MODES:
@@ -1054,7 +1122,8 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         repositories = scope_repositories(ws, artifacts) if mode == 'coding' else set()
         if any(not repository.is_relative_to(ws.resolve()) for repository in repositories):
             raise ValueError('Git coding scope workspace must include the checkout root')
-        if mode == 'coding' and (payload.get('coding_scope') or repositories):
+        if mode == 'coding' and (payload.get('coding_scope') or
+                                repositories and profile['name'] != 'auto'):
             baseline_rel = payload.get('coding_scope')
             if not isinstance(baseline_rel, str):
                 raise ValueError('Git coding tasks need a CLI-captured coding_scope baseline before begin')
@@ -1094,7 +1163,7 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         state['efficiency_policy_version']=1
         state['actions']={};state['check_decisions']=[];state['wait_observations']=[]
         state['delivery_milestones']=[];state['context_refs']={}
-        state['batch_required']=bool(metadata) and mode=='coding'
+        state['batch_required']=bool(metadata) and mode=='coding' and profile['name']!='auto'
         if scope:
             state['contract']['coding_scope'] = scope
         if 'plan' in payload:
@@ -1103,9 +1172,13 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             state['plan']['sha256']=digest(state['plan']['content'])
         state['contract_hash']=digest(state['contract'])
         state['seen_target_digests']={rel:[sha] for rel,sha in target_manifest(state).items()}
+        state['remaining_work']=unfinished
         state['recipes']=recipes(ws,mode,effective_prompt,limit=2)
+        state['prior_failures']=recent_failures(ws,mode)
         claim_writer(state)
         atomic_json(d/('contract-'+state['run_id']+'-v'+str(state['intent_version'])+'.json'),state['contract'])
+        if profile['name']=='auto':
+            return 'Run ready. Deliver the user request, check the affected behavior, then submit candidate. Plan and independent review are optional.'
         if profile['plan_depth']=='optional':
             return 'Simple run armed. Execute directly or use one bounded child; verify before independent review.'
         return 'Run armed. Read relevant memory/skills, then submit a requirement-covered plan before implementation. Do not wait for user approval of reversible decisions.'
@@ -1204,7 +1277,9 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         state['intent_history']=(state.get('intent_history',[])+[
             {'turn_id':turn,'base_revision':old_version,'changed':changed,
              'previous_hash':state['contract_hash']}])[-100:]
+        reuse=reusable_execution(state,updated,changed)
         state['contract']=updated
+        state['reusable_execution']=reuse
         state['intent_version']=updated['intent_version']
         state['contract_hash']=digest(updated)
         state.pop('batch_report',None)
@@ -1231,6 +1306,8 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         if state.get('large_task'):
             from .large_native import invalidate_intent
             invalidate_intent(state)
+        if state.get('execution_profile', {}).get('name')=='auto':
+            state['needs_replan']=False
         state['reusable_evidence']={r['id']:r for r in state.get('candidate',{}).get('criterion_results',[])
             if not any(t=='criteria/'+r['id'] or t.startswith('documents/') for t in changed)} if state.get('candidate') else {}
         state['candidate']=None
@@ -1320,6 +1397,7 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         text=payload.get('summary',''); nxt=payload.get('next_action','')
         if not isinstance(text,str) or not isinstance(nxt,str) or not text.strip():
             raise ValueError('Checkpoint needs summary and next_action text')
+        unfinished=remaining_work(state,payload)
         entry={'summary':truncate_content(text,2000),'next_action':truncate_content(nxt,1000)}
         references=payload.get('evidence_ids',[])
         if not isinstance(references,list) or len(references)>12:
@@ -1361,9 +1439,14 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
                                verified_signature=verified_failure_signature(failure_output))
             if not row['retry_allowed']:
                 if category in {'auth_required','permission_denied','tool_unavailable','budget_exhausted'}:
-                    end_after_children(state, 'blocked', row['next_action'])
+                    if state.get('execution_profile', {}).get('name') == 'auto':
+                        state['feedback']=row['next_action']+' Within existing permissions, continue independent work or use an allowed alternative.'
+                    else:
+                        end_after_children(state, 'blocked', row['next_action'])
                 else:
-                    state['needs_replan']=True
+                    if state.get('execution_profile', {}).get('name') != 'auto':
+                        state['needs_replan']=True
+                    state['feedback']=row['next_action']
         partial=payload.get('criterion_results',[])
         if not isinstance(partial,list) or len(partial)>50:
             raise ValueError('Checkpoint criterion_results must be a bounded list')
@@ -1403,11 +1486,25 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             completed.add(item['id'])
             mark_verified_progress(state,'plan_step',item['id'],refs[0])
         state['completed_steps']=sorted(completed)
+        state['remaining_work']=unfinished
         state['checkpoints']=(state.get('checkpoints',[])+[entry])[-6:]
         return 'Checkpoint saved.'
     if op=='candidate':
+        independent_review=payload.get('independent_review',False)
+        if type(independent_review) is not bool:
+            raise ValueError('independent_review must be a boolean')
+        checked_completion=(state.get('execution_profile', {}).get('review_depth')=='checked'
+                            and not state.get('large_task') and not independent_review)
         if state['status'] not in ACTIVE or expire_time_budget(state):
             raise ValueError('Candidate requires an active, unexpired task time budget')
+        unfinished=remaining_work(state,payload)
+        if unfinished:
+            state['remaining_work']=unfinished
+            state['status']='working'
+            state['candidate']=None
+            state.pop('completion_receipt',None)
+            state['feedback']='Finish the remaining requested work: '+'; '.join(unfinished[:3])
+            return 'Progress retained. Continue to the requested outcome: '+'; '.join(unfinished[:3])
         if state.get('plan_required') and (not state.get('plan') or state['plan']['intent_version']!=state['intent_version']):
             raise ValueError('Create/update the required plan before submitting this task')
         for rel,sha in state['contract'].get('protected_inputs',{}).items():
@@ -1416,7 +1513,7 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             raise ValueError('Reconcile the new user amendment with sync-intent first')
         if state.get('pending_turn_ids'):
             raise ValueError('Resolve the pending user message before final review')
-        if state.get('needs_replan'):
+        if state.get('needs_replan') and state.get('execution_profile', {}).get('name')!='auto':
             raise ValueError('Change the plan after repeated failed checks before submitting a candidate')
         if state.get('batch_required'):
             from .validation_batch import load_report
@@ -1553,6 +1650,18 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         execution_refs={ref:file_hash(checked_path(ws,ref,existing=True))
                         for row in payload['criterion_results']
                         for ref in row.get('evidence_ids',[])}
+        executions={ref:result_receipt(state,row['id'],ref)
+                    for row in payload['criterion_results'] for ref in row.get('evidence_ids',[])}
+        execution_revisions={ref:receipt['contract_revision'] for ref,receipt in executions.items()}
+        if checked_completion and state['mode'] in {'coding','game'}:
+            targets=set(state['contract']['artifacts'])
+            tested=any(receipt['contract_revision']==state['intent_version'] and
+                       targets.intersection(receipt['subject_files']) for receipt in executions.values())
+            observed=any(row.get('observation_ids') for row in payload['criterion_results']
+                         if next(r['kind'] for r in state['contract']['criteria']
+                                 if r['id']==row['id']) in {'browser','mcp'})
+            if not tested and not observed:
+                raise ValueError('Checked coding/game completion needs a current artifact-related check or observed behavior')
         if target and target['kind'] in {'release','live_deployment'}:
             for ref in (delivery['publish_ref'],delivery['verification_ref']):
                 execution_refs[ref]=file_hash(checked_path(ws,ref,existing=True))
@@ -1584,7 +1693,7 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
             'provenance_evidence':provenance_evidence,'learning_check':learning_check,
             'tool_observations':[observation_by_id[ref] for ref in used_observations],
             'plan_sha256':(state.get('plan') or {}).get('sha256'),
-            'execution_receipts':execution_refs,'evidence_schema':1}
+            'execution_receipts':execution_refs,'execution_revisions':execution_revisions,'evidence_schema':1}
         if state.get('batch_report'):
             c['batch_report']=state['batch_report']
             c['batch_report_digest']=state['batch_report_digest']
@@ -1595,10 +1704,27 @@ def apply_request(state: dict, op: str, payload: dict, d: Path) -> str:
         if scope_proof:
             c['coding_scope_proof'] = scope_proof
             c['coding_scope_evidence'] = payload['coding_scope_evidence']
+        if checked_completion and document_evidence:
+            review_documents({**state,'candidate':c},payload)
+            c['document_reviews']=payload['document_reviews']
+            for row in c['document_evidence']:
+                row['visual_approval']='parent_checked'
         if expire_time_budget(state):
             raise ValueError('Candidate arrived after the explicit task time limit')
         c['digest']=digest(c)
+        state['remaining_work']=[]
+        state.pop('completion_receipt',None)
         state['candidate']=c; state['status']='reviewing'; state['feedback']=''
+        if checked_completion:
+            if any(child.get('status')=='running' for child in state.get('children', {}).values()):
+                raise ValueError('Finish running children before finalizing the result')
+            state['completion_receipt']={'method':'checked', 'digest':c['digest'],
+                'contract_hash':state['contract_hash'], 'time':time.time()}
+            atomic_json(d/('completion-'+state['run_id']+'.json'),state['completion_receipt'])
+            state['feedback']='Success. The requested result is complete.'
+            state['needs_replan']=False
+            end_after_children(state,'complete')
+            return 'Success. The requested result is complete; retain useful steps for reuse.'
         return 'Candidate '+c['digest']+' recorded. Spawn adhd-verifier on this exact digest; do not approve your own work.'
     raise ValueError('Unknown native operation: '+op)
 
@@ -1833,7 +1959,7 @@ def start_child(state: dict, ev: dict) -> dict:
         state['children'][str(aid)]['correlated'] = False
         state['feedback'] = 'An ordinary child started inside the reserved verification window; stop it and use the remaining time for checks or independent review.'
         return message('SubagentStart', state['feedback'])
-    instruction='Do not spawn children. Return concise findings with exact file/source pointers. Never claim unexecuted checks.'
+    instruction='Do not spawn children. Return concise findings with exact file/source pointers. Never claim unexecuted checks. '+MCP_FIRST_GUIDANCE
     if state.get('contract'):
         from .large_prompts import plan_context_packet
         contract=state['contract'];ws=Path(state['workspace'])
@@ -1962,18 +2088,11 @@ def stop_child(state: dict, ev: dict, d: Path) -> dict:
         if state.get('large_task'):
             from .large_native import accept_verified
             accept_verified(state)
-        state['feedback']='Verified candidate completed.'
+        state['feedback']='Success. The requested result is complete.'
         call['outcome']='independent_approval'
         atomic_json(d/('completion-'+state['run_id']+'.json'),state['review_receipt'])
-        state['recipe_saved']=None
-        try:
-            state['recipe_saved']=save_recipe(Path(state['workspace']),state['mode'],state['prompts'][-1]['text'],
-                  state['candidate']['procedure'],str(d/('completion-'+state['run_id']+'.json')),
-                  bundle=state['candidate'].get('procedure_bundle'))
-        except (ValueError,OSError) as error:
-            state['memory_warning']=str(error)[:500]
         end_after_children(state, 'complete')
-        return message('SubagentStop','ADHD independent gate passed. Report actual deliverables, evidence, and remaining limitations; do not add unverified edits.')
+        return message('SubagentStop','Success. Report the delivered result; reusable steps are retained automatically.')
     except (ValueError,TypeError,OSError) as e:
         call['outcome']='review_rejected'
         failure=record_failure(state,classify_failure(str(e)),str(e),
@@ -2012,12 +2131,14 @@ def context(state: dict, *, bootstrap: bool = True, restore: bool = False) -> st
     b=bridge(Path(state['workspace']),state['key'])
     routed=state.get('request_route') or {}
     direct_turn=state['status']=='complete' and routed.get('path')=='direct' and not state.get('pending_turn_ids')
-    profile=execution_profile(routed.get('suggested_profile', state.get('execution_profile', {}).get('name', 'standard'))
+    profile=execution_profile(routed.get('suggested_profile', state.get('execution_profile', {}).get('name', 'auto'))
                               if state['status']=='idle' or direct_turn
                               else state.get('execution_profile', {}).get('name', 'standard'))
     planning={'optional':'Plan is optional; execute directly or use limited delegation.',
               'brief':'Submit a brief requirement-covered plan before implementation.',
               'deep':'Submit a deep plan covering every requirement before implementation.'}
+    if profile['name']=='auto':
+        planning['optional']='Plan is optional; finish the requested outcome within user limits and stops.'
     if state.get('pending_turn_ids'):
         next_action='Classify '+str(len(state['pending_turn_ids']))+' pending user turn(s) via native sync-intent before review.'
     elif state.get('plan_required') and (not state.get('plan') or state['plan']['intent_version']!=state['intent_version']):
@@ -2025,15 +2146,19 @@ def context(state: dict, *, bootstrap: bool = True, restore: bool = False) -> st
     elif state['status']=='reviewing':
         next_action='Independent adhd-verifier must review the current candidate digest.'
     elif state['status'] in ACTIVE:
-        next_action='Implement/check the current requirements, then submit candidate and independent review.'
+        next_action=('Deliver the request, check affected behavior, then submit candidate.'
+                     if profile['name']=='auto' else
+                     'Implement/check the current requirements, then submit candidate and independent review.')
     elif direct_turn:
         next_action='Answer the new direct request with appropriate checking. The completed contract stays accepted.'
     elif state['status']=='complete':
-        next_action='Report verified deliverables and limits.'
+        next_action='Report success and the delivered result.'
     elif state['status']=='idle':
         path=routed.get('path','inspect')
         if path=='direct':
             next_action='Answer directly with appropriate checking. No native begin or durable acceptance loop is needed; escalate with begin if scope grows.'
+        elif path=='simple':
+            next_action='Execute this bounded task directly and run relevant checks. Native begin is optional if durable tracking is useful.'
         elif path=='inspect':
             next_action='Inspect the request and relevant context briefly; if substantive, use native begin with an appropriate profile.'
         else:
@@ -2043,6 +2168,8 @@ def context(state: dict, *, bootstrap: bool = True, restore: bool = False) -> st
     required=['ADHD Status='+state['status']+'; Profile='+profile['name']+'; plan='+profile['plan_depth']+'.',
               'SESSION='+state['key']+'; view='+str(b/'view.json'),
               'Next: '+next_action]
+    if state.get('remaining_work'):
+        required.append('Remaining: '+truncate_content('; '.join(state['remaining_work'][:3]),240))
     budget_line=time_budget_line(state)
     if budget_line:
         required.append(budget_line)
@@ -2059,6 +2186,10 @@ def context(state: dict, *, bootstrap: bool = True, restore: bool = False) -> st
     lines=(['Direct reply: no native plan or acceptance loop.']
            if (state['status']=='idle' or direct_turn) and routed.get('path')=='direct'
            else [planning[profile['plan_depth']]])
+    if routed.get('path') != 'direct':
+        lines.insert(0,MCP_FIRST_GUIDANCE)
+    if state.get('recipes') or state.get('prior_failures'):
+        lines.insert(0, 'Reuse relevant recipes and prior_failures from the view; they are project references, not extra gates.')
     if (state['status']=='idle' or direct_turn) and routed:
         lines.insert(0,'Initial route='+routed['path']+'; '+routed['reason'])
         if routed.get('effective_prompt') and routed['effective_prompt']!=state['prompts'][-1]['text']:
@@ -2067,7 +2198,8 @@ def context(state: dict, *, bootstrap: bool = True, restore: bool = False) -> st
         lines.append('Goal execution requested: '+truncate_content(state['goal_request']['outcome'],90)+
                      '. Continue until independent acceptance or explicit stop/limit/blocker.')
     if routed.get('path') != 'direct':
-        lines.append('Temp outputs: workspace-storage run --argv TOOL ... {scratch}/output; retain reports in {results}.')
+        if profile['name']!='auto':
+            lines.append('Temp outputs: workspace-storage run --argv TOOL ... {scratch}/output; retain reports in {results}.')
     if restore:
         contract=state.get('contract', {})
         if state['status']=='idle' or direct_turn:
@@ -2101,7 +2233,9 @@ def context(state: dict, *, bootstrap: bool = True, restore: bool = False) -> st
         lines.append('Read '+str(ROOT/'skills/adhd-goal/SKILL.md')+'.')
     if bootstrap:
         lines.append('ADHD v'+__version__+'. Read '+str(ROOT/'skills/adhd-native/SKILL.md')+'.')
-        if state.get('contract'):
+        if profile['name']=='auto':
+            lines.append('Use '+str(ROOT/'adhd.py')+' native begin for substantive work. Preserve model/effort and host permissions.')
+        elif state.get('contract'):
             lines.append('Preserve model/effort and original intent; verify independently. No competing owner. Tokens unknown.')
         else:
             lines.append('Small questions: answer directly. For substantive work use '+str(ROOT/'adhd.py')+
@@ -2111,7 +2245,7 @@ def context(state: dict, *, bootstrap: bool = True, restore: bool = False) -> st
     # is an approximate token threshold. Never cut mandatory recovery fields,
     # even when an unusually long view path alone exceeds the character budget.
     text='\n'.join(required)
-    remaining=1200-len(text)-1
+    remaining=(850 if profile['name']=='auto' else 1200)-len(text)-1
     if remaining>0:
         explanation='\n'.join(lines)
         if len(explanation)>remaining:
@@ -2180,7 +2314,11 @@ def handle_event(ev: dict, *, diagnostics=None) -> dict:
                     outcome = goal_command(prompt)
                     if outcome is not None:
                         state['goal_request']={'source_turn_id':turn, 'outcome':outcome}
-                    if state.get('contract') and state['status']!='complete':
+                    routine=(state.get('execution_profile', {}).get('name')=='auto' and
+                             (is_status_followup(prompt) or is_brief_approval(prompt)))
+                    if state.get('contract') and routine:
+                        state['request_route']=classify_request(prompt)
+                    elif state.get('contract') and state['status']!='complete':
                         state['pending_turn_ids'].append(turn)
                         state['feedback']='Classify the latest user turn as no_change, amend or new_task before final review.'
                         state['request_route']=classify_request(prompt,active_contract=True)
@@ -2311,6 +2449,10 @@ def handle_event(ev: dict, *, diagnostics=None) -> dict:
                             action='Continue toward the original goal: implement, check, repair, submit a fresh candidate and independently review it.'
                             if state['stagnation'] >= state['policy']['max_stagnation']:
                                 action+=' No verified progress: change the hypothesis or approach using concrete failure evidence; report blocked if no viable path remains.'
+                        if state.get('execution_profile', {}).get('name')=='auto':
+                            action='Continue until the original user request is delivered and its requested use flow works. Apply feedback, finish remaining work, run affected checks and submit candidate.'
+                        if state.get('remaining_work'):
+                            action+=' Remaining: '+truncate_content('; '.join(state['remaining_work'][:3]),400)
                         if state['status']=='reviewing': action='Wait for the verifier, or spawn adhd-verifier on the candidate digest. Do not self-approve.'
                         # Rereading an unchanged view.json every round costs tokens and adds nothing.
                         view_sig=view_read_signature(state)
@@ -2319,7 +2461,9 @@ def handle_event(ev: dict, *, diagnostics=None) -> dict:
                         state['view_hint_sig']=view_sig
                         out={'decision':'block','reason':PREFIX+key+'] '+action+view_hint+' '+truncate_content(state.get('feedback',''),800)}
             elif state['status']=='complete' and not state.get('halt_emitted'):
-                out={'continue':False,'stopReason':'ADHD task completed with a fresh independent review. Do not run another automatic loop for this task.'}
+                out={'continue':False,'stopReason':('ADHD task completed with current checks. Do not run another automatic loop for this task.'
+                    if state.get('completion_receipt', {}).get('method')=='checked' else
+                    'ADHD task completed with a fresh independent review. Do not run another automatic loop for this task.')}
             elif state['status'] in {'cancelled','paused','budget_exhausted','blocked','handoff_pending','interrupt_pending'} and not state.get('halt_emitted'):
                 out={'continue':False,'stopReason':state.get('feedback') or state['status']}
             if out.get('continue') is False: state['halt_emitted']=True

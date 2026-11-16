@@ -1,5 +1,10 @@
 # Fewer verification rounds with current evidence
 
+Auto is the default: deliver the user request with relevant checks. Formal plans,
+standalone scope audits, batch manifests and independent review below apply when
+explicitly selected or required; strict profiles retain their existing gates.
+A bounded local task may be executed and checked directly.
+
 Prepare one sufficient check plan while implementing. Finish a coherent repair
 group before running its affected checks; do not start a full suite per file edit.
 Review the change and finish cleanup before freezing the final candidate. A later

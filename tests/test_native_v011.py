@@ -42,6 +42,8 @@ class NativeV011Tests(unittest.TestCase):
         return read_json(folder(self.key) / 'state.json')
 
     def request(self, operation, payload):
+        if operation == 'begin':
+            payload = {'execution_profile': 'standard', **payload}
         receipt = submit_request(self.key, self.ws, operation, payload)
         self.event('PostToolUse', tool_name='Bash')
         return read_json(Path(receipt['receipt']))

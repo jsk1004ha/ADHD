@@ -16,7 +16,7 @@ Expand only material evidence with `wiki read --id CANONICAL_ID --section HEADIN
 current evidence, not a guessed fallback. Avoid rereading the unchanged catalog.
 
 Use `memory recall` for bounded, separately labelled memory + wiki context.
-After a published independent completion, `wiki record-completion --payload-file
+After a published successful completion, `wiki record-completion --payload-file
 POINTER.json --workspace PROJECT` resolves any deferred native capture. It creates
 an idempotent candidate only. `wiki review` shows exact diffs; `wiki apply --id ID`
 writes only current configured grants and matching revisions. Reuse existing
@@ -34,7 +34,7 @@ Retain concise sourced records with `memory put --workspace PROJECT --payload-fi
 ```json
 {"kind":"incident","key":"document-last-page-clipping","content":"Before completion, render and inspect every final page; XML save is insufficient.","source":"actual user feedback or verified run path","locator":"exact message/section/date","basis":"user_statement","ttl_days":90,"entities":["document-editing"]}
 ```
-Kinds: fact/preference/decision/episode/incident/document/skill. Basis: user_statement/source_read/measured/calculated/inferred. Procedure/verified_run writes are controller-only and occur after independent completion. Global scope is explicit opt-in for reusable user preferences, never sensitive profile details or local submission limits. Do not copy whole chats, screenshots, tokens, keys, personal identity or hidden chain-of-thought.
+Kinds: fact/preference/decision/episode/incident/document/skill. Basis: user_statement/source_read/measured/calculated/inferred. Procedure/verified_run writes follow controller completion, including auto's checked completion. Global scope is explicit opt-in for reusable user preferences, never sensitive profile details or local submission limits. Do not copy whole chats, screenshots, tokens, keys, personal identity or hidden chain-of-thought.
 
 Same scope/key with changed content becomes a conflict, not last-write-wins. Read current evidence then `memory resolve --id ID --evidence "source pointer and reason"`; decision provenance is logged by hash. `memory forget --id ID` removes active retrieval and keeps a tombstone so reimport does not resurrect identical content; external sources/backups are not erased. Failed methods must not be promoted to success.
 
@@ -42,4 +42,6 @@ For wiki.zip: `wiki scan ZIP`, then `wiki import ZIP --workspace PROJECT`. Defau
 
 Feedback improves project-scoped incident checklists and regression fixtures. Do not automatically rewrite global instructions or delete old successful procedures based on one inferred complaint. No vector DB/embedding/graph server is installed: FTS5 + Korean bigrams + rank fusion + explicit entity pointers are the local implementation.
 
-For a reusable verified procedure, include input conditions, execution steps, a verifier and recovery steps in `procedure_bundle` at candidate time. It is saved only after independent completion; it never executes automatically. Check the current request and environment before reuse.
+Successful native tasks automatically retain a project-scoped recipe and discoverable `SKILL.md`. Supply useful `procedure` steps and optionally `procedure_bundle` (input conditions, execution steps, verifier, recovery) at candidate time. If omitted, the controller retains the actual result references and checks as a starting point. Repeated completion events do not duplicate successes. Check the current request and environment before reusing a skill.
+
+Observed tool/check failures are retained in `PROJECT/.adhd/failures/` without a separate checkpoint. Recovery or later task success is attached without erasing the original failure. A new run receives a small `prior_failures` reminder alongside matching recipes. These project execution records need no extra approval round; unrelated personal/global memory remains separately scoped.

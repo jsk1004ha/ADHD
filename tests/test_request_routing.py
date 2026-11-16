@@ -95,7 +95,7 @@ class NativeRoutingHookTests(unittest.TestCase):
     def test_idle_direct_then_substantive_route_emits_new_guidance(self):
         first = self.event('UserPromptSubmit', prompt='안녕')
         self.assertIn('Answer directly', str(first))
-        self.assertIn('Profile=simple; plan=optional', str(first))
+        self.assertIn('Profile=auto; plan=optional', str(first))
         self.assertIn('no native plan or acceptance loop', str(first))
         self.assertEqual(self.state()['request_route']['path'], 'direct')
         self.assertNotIn('run_id', self.state())
@@ -117,7 +117,7 @@ class NativeRoutingHookTests(unittest.TestCase):
         self.event('PostToolUse', tool_name='Bash')
         self.assertTrue(read_json(Path(receipt['receipt']))['ok'])
         state = self.state()
-        self.assertEqual(state['execution_profile']['name'], 'simple')
+        self.assertEqual(state['execution_profile']['name'], 'auto')
         self.assertEqual([p['text'] for p in state['prompts']], ['Fix this function', 'ㅇㅇ 그렇게 해줘'])
 
     def test_approval_skips_intervening_small_turns_and_restores_current_objective(self):
@@ -151,8 +151,8 @@ class NativeRoutingHookTests(unittest.TestCase):
         self.assertEqual(self.state()['pending_turn_ids'], [])
         self.event('UserPromptSubmit', prompt='What is the status?')
         self.assertEqual(self.state()['status'], 'complete')
-        self.assertEqual(self.state()['request_route']['path'], 'active')
-        self.assertTrue(self.state()['pending_turn_ids'])
+        self.assertEqual(self.state()['request_route']['path'], 'direct')
+        self.assertEqual(self.state()['pending_turn_ids'], [])
 
     def test_explicit_begin_profile_overrides_suggestion_and_followup_stays_pending(self):
         self.event('UserPromptSubmit', prompt='Fix this function')

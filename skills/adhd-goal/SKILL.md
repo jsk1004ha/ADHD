@@ -1,11 +1,11 @@
 ---
 name: adhd-goal
-description: Keep ADHD working toward a user-defined outcome through implementation, checks and repair until independently verified. Invoke with $adhd-goal or /goal and the target result.
+description: Keep ADHD working toward a user-defined outcome through implementation, checks and repair until checked against the requested outcome. Invoke with $adhd-goal or /goal and the target result.
 ---
 # Work until the requested outcome is verified
 
 Read the actual user goal, inputs and current native bridge view. Use the existing
-ADHD owner and [native protocol](../adhd-native/references/protocol.md); do not
+ADHD owner and [quickstart](../adhd-native/references/protocol-quickstart.md); do not
 launch another loop. Preserve the selected model, effort, permissions and scope.
 
 The native hook recognizes a message beginning with `/goal`, `$adhd-goal`, or
@@ -29,7 +29,7 @@ Finish the implementation and checks, [$adhd-goal](../adhd-goal/SKILL.md)
    exists, ask for the missing outcome. A factual research conclusion must follow
    the evidence; never manufacture a finding to match the user's expectation.
 2. For an idle task, capture coding scope where required and submit `native begin`
-   with `loop_mode: "goal"`, criteria, artifacts and a requirement-covered plan.
+   with `loop_mode: "goal"`, criteria and artifacts. Auto planning is optional.
    Read the acknowledgement and confirm `loop_mode` is `goal` in the view.
    An observed command or active host thread goal authorizes this mode. If an
    older parser missed the last recorded invocation, supported `begin`/`goal`
@@ -45,10 +45,10 @@ Finish the implementation and checks, [$adhd-goal](../adhd-goal/SKILL.md)
    Update checkpoints with actual progress and the next unresolved action.
    After repeated failures change the hypothesis or method. Continue authorized
    reversible work without asking whether to proceed.
-5. Submit a current candidate only after all criteria pass, then obtain the native
-   independent verifier's review of that exact digest. A rejection returns to
-   repair and fresh verification. A candidate, self-declared success or exhausted
-   budget is not completion. Finish only when the view reports fresh acceptance.
+5. Submit a current candidate after all criteria pass. Auto completes from current
+   checks; request `independent_review: true` when useful. Strict profiles retain
+   independent review. A rejection returns to focused repair and rechecking.
+   Exhausted budget is not completion. Finish when the view reports acceptance.
 
 Goal mode omits implicit continuation, elapsed-time, stagnation, epoch and child
 call cutoffs. Explicit `native-policy.json` limits still apply, as do parallel
@@ -60,5 +60,5 @@ Do not invent progress, reset limits or weaken tests to keep the loop alive.
 The host must deliver Stop/lifecycle hooks and either the user prompt or its
 session-matched goal transcript. `$adhd-goal TARGET` remains the direct entry point.
 Host goal pause, clear or termination retains unfinished native work; a host goal
-marked complete cannot replace independent ADHD acceptance.
+marked complete cannot replace the selected ADHD profile's acceptance checks.
 Closed Apps, missing hooks and provider limits cannot be bypassed by this skill.

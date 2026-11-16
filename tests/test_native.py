@@ -24,6 +24,7 @@ class NativeTests(unittest.TestCase):
     def state(self): return read_json(folder(self.key)/'state.json')
     def save(self,s): atomic_json(folder(self.key)/'state.json',s)
     def request(self,op,payload):
+        if op == 'begin': payload = {'execution_profile': 'standard', **payload}
         req=submit_request(self.key,self.ws,op,payload);self.event('PostToolUse',tool_name='Bash')
         return read_json(Path(req['receipt']))
     def begin(self,kind='test'):

@@ -23,6 +23,7 @@ from .core import store
 KINDS = {'fact','preference','decision','episode','procedure','incident','document','skill'}
 BASIS = {'user_statement','source_read','measured','calculated','inferred','verified_run'}
 LIFECYCLE = {'active','conflict','superseded','quarantined','needs_review','forgotten'}
+PROCEDURE_STOP_WORDS = frozenset('a an and the to for of in on with from this that it is be as by or at into using use generate create build new work task'.split())
 SECRET = re.compile(r'(?:sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{16,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|(?:api[_-]?key|password|token)\s*[:=]\s*["\']?[^\s"\']{12,})', re.I)
 
 def fingerprint(value: Any) -> str:
@@ -119,6 +120,8 @@ class Memory:
         CREATE TABLE IF NOT EXISTS procedure_goals (
           canonical_id TEXT NOT NULL, goal TEXT NOT NULL, successes INTEGER NOT NULL,
           updated REAL NOT NULL, PRIMARY KEY(canonical_id,goal));
+        CREATE TABLE IF NOT EXISTS procedure_runs (
+          source_run TEXT PRIMARY KEY, canonical_id TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS migrations (
           name TEXT PRIMARY KEY, completed_at REAL NOT NULL, detail TEXT NOT NULL);
         ''')
@@ -183,7 +186,7 @@ class Memory:
         if SECRET.search(content+' '+source+' '+locator):
             raise ValueError('Possible secret: record rejected, not logged')
         if kind=='procedure' and not verified_receipt:
-            raise ValueError('Procedure promotion requires an independently verified completion receipt')
+            raise ValueError('Procedure promotion requires a verified completion receipt')
         if basis=='verified_run' and not verified_receipt:
             raise ValueError('Missing verified-run receipt')
         now=time.time(); observed=now if observed is None else float(observed)
@@ -344,8 +347,11 @@ class Memory:
     @_serialized_write
     def save_procedure(self, workspace: Path, mode: str, goal: str, steps: list[str],
                        evidence: str, environment: str, *, legacy_alias: str|None=None,
-                       bundle: dict|None=None) -> str:
+                       bundle: dict|None=None, source_run: str|None=None) -> str:
         validate_procedure_bundle(bundle)
+        if source_run is not None and (not isinstance(source_run, str)
+                                       or not re.fullmatch(r'[0-9a-f]{64}', source_run)):
+            raise ValueError('Procedure source run needs a digest')
         scope=namespace(workspace)
         identity=fingerprint([scope,mode,steps,environment,bundle])
         key='procedure:'+mode+':'+identity[:24]
@@ -355,29 +361,49 @@ class Memory:
             basis='verified_run',environment=environment,verified_receipt=evidence or 'legacy receipt',
             content_identity='procedure:'+identity,source_alias='procedure:'+mode)
         rid=result.get('id')
-        if rid and result.get('status')=='quarantined':
-            self.restore(rid,evidence=evidence or 'new verified completion',verified_receipt=evidence or 'legacy receipt')
-        elif not rid or result.get('status')=='forgotten':
+        if not rid or result.get('status') in {'forgotten', 'quarantined'}:
             raise ValueError('Procedure is not eligible for active storage')
         with self.db:
+            if source_run is not None:
+                prior=self.db.execute('SELECT canonical_id FROM procedure_runs WHERE source_run=?',
+                                      (source_run,)).fetchone()
+                if prior:
+                    if prior['canonical_id'] != rid:
+                        raise ValueError('Source run already maps to another procedure')
+                    return rid
+                self.db.execute('INSERT INTO procedure_runs VALUES (?,?)',(source_run,rid))
             self.db.execute('''INSERT INTO procedure_goals VALUES (?,?,1,?)
                 ON CONFLICT(canonical_id,goal) DO UPDATE SET successes=procedure_goals.successes+1,updated=excluded.updated''',
                 (rid,goal,time.time()))
             if legacy_alias:self.add_alias('legacy-recipe',legacy_alias,rid)
         return rid
 
+    def active_procedure_ids(self, workspace: Path, environment: str) -> set[str]:
+        """Eligible generated skills for this exact project and environment."""
+        rows=self.db.execute('''SELECT r.id FROM records r
+          LEFT JOIN lifecycle l ON l.canonical_id=r.id
+          WHERE r.scope=? AND r.kind='procedure' AND r.environment=? AND r.status='active'
+          AND COALESCE(l.status,'active')='active' ''',
+          (namespace(workspace),environment)).fetchall()
+        return {row['id'] for row in rows}
+
     def procedure_recipes(self, workspace: Path, mode: str, goal: str, environment: str,
                           limit: int=3) -> list[dict[str,Any]]:
-        q=tokens(goal);scope=namespace(workspace);ranked=[]
+        q=tokens(goal)-PROCEDURE_STOP_WORDS;scope=namespace(workspace);ranked=[]
         rows=self.db.execute('''SELECT r.id,r.content,g.goal,g.successes FROM records r
           JOIN procedure_goals g ON g.canonical_id=r.id
           LEFT JOIN lifecycle l ON l.canonical_id=r.id
           WHERE r.scope=? AND r.kind='procedure' AND r.environment=? AND r.status='active'
           AND COALESCE(l.status,'active')='active' ''',(scope,environment)).fetchall()
         for row in rows:
-            previous=row['goal'];overlap=len(q&tokens(previous))/max(1,len(q|tokens(previous)))
-            if overlap>=.22 or previous==goal:
-                payload=json.loads(row['content'])
+            payload=json.loads(row['content'])
+            if payload.get('mode') != mode:
+                continue
+            previous=row['goal'];terms=tokens(previous)-PROCEDURE_STOP_WORDS
+            shared=q&terms;overlap=len(shared)/max(1,len(q|terms))
+            # Changed filenames and long delivery details should not hide a
+            # matching project workflow. Results are bounded advisory references.
+            if overlap>=.22 or len(shared)>=3 or previous==goal:
                 ranked.append({'id':row['id'],'goal':previous,'steps':payload['steps'],
                     'bundle':payload.get('bundle'),'verified_runs':row['successes'],'similarity':overlap})
         return sorted(ranked,key=lambda d:(-d['similarity'],-d['verified_runs']))[:limit]

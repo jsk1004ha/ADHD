@@ -72,7 +72,7 @@ class DeliveryEfficiencyTests(unittest.TestCase):
         event = {'tool_name': 'mcp__host__publish', 'tool_input': request,
                  'tool_use_id': 'tool-1', 'policy_version': 'v1',
                  'tool_response': {'isError': True, 'message': 'blocked by policy'}}
-        self.assertEqual(observe_action_host_result(state, event)['outcome'], 'unknown_denial')
+        self.assertEqual(observe_action_host_result(state, event)['outcome'], 'host_policy_denied')
         observe_action_host_result(state, event)
         self.assertEqual(len(action['attempts']), 1)
         self.assertFalse(action_decision(state, action, 'v1')['retry_allowed'])
@@ -82,6 +82,18 @@ class DeliveryEfficiencyTests(unittest.TestCase):
         from adhd.execution_decisions import classify_denial
         self.assertEqual(classify_denial('Permission denied: C:/fixture'), 'os_permission_denied')
         self.assertEqual(classify_denial({'code': 'policy_denied', 'message': 'blocked by policy'}), 'host_policy_denied')
+
+    def test_policy_version_does_not_clear_unrelated_denials(self):
+        from adhd.execution_decisions import action_key, record_action_outcome, action_decision
+        for denial in ('os_permission_denied', 'credential_missing',
+                       'harness_capability_missing', 'unknown_denial'):
+            with self.subTest(denial=denial):
+                action = {'operation': 'publish', 'canonical_targets': ['demo'],
+                          'scope_digest': digest('demo'), 'authorized': True}
+                state = {'actions': {action_key(action): action}}
+                record_action_outcome(state, action, denial, 'host:denial', 'v1')
+                self.assertFalse(action_decision(state, action, 'v2')['retry_allowed'])
+                self.assertTrue(action['authorized'])
 
     def test_f1_brief_approval_needs_one_observed_proposal(self):
         from adhd.execution_decisions import register_action, authorize_action
@@ -99,6 +111,98 @@ class DeliveryEfficiencyTests(unittest.TestCase):
         action['authorized'] = False
         with self.assertRaises(ValueError):
             authorize_action(state, action['action_id'], turn_id='turn-2', prompt='진행해줘')
+
+    def test_f1_repeat_approval_preserves_existing_action_outcome(self):
+        from adhd.execution_decisions import register_action, authorize_action, record_action_outcome
+
+        proposal = 'Publish demo to the selected destination?'
+        state = {'prompts': [{'turn_id': 'turn-2', 'text': '진행해줘', 'time': 20}],
+                 'last_assistant_message': {'text': proposal, 'sha256': digest(proposal),
+                                            'observed_at': 10}}
+        action = register_action(state, {'operation': 'publish', 'canonical_targets': ['demo'],
+            'scope_digest': digest('demo'), 'source_turn_id': 'turn-1',
+            'authorization_excerpt': 'demo 게시', 'proposal_excerpt': proposal,
+            'constraints': []})
+        authorize_action(state, action['action_id'], turn_id='turn-2', prompt='진행해줘')
+        record_action_outcome(state, action, 'host_policy_denied', 'host:tool-1', 'policy-v1')
+        state['prompts'].append({'turn_id': 'turn-3', 'text': '진행해줘', 'time': 30})
+        repeated = authorize_action(state, action['action_id'], turn_id='turn-3', prompt='진행해줘')
+        self.assertEqual(repeated['authorized_by'], 'turn-2')
+        self.assertEqual(repeated['status'], 'blocked')
+        self.assertEqual(repeated['attempts'][0]['outcome'], 'host_policy_denied')
+
+    def test_f1_host_result_requires_observed_success_or_failure(self):
+        from adhd.execution_decisions import register_action, observe_action_host_result
+
+        request = {'cmd': 'restricted operation'}
+        state = {'actions': {}}
+        action = register_action(state, {'operation': 'publish', 'canonical_targets': ['demo'],
+            'scope_digest': digest('demo'), 'source_turn_id': 'turn-1',
+            'authorization_excerpt': 'demo 게시', 'tool_name': 'mcp__host__publish',
+            'request_sha256': digest(request), 'constraints': []})
+        action['authorized'] = True
+        base = {'tool_name': 'mcp__host__publish', 'tool_input': request}
+        self.assertIsNone(observe_action_host_result(state, {**base, 'tool_use_id': 'unknown',
+            'tool_response': {'unrecognized': 'response envelope'}}))
+        self.assertEqual(action['attempts'], [])
+        for tool_id, response, expected in [
+            ('error', {'isError': True, 'message': 'runtime error'}, 'failed'),
+            ('exit', {'exit_code': 1, 'output': 'failed'}, 'failed'),
+            ('permission', {'error': 'permission denied'}, 'os_permission_denied'),
+            ('success', {'isError': False, 'content': []}, 'succeeded'),
+        ]:
+            result = observe_action_host_result(state, {**base, 'tool_use_id': tool_id,
+                'tool_response': response})
+            self.assertEqual(result['outcome'], expected)
+
+    def test_f1_running_result_is_not_a_success_receipt(self):
+        from adhd.execution_decisions import register_action, observe_action_host_result
+
+        request = {'cmd': 'long operation'}
+        state = {'actions': {}}
+        action = register_action(state, {'operation': 'publish', 'canonical_targets': ['demo'],
+            'scope_digest': digest('demo'), 'source_turn_id': 'turn-1',
+            'authorization_excerpt': 'demo 게시', 'tool_name': 'mcp__host__publish',
+            'request_sha256': digest(request), 'constraints': []})
+        action['authorized'] = True
+        base = {'tool_name': 'mcp__host__publish', 'tool_input': request}
+        for tool_id, response in [
+            ('session', {'isError': False, 'session_id': 42}),
+            ('running', {'isError': False, 'status': 'running'}),
+            ('pending', {'status': 'pending', 'exit_code': None}),
+        ]:
+            self.assertIsNone(observe_action_host_result(state, {**base,
+                'tool_use_id': tool_id, 'tool_response': response}))
+        self.assertEqual(action['attempts'], [])
+        finished = observe_action_host_result(state, {**base, 'tool_use_id': 'finished',
+            'tool_response': {'isError': False, 'session_id': 42, 'exit_code': 0}})
+        self.assertEqual(finished['outcome'], 'succeeded')
+        completed = observe_action_host_result(state, {**base, 'tool_use_id': 'completed',
+            'tool_response': {'status': 'completed', 'session_id': 42}})
+        self.assertEqual(completed['outcome'], 'succeeded')
+
+    def test_f1_explicit_denial_without_message_stays_denied(self):
+        from adhd.execution_decisions import register_action, observe_action_host_result, action_decision
+
+        request = {'cmd': 'restricted operation'}
+        base = {'tool_name': 'mcp__host__publish', 'tool_input': request}
+        for tool_id, response in [
+            ('status', {'status': 'denied', 'isError': False}),
+            ('blocked', {'status': 'blocked'}),
+            ('permission', {'permissionDecision': 'deny', 'isError': False}),
+            ('host', {'host_policy_denied': True, 'isError': False}),
+            ('code', {'code': 'policy_denied', 'isError': False}),
+        ]:
+            state = {'actions': {}}
+            action = register_action(state, {'operation': 'publish', 'canonical_targets': ['demo'],
+                'scope_digest': digest('demo'), 'source_turn_id': 'turn-1',
+                'authorization_excerpt': 'demo 게시', 'tool_name': base['tool_name'],
+                'request_sha256': digest(request), 'constraints': []})
+            action['authorized'] = True
+            attempt = observe_action_host_result(state, {**base, 'tool_use_id': tool_id,
+                'tool_response': response})
+            self.assertIn(attempt['outcome'], {'unknown_denial', 'host_policy_denied'})
+            self.assertFalse(action_decision(state, action, None)['retry_allowed'])
 
     def test_f7_second_identical_failure_requires_new_hypothesis(self):
         from adhd.recovery import record_failure

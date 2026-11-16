@@ -71,11 +71,11 @@ class HookGuidanceTests(unittest.TestCase):
         self.assertEqual(route('adhd-verifier')['model'], 'gpt-6-sol')
         self.assertEqual(route('adhd-verifier')['effort'], 'max')
 
-    def test_startup_bootstrap_contains_rules_entrypoint_and_standard_brief(self):
+    def test_startup_bootstrap_contains_entrypoint_and_auto_defaults(self):
         text = self.text(self.event('SessionStart', source='startup'))
         self.assertIn('adhd.py native begin', text)
         self.assertIn('view=', text)
-        self.assertIn('plan=brief', text)
+        self.assertIn('plan=optional', text)
         self.assertIn('Preserve', text)
         self.assertLess(len(text), 1200)
 
@@ -86,6 +86,25 @@ class HookGuidanceTests(unittest.TestCase):
         self.assertEqual([row['text'] for row in self.state()['prompts']],
                          ['First original request.', 'A substantive multi-step task.'])
         self.assertEqual(self.state()['intent_version'], 2)
+
+    def test_mcp_preference_survives_auto_start_and_restore_within_budget(self):
+        startup = self.text(self.event('SessionStart', source='startup'))
+        self.begin('auto', plan=False)
+        restored = self.text(self.event('SessionStart', source='compact'))
+        for text in (startup, restored):
+            self.assertIn('Prefer suitable available MCPs', text)
+            self.assertIn('compact results', text)
+            self.assertIn('Use local tools when needed', text)
+            self.assertLessEqual(len(text), 850)
+        self.assertIn('R1', restored)
+        self.assertEqual(self.event('PostToolUse', tool_name='exec_command'), {})
+
+    def test_child_receives_tool_preference_without_another_gate(self):
+        self.begin('auto', plan=False)
+        output = self.event('SubagentStart', agent_type='adhd-scout',
+                            agent_id='tool-worker', model=route('adhd-scout')['model'])
+        self.assertIn('Prefer suitable available MCPs', self.text(output))
+        self.assertEqual(self.state()['status'], 'working')
 
     def test_missing_session_start_bootstraps_once_without_classifying_idle(self):
         first = self.text(self.event('UserPromptSubmit', prompt='Build a substantial complete system.'))

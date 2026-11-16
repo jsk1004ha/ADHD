@@ -201,7 +201,14 @@ def run_check(spec: dict, workspace: Path, *, deadline_monotonic: float | None =
         receipt['trial_observation'] = {'id': trial_id, 'resources': resources,
                                        'quality_acceptance': 'not_inferred_from_check_exit'}
         atomic_json(out, receipt)
-    return {'receipt': str(out.relative_to(workspace)).replace('\\', '/'),
+    learning_warning = None
+    try:
+        from .recovery import retain_check_result
+        retain_check_result(workspace, out, receipt)
+    except (OSError, ValueError, TypeError) as error:
+        learning_warning = str(error)[:300]
+    return {**({'learning_warning': learning_warning} if learning_warning else {}),
+            'receipt': str(out.relative_to(workspace)).replace('\\', '/'),
             'evidence_id': check_id, 'exit_code': exit_code,
             'inputs_unchanged': before == after, 'status': execution_status}
 

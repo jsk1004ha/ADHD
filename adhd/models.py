@@ -19,6 +19,8 @@ ROLES = {
 }
 
 EXECUTION_PROFILES = {
+    'auto': {'name': 'auto', 'plan_depth': 'optional',
+             'review_depth': 'checked', 'delegation': 'as_needed'},
     'simple': {'name': 'simple', 'plan_depth': 'optional',
                'review_depth': 'independent', 'delegation': 'direct_or_one_child'},
     'standard': {'name': 'standard', 'plan_depth': 'brief',
@@ -28,7 +30,7 @@ EXECUTION_PROFILES = {
 }
 
 
-def execution_profile(name: str = 'standard') -> dict[str, str]:
+def execution_profile(name: str = 'auto') -> dict[str, str]:
     """Execution intensity only; model and effort remain the selected role pins."""
     if name not in EXECUTION_PROFILES:
         raise ValueError('Unknown execution profile: ' + str(name))

@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 from .core import atomic_text, digest, redact, safe_path
-from .recovery import verified_failure_signature
+from .recovery import classify_failure, record_failure, recover_failures, verified_failure_signature
 
 CHURN_GRACE = 3
 RING_SIZE = 12
@@ -111,6 +111,7 @@ def observe_tool_loop(state: dict, event: dict) -> str | None:
     warned = state.setdefault('loop_warned', {})
     notes = state.setdefault('loop_notes', [])
     if outcome == 'success':
+        recover_failures(state, command_id, 'hook:PostToolUse/' + str(identity or command_id))
         state['fp_ring'] = [row for row in ring if row[0] != command_id]
         for fp, row in list(warned.items()):
             if isinstance(row, dict) and row.get('command_id') == command_id:
@@ -124,6 +125,9 @@ def observe_tool_loop(state: dict, event: dict) -> str | None:
                 and not response.get('output') and not response.get('content') and not response.get('stderr')):
             return None
     fingerprint = digest([command_id, verified_failure_signature(output)])
+    record_failure(state, classify_failure(output), _redact_diagnostic(output)[:2000] or 'Tool failed',
+                   'hook:PostToolUse/' + str(identity or fingerprint),
+                   verified_signature=verified_failure_signature(output), command_id=command_id)
     state['fp_ring'] = ring = (ring + [[command_id, fingerprint]])[-RING_SIZE:]
     count = sum(row[1] == fingerprint for row in ring)
     note = next((row for row in notes if row['fp'] == fingerprint), None)
@@ -198,11 +202,16 @@ def _write_stuck_note(state: dict, bridge_dir: Path, stage: int) -> str:
         lines.append(f"- {row['tool']} x{row['n']}: {_redact_diagnostic(row['cmd'])}")
     for row in state.get('review_findings', []):
         lines.append('- reviewer: ' + _redact_diagnostic(row if isinstance(row, str) else row['text'])[:300].replace('\n', ' '))
-    lines += ['', '## Required before the next attempt',
-              '1. Cite the failing evidence and identify the assumption it falsifies.',
-              '2. Pick the single smallest failing check; change one assumption.',
-              '3. Put the changed assumption in plan.approach and the check in plan.verification.',
-              '4. Submit a changed plan before another candidate.']
+    if state.get('execution_profile', {}).get('name') == 'auto':
+        lines += ['', '## Next attempt',
+                  'Use the failure evidence to change the next action and check the smallest failing behavior.',
+                  'Continue toward the requested deliverable; a rewritten plan is optional.']
+    else:
+        lines += ['', '## Required before the next attempt',
+                  '1. Cite the failing evidence and identify the assumption it falsifies.',
+                  '2. Pick the single smallest failing check; change one assumption.',
+                  '3. Put the changed assumption in plan.approach and the check in plan.verification.',
+                  '4. Submit a changed plan before another candidate.']
     try:
         raw = bridge_dir / 'stuck.md'
         for node in (raw, *raw.parents):
@@ -224,9 +233,12 @@ def steer_if_stuck(state: dict, bridge_dir: Path) -> str | None:
     if stage <= state.get('ladder_stage', 0):
         return None
     state['ladder_stage'] = stage
-    state['needs_replan'] = True
+    lightweight = state.get('execution_profile', {}).get('name') == 'auto'
+    state['needs_replan'] = not lightweight
     note = _write_stuck_note(state, bridge_dir, stage)
-    text = f'No verified progress for {state["stagnation"]} rounds. A changed plan is required.'
+    text = f'No verified progress for {state["stagnation"]} rounds. '
+    text += ('Check the smallest failing behavior and change the next action.' if lightweight
+             else 'A changed plan is required.')
     if note:
         text += ' Details: ' + note + '.'
     if stage >= 2:

@@ -1,5 +1,10 @@
 # Initial request routing
 
+Auto is the default: deliver the user request with relevant checks. Formal plans,
+standalone scope audits, batch manifests and independent review below apply when
+explicitly selected or required; strict profiles retain their existing gates.
+A bounded local task may be executed and checked directly.
+
 An idle native hook records an initial route in `bridge/.../view.json` and emits brief guidance when the route changes. Use `adhd.py request-route "REQUEST"` to inspect the same rule set without starting a run. It is conservative guidance, not a calibrated confidence score or complete language understanding.
 
 | Route | Example | Next action |

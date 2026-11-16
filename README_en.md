@@ -1,9 +1,11 @@
 # ADHD — Autonomous Delegation Harness Director (v0.2.0)
 
+> **auto is the default:** deliver the user request, check relevant behavior, and finish. Plans and separate reviewers are optional. Existing approvals persist. Choose `--profile standard` or `deep` for mandatory independent review. Active runs retain their profile.
+
 [한국어](README.md) · [English](README_en.md) · [Quick start in Korean](README.ko.md)
 
 > **A local orchestration harness for autonomous delegation and verification in Codex App and CLI**<br>
-> Codex lifecycle hooks connect **requirements-based planning → bounded delegation → execution receipt verification → independent review** while preserving existing user authentication (`auth.json`), model choices, routers, plugins, and personal configuration (`config.toml`).
+> Codex lifecycle hooks connect **understand the request → execute → check relevant behavior → deliver** while preserving existing user authentication (`auth.json`), model choices, routers, plugins, and personal configuration (`config.toml`).
 
 | Item | Specification (measured from this codebase) |
 | :--- | :--- |
@@ -16,7 +18,7 @@
 | **Vendored dependencies** | `filelock` v3.29.0 (Unlicense) and `tomlkit` (MIT), bundled as offline pure-Python dependencies ([adhd/dependencies.py](adhd/dependencies.py)) |
 | **Licenses** | `Apache-2.0` ([LICENSE](LICENSE)); preserves the `MIT` notice for the upstream Raibit Harness v1.2 lineage ([LICENSE-RAIBIT-MIT](LICENSE-RAIBIT-MIT)) |
 
-> System flow: Codex lifecycle hooks → ADHD native controller/task runner → verified artifacts and independent review.
+> System flow: Codex lifecycle hooks → ADHD native controller/task runner → verified artifacts and optional independent review.
 
 ## 1. Project overview and design principles
 
@@ -34,8 +36,8 @@ Five architectural invariants run through the codebase ([hook.py](hook.py), [adh
    * Planning, integration, implementation, and verification are pinned to `gpt-6-sol` (`effort="max"`); scouting and light extraction use `gpt-6-luna` (`effort="max"`, optionally `"low"`); difficult design advice uses `gpt-6-astra` (`effort="low"`, at most once per task). Account or router errors do not silently substitute a lower-tier model ([adhd/models.py](adhd/models.py)).
 4. **Progress grounded in observed execution receipts**
    * A text summary or timestamp change does not count as progress. The `stagnation` counter resets only for an **execution receipt (`receipt.json`) bound to input file hashes** from [adhd/evidence.py](adhd/evidence.py), an increase in passed requirements, a decrease in failed tests, or a real target artifact hash change.
-5. **Mandatory independent acceptance**
-   * An author (the parent director or `adhd-implementer`) cannot mark their own work `complete`. The independent **`adhd-verifier`** checks every `candidate` snapshot in a read-only sandbox against the original prompts (`prompts`), contract hash (`contract_hash`), candidate digest (`candidate.digest`), and execution receipts. Only a `{"verdict": "approve"}` response allows the `SubagentStop` hook to move the task to `complete`.
+5. **Proportionate checks and optional independent review**
+   * Default `auto` completes after requirements and current evidence pass. Request `independent_review: true` when a second review helps. Explicit `simple`, `standard` and `deep` retain mandatory independent acceptance.
 
 ## 2. System architecture and data flow
 
@@ -219,10 +221,10 @@ When a user submits a prompt in `idle` state, `classify_request()` in [adhd/requ
 
 | Route (`path`) | Decision rule (`adhd/request_routing.py`) | Suggested profile | Native controller action |
 | :--- | :--- | :---: | :--- |
-| **`direct`** | Greetings (`_GREETING`), status questions (`_STATUS`), pure translation without external file references (`_TRANSLATION`), isolated word/sentence typo fixes (`_TYPO` + `_ISOLATED`), and general explanations without repository references (`_EXPLANATION` without `_REPO_REFERENCE`) | `simple` | **Skip `native begin`** and answer immediately without a durable plan or independent review loop; promote to `begin` if scope grows |
-| **`simple`** | Small edit actions (`_SMALL_ACTION`) bounded to one file, function, or test (`_BOUNDED`) | `simple` | `native begin --profile simple`: optional `plan`, direct editing or delegation to at most one work child, and **mandatory final independent review (`adhd-verifier`)** |
-| **`inspect`** | Unclear action scope; repository-dependent questions (`_REPO_REFERENCE`); sensitive keywords (`_SENSITIVE`, such as database, authentication, payment, deletion, deployment, security); translation/explanation paired with a follow-up action | `standard` | Briefly inspect relevant files and context, then run `native begin` if substantial work remains; the default `standard` profile requires a requirement-covered plan, automatic checks, and independent review |
-| **`deep`** | Architecture redesign, migration, research, operational deployment, end-to-end systems, or security audits (`_DEEP`) | `deep` | `native begin --profile deep`: a detailed plan with `alternatives`, `risks`, and `preflight`; **fresh execution receipts (`deep_evidence`) covering every target artifact and deep review** |
+| **`direct`** | Greetings (`_GREETING`), status questions (`_STATUS`), pure translation without external file references (`_TRANSLATION`), isolated word/sentence typo fixes (`_TYPO` + `_ISOLATED`), and general explanations without repository references (`_EXPLANATION` without `_REPO_REFERENCE`) | `auto` | **Skip `native begin`** and answer immediately without a durable plan or independent review loop; promote to `begin` if scope grows |
+| **`simple`** | Bounded local edit | `auto` | Execute directly and check relevant behavior; native tracking is optional |
+| **`inspect`** | Inspect scope and relevant inputs | `auto` | Use native tracking for substantial work; plan and independent review are optional |
+| **`deep`** | Broad or consequential scope | `auto` | Inspect risks and choose sufficient checks; opt into `deep` explicitly when detailed planning and independent review help |
 
 * **Brief approval inheritance (`is_brief_approval`):** For a short approval such as `"ㅇㅇ 그렇게 해줘"`, `"진행해줘"`, or `"go ahead"`, the route and text of the preceding substantive request (`is_substantive_request_source`) become the `effective_prompt`.
 * **User input during an active contract (`sync-intent` and [adhd/intent.py](adhd/intent.py)):** New messages enter `pending_turn_ids` and hold final review. The agent must classify each as `no_change` (a status question), `amend` (an incremental change to the existing contract's `criteria`, `artifacts`, `documents`, or `protected_inputs`, propagated to running children through `pending_context_deltas`), or `new_task` (archive the prior run and prepare a new contract).
@@ -234,6 +236,7 @@ stateDiagram-v2
     direction TB
     [*] --> idle
     idle --> working: native begin
+    working --> complete: auto · current checks
     working --> reviewing: native candidate
     reviewing --> complete: Independent review approves
     reviewing --> revising: Rejection or validation failure
@@ -406,7 +409,7 @@ ADHD uses a **modular skill architecture**: call a skill at the point of need an
 | **`$adhd-memory`** | [skills/adhd-memory/SKILL.md](skills/adhd-memory/SKILL.md) | Core | Rules for project-scoped local memory (`memory-v2.sqlite3`) and Obsidian wiki context retrieval/recording |
 | **`$adhd-documents`** | [skills/adhd-documents/SKILL.md](skills/adhd-documents/SKILL.md) | Core | Protected original snapshots and full-page render review for Office (`.docx`, `.pptx`, `.xlsx`), PDF, and Hangul (`.hwp`, `.hwpx`) documents |
 | **`$adhd-extensions`** | [skills/adhd-extensions/SKILL.md](skills/adhd-extensions/SKILL.md) | Core | Staging (`stage`), immutable-pin checks, read-only probes (`probe`), and rollback for external skill/MCP extensions |
-| **`$adhd-goal`** | [skills/adhd-goal/SKILL.md](skills/adhd-goal/SKILL.md) | Workflow | Entry via `/goal` or `$adhd-goal`; removes implicit round/time/stagnation cutoffs and loops through implementation, checking, and repair until independent acceptance |
+| **`$adhd-goal`** | [skills/adhd-goal/SKILL.md](skills/adhd-goal/SKILL.md) | Workflow | Entry via `/goal` or `$adhd-goal`; removes implicit round/time/stagnation cutoffs and loops through implementation, checking, and repair until profile-specific acceptance |
 | **`$adhd-shape`** | [skills/adhd-shape/SKILL.md](skills/adhd-shape/SKILL.md) | Workflow | Shapes a vague idea into a problem, first complete scope, constraints, and testable completion criteria (`criteria`) |
 | **`$adhd-challenge`** | [skills/adhd-challenge/SKILL.md](skills/adhd-challenge/SKILL.md) | Workflow | Surfaces major untested assumptions and failure risks in a plan and designs the smallest discriminating checks |
 | **`$adhd-decide`** | [skills/adhd-decide/SKILL.md](skills/adhd-decide/SKILL.md) | Workflow | Compares real alternatives and records grounds, tradeoffs, and revisit conditions |

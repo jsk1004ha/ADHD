@@ -197,6 +197,8 @@ class NativeCodingScopeTests(GitFixture):
         return read_json(folder(self.key) / 'state.json')
 
     def request(self, operation, payload):
+        if operation == 'begin':
+            payload = {'execution_profile': 'standard', **payload}
         queued = submit_request(self.key, self.root, operation, payload)
         with patch('adhd.coding_scope._git', side_effect=AssertionError('hook ran Git')):
             self.event('PostToolUse', tool_name='Bash')

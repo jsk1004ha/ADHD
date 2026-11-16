@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 
 
-_APPROVAL = re.compile(r"^(?:(?:yes|yep|okay|ok|네|응|ㅇㅇ|좋아)\s+)?(?:do it|go ahead|proceed|그렇게 해줘|진행해줘|해줘)[.!。\s]*$|^(?:yes|yep|okay|ok|네|응|ㅇㅇ|좋아)[.!。\s]*$", re.I)
+_APPROVAL = re.compile(r"^(?:(?:yes|yep|okay|ok|네|응|ㅇㅇ|좋아)\s+)?(?:do it|go ahead|proceed|continue|그렇게 해줘|진행해줘|진행해|계속 진행해|계속해|해줘)[.!。\s]*$|^(?:yes|yep|okay|ok|네|응|ㅇㅇ|좋아)[.!。\s]*$", re.I)
 _GREETING = re.compile(r"^(?:hi|hello|hey|안녕|안녕하세요)[.!。\s]*$", re.I)
 _STATUS = re.compile(r"^(?:status|progress|what(?:'s| is) the status|how(?:'s| is) it going|"
                      r"(?:현재\s*)?진행\s*상황(?:을?\s*알려줘|이?\s*어때)?|"
@@ -56,20 +56,20 @@ def classify_request(prompt: str, *, previous: str | None = None,
     text = prompt.strip()
     if active_contract:
         return {'path': 'active', 'reason': 'Existing contract needs native intent reconciliation.',
-                'suggested_profile': 'standard', 'effective_prompt': text}
+                'suggested_profile': 'auto', 'effective_prompt': text}
     if is_brief_approval(text):
         if previous and is_substantive_request_source(previous):
             prior = classify_request(previous)
             return {**prior, 'reason': 'Brief approval inherits the preceding substantive request: ' + prior['reason'],
                     'effective_prompt': previous.strip()}
         return {'path': 'inspect', 'reason': 'Brief approval has no substantive request in this session.',
-                'suggested_profile': 'standard', 'effective_prompt': text}
+                'suggested_profile': 'auto', 'effective_prompt': text}
     if not text:
         return {'path': 'inspect', 'reason': 'Empty request needs context.',
-                'suggested_profile': 'standard', 'effective_prompt': text}
+                'suggested_profile': 'auto', 'effective_prompt': text}
     if _GREETING.fullmatch(text) or _STATUS.fullmatch(text):
         return {'path': 'direct', 'reason': 'Standalone greeting or status question.',
-                'suggested_profile': 'simple', 'effective_prompt': text}
+                'suggested_profile': 'auto', 'effective_prompt': text}
     # The requested operation matters more than verbs inside quoted source text.
     translation = _TRANSLATION.match(text)
     if translation:
@@ -77,17 +77,17 @@ def classify_request(prompt: str, *, previous: str | None = None,
         instruction = _QUOTED.sub('', text)
         if not operand.strip(' :\'"“”‘’') or re.fullmatch(r'(?:to|into|in)\s+\w+|(?:한국어|영어)로', operand, re.I):
             return {'path': 'inspect', 'reason': 'Translation text was not supplied.',
-                    'suggested_profile': 'standard', 'effective_prompt': text}
+                    'suggested_profile': 'auto', 'effective_prompt': text}
         if _FOLLOW_ON_ACTION.search(instruction):
             return {'path': 'inspect', 'reason': 'Translation also requests another action or output artifact.',
-                    'suggested_profile': 'standard', 'effective_prompt': text}
+                    'suggested_profile': 'auto', 'effective_prompt': text}
         unquoted = _QUOTED.sub('', operand).strip()
         if (_TRANSLATION_REFERENCE.search(unquoted) or _TRANSLATION_FILE.search(unquoted)
                 or _TRANSLATION_PRONOUN.fullmatch(unquoted)):
             return {'path': 'inspect', 'reason': 'Translation input needs project or file inspection.',
-                    'suggested_profile': 'standard', 'effective_prompt': text}
+                    'suggested_profile': 'auto', 'effective_prompt': text}
         return {'path': 'direct', 'reason': 'Self-contained translation request.',
-                'suggested_profile': 'simple', 'effective_prompt': text}
+                'suggested_profile': 'auto', 'effective_prompt': text}
     # Read-only wording governs quoted action words. Repository-dependent
     # explanations still need inspection before answering.
     explanation = (bool(_EXPLANATION.match(text)) or
@@ -95,31 +95,31 @@ def classify_request(prompt: str, *, previous: str | None = None,
     if explanation:
         if _FOLLOW_ON_ACTION.search(text):
             return {'path': 'inspect', 'reason': 'Explanation includes an additional action.',
-                    'suggested_profile': 'standard', 'effective_prompt': text}
+                    'suggested_profile': 'auto', 'effective_prompt': text}
         if _REPO_REFERENCE.search(text):
             return {'path': 'inspect', 'reason': 'Answer depends on current project context.',
-                    'suggested_profile': 'standard', 'effective_prompt': text}
+                    'suggested_profile': 'auto', 'effective_prompt': text}
         return {'path': 'direct', 'reason': 'Self-contained explanation or translation.',
-                'suggested_profile': 'simple', 'effective_prompt': text}
+                'suggested_profile': 'auto', 'effective_prompt': text}
     operation=_QUOTED.sub('', text)
     if (_TYPO.search(operation) and _ISOLATED.search(text)
             and not _FOLLOW_ON_ACTION.search(operation) and not _WIDE_SCOPE.search(operation)):
         return {'path': 'direct', 'reason': 'Explicitly isolated text correction.',
-                'suggested_profile': 'simple', 'effective_prompt': text}
+                'suggested_profile': 'auto', 'effective_prompt': text}
     if _DEEP.search(text):
         return {'path': 'deep', 'reason': 'Substantial architecture, migration, research or production scope.',
-                'suggested_profile': 'deep', 'effective_prompt': text}
+                'suggested_profile': 'auto', 'effective_prompt': text}
     if _SENSITIVE.search(text):
         return {'path': 'inspect', 'reason': 'Sensitive or potentially consequential action needs scope inspection.',
-                'suggested_profile': 'standard', 'effective_prompt': text}
+                'suggested_profile': 'auto', 'effective_prompt': text}
     if _ACTION.search(text):
         if _BOUNDED.search(text) and _SMALL_ACTION.search(text):
             return {'path': 'simple', 'reason': 'Action is explicitly bounded to one local unit.',
-                    'suggested_profile': 'simple', 'effective_prompt': text}
+                    'suggested_profile': 'auto', 'effective_prompt': text}
         return {'path': 'inspect', 'reason': 'Action scope is not established by the request alone.',
-                'suggested_profile': 'standard', 'effective_prompt': text}
+                'suggested_profile': 'auto', 'effective_prompt': text}
     return {'path': 'inspect', 'reason': 'Request semantics or scope need a brief inspection.',
-            'suggested_profile': 'standard', 'effective_prompt': text}
+            'suggested_profile': 'auto', 'effective_prompt': text}
 
 
 def is_substantive_request_source(prompt: str) -> bool:

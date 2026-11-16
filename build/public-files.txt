@@ -669,12 +669,14 @@ config/builtin-skills.json
 config/mcp-selection.json
 config/native-policy.example.json
 config/profiles.example.json
+docs/benchmarks/2026-11-16-mcp-first.md
 docs/delivery-efficiency.md
 docs/installation.md
 docs/large-tasks.md
 docs/loop-steering.md
 docs/obsidian.md
 docs/optimization.md
+docs/outcome-first.md
 docs/project-coordination.md
 docs/releases/0.1.4.md
 docs/releases/0.1.5.md
@@ -683,6 +685,11 @@ docs/releases/0.1.7.md
 docs/releases/0.2.0.md
 docs/releases/0.2.1.md
 docs/releases/0.2.2.md
+docs/releases/0.3.0.md
+docs/releases/0.3.1.md
+docs/releases/0.3.2.md
+docs/releases/0.3.3.md
+docs/releases/0.3.4.md
 docs/request-routing.md
 docs/verification-efficiency.md
 docs/workspace-storage.md
@@ -790,6 +797,7 @@ tests/test_experience.py
 tests/test_experience_procedures.py
 tests/test_experience_storage.py
 tests/test_extension_launch.py
+tests/test_failure_learning.py
 tests/test_fts_migration.py
 tests/test_harness.py
 tests/test_immutable_gc.py
@@ -814,9 +822,12 @@ tests/test_obsidian.py
 tests/test_obsidian_integration.py
 tests/test_optimization_cli.py
 tests/test_optimization_diagnostics.py
+tests/test_outcome_completion.py
+tests/test_outcome_first.py
 tests/test_owned_process.py
 tests/test_path_identity.py
 tests/test_personal_eval.py
+tests/test_procedure_recall.py
 tests/test_public_package.py
 tests/test_read_budget.py
 tests/test_release_assets.py
@@ -830,6 +841,7 @@ tests/test_snapshot_reader.py
 tests/test_source_cache.py
 tests/test_status_refresh.py
 tests/test_storage.py
+tests/test_success_learning.py
 tests/test_time_budget.py
 tests/test_trial_execution.py
 tests/test_trial_registry.py

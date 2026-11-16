@@ -120,27 +120,36 @@ def _completion(workspace: Path, ref: dict, *, current: bool = False) -> dict:
     state = json.loads(state_path.read_text(encoding='utf-8-sig'))
     candidate = state.get('candidate')
     review = state.get('review_receipt')
+    checked = state.get('completion_receipt')
     receipt_path = session / ('completion-' + ref['run_id'] + '.json')
+    receipt = (json.loads(receipt_path.read_text(encoding='utf-8-sig'))
+               if receipt_path.is_file() and not _link(receipt_path)
+               and receipt_path.stat().st_size <= 160_000 else None)
+    reviewed = (isinstance(candidate, dict) and isinstance(review, dict) and receipt == review
+                and review.get('verdict', {}).get('verdict') == 'approve'
+                and review.get('digest') == candidate.get('digest'))
+    if reviewed:
+        reviewed = (review['verdict'].get('reviewed_digest') == candidate['digest']
+                    and review['verdict'].get('reviewed_contract_hash') == state.get('contract_hash')
+                    and review['verdict'].get('intent_alignment') is True
+                    and review['verdict'].get('reviewed_turn_ids') == [row['turn_id'] for row in state.get('prompts', [])]
+                    and review['verdict'].get('criterion_results') == candidate.get('criterion_results'))
+    checked_current = (isinstance(candidate, dict) and isinstance(checked, dict)
+                       and state.get('execution_profile', {}).get('review_depth') == 'checked'
+                       and receipt == checked and checked.get('method') == 'checked'
+                       and checked.get('digest') == candidate.get('digest')
+                       and checked.get('contract_hash') == state.get('contract_hash'))
     if (state.get('workspace') != str(workspace) or state.get('key') != ref['session_key']
             or state.get('run_id') != ref['run_id'] or state.get('status') != 'complete'
             or state.get('pending_turn_ids') or any(row.get('status') == 'running' for row in state.get('children', {}).values())
-            or not isinstance(candidate, dict) or not isinstance(review, dict)
-            or review.get('verdict', {}).get('verdict') != 'approve'
-            or review.get('digest') != candidate.get('digest')
-            or review.get('verdict', {}).get('reviewed_digest') != candidate.get('digest')
-            or review.get('verdict', {}).get('reviewed_contract_hash') != state.get('contract_hash')
-            or review.get('verdict', {}).get('intent_alignment') is not True
-            or review.get('verdict', {}).get('reviewed_turn_ids') != [row['turn_id'] for row in state.get('prompts', [])]
-            or review.get('verdict', {}).get('criterion_results') != candidate.get('criterion_results')
+            or not isinstance(candidate, dict) or not (reviewed or checked_current)
             or candidate.get('contract_hash') != state.get('contract_hash')
             or candidate.get('intent_version') != state.get('intent_version')
             or state.get('contract_hash') != digest(state.get('contract'))
             or candidate.get('digest') != digest({key: item for key, item in candidate.items() if key != 'digest'})
             or not isinstance(candidate.get('files'), dict)
-            or not receipt_path.is_file() or _link(receipt_path)
-            or receipt_path.stat().st_size > 160_000
-            or json.loads(receipt_path.read_text(encoding='utf-8-sig')) != review):
-        raise ValueError('Native completion is unapproved, stale or inconsistent')
+            or receipt is None):
+        raise ValueError('Native completion is unverified, stale or inconsistent')
     if current and not is_fresh(state):
         raise ValueError('Current native completion or final artifact hashes changed')
     return {'ref': dict(ref), 'state': state, 'receipt': str(receipt_path),
@@ -161,7 +170,7 @@ def _artifact(workspace: Path, value: object, completion: dict) -> dict:
     if not any((row.get('path') == path and row.get('sha256') == working_sha)
                or any(leaf.get('path') == path and leaf.get('sha256') == working_sha
                       for leaf in row.get('leaves', [])) for row in rows):
-        raise ValueError('Artifact is not bound to the approved final snapshot')
+        raise ValueError('Artifact is not bound to the completed final snapshot')
     if value['kind'] == 'document':
         if set(value) != {'kind', 'path', 'sha256'}:
             raise ValueError('Document reference needs path and sha256 only')
@@ -181,7 +190,7 @@ def _artifact(workspace: Path, value: object, completion: dict) -> dict:
 
 
 def _assessment(workspace: Path, completed: dict, value: object) -> dict:
-    """Use distinct approved criteria and observed check receipts for each gate."""
+    """Use distinct completed criteria and observed check receipts for each gate."""
     if not isinstance(value, dict) or set(value) != {'replay', 'regression', 'cost', 'rollback'}:
         raise ValueError('Candidate needs replay, regression, cost and rollback evidence')
     state = completed['state']
@@ -192,7 +201,7 @@ def _assessment(workspace: Path, completed: dict, value: object) -> dict:
     for name in ('replay', 'regression', 'cost', 'rollback'):
         row = value[name]
         if not isinstance(row, dict) or not isinstance(row.get('criterion_id'), str):
-            raise ValueError(name + ' needs an approved criterion')
+            raise ValueError(name + ' needs a completed criterion')
         cid = row['criterion_id']
         criterion, result = criteria.get(cid), results.get(cid)
         if (cid in used_ids or not criterion or criterion.get('kind') != 'test'
@@ -206,7 +215,7 @@ def _assessment(workspace: Path, completed: dict, value: object) -> dict:
             validate_execution(workspace, receipt, run_id=state['run_id'],
                                revision=state['intent_version'])
             if state['candidate']['execution_receipts'].get(receipt) != file_hash(_path(workspace, receipt, file=True)):
-                raise ValueError('Assessment receipt differs from approved candidate')
+                raise ValueError('Assessment receipt differs from completed candidate')
         checked[name] = {'criterion_id': cid, 'receipts': receipts}
         used_ids.add(cid)
         used_receipts.update(receipts)
@@ -224,7 +233,7 @@ def _assessment(workspace: Path, completed: dict, value: object) -> dict:
         raise ValueError('Cost measurement is missing, worse or unmeasured')
     bound = state['candidate']['files'].get('artifacts', [])
     if not any(row.get('path') == cost['report'] and row.get('sha256') == file_hash(report_path) for row in bound):
-        raise ValueError('Cost report is not in the approved final snapshot')
+        raise ValueError('Cost report is not in the completed final snapshot')
     if not any(cost['report'] in validate_execution(workspace, receipt,
                 run_id=state['run_id'], revision=state['intent_version'])['subject_files']
                for receipt in checked['cost']['receipts']):
@@ -246,7 +255,7 @@ def propose(workspace: Path, payload: dict) -> dict:
     source = _completion(workspace, payload.get('source_receipt'), current=True)
     artifact = _artifact(workspace, payload.get('artifact'), source)
     if source['state']['candidate'].get('procedure') != content['steps']:
-        raise ValueError('Example steps differ from the approved completion')
+        raise ValueError('Example steps differ from the completed task')
     replay_ref = payload.get('replay_receipt')
     stage = 'example' if replay_ref is None else 'candidate'
     replay, assessment = None, None
@@ -287,7 +296,7 @@ class _ControllerEvidence:
 
 
 def _controller_evidence(workspace: Path, session_key: str, run_id: str) -> _ControllerEvidence:
-    """Internal controller hook: mint only after canonical fresh independent completion."""
+    """Internal controller hook: mint only after a canonical current completion."""
     completed = _completion(_root(workspace), {'session_key': session_key, 'run_id': run_id}, current=True)
     return _ControllerEvidence(_SEAL, completed['ref'], completed['state']['candidate']['digest'])
 
@@ -320,7 +329,7 @@ def adopt(workspace: Path, proposal_id: str, controller_evidence: object) -> dic
             raise ValueError('Proposal artifact reference is stale')
         if completed['state']['run_id'] not in {proposal['replay_receipt']['run_id'],
                                                 proposal['source_receipt']['run_id']}:
-            raise ValueError('Adoption needs the current independently approved source or replay completion')
+            raise ValueError('Adoption needs the current checked or independently reviewed source or replay completion')
         identity = digest([proposal['scope'], proposal['mode'], proposal['goal'], proposal['input_conditions']])[:32]
         record = ledger['procedures'].setdefault(identity, {'id': identity, 'scope': proposal['scope'],
                                                               'versions': [], 'active_version': None})
