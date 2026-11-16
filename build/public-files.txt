@@ -669,7 +669,11 @@ config/builtin-skills.json
 config/mcp-selection.json
 config/native-policy.example.json
 config/profiles.example.json
+docs/benchmarks/2026-11-16-dedicated-mcp.md
 docs/benchmarks/2026-11-16-mcp-first.md
+docs/benchmarks/unittest-report-mcp/README.md
+docs/benchmarks/unittest-report-mcp/mcp_client.py
+docs/benchmarks/unittest-report-mcp/report_tool.py
 docs/delivery-efficiency.md
 docs/installation.md
 docs/large-tasks.md
